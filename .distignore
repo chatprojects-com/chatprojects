@@ -1,0 +1,61 @@
+# ChatProjects - Distribution Ignore File
+# Files and directories listed here are excluded from the WordPress.org ZIP
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# GitHub
+.github/
+
+# Development files
+node_modules/
+assets/src/
+package.json
+package-lock.json
+vite.config.js
+postcss.config.js
+tailwind.config.js
+
+# Build scripts
+build-zip.ps1
+*.ps1
+
+# Documentation (not needed in distribution)
+WIKI.md
+CLAUDE.md
+.claude/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+phpunit.xml
+phpcs.xml
+
+# Composer (if used)
+composer.json
+composer.lock
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+*.cache
+
+# Environment files
+.env
+.env.*
+
+# ZIP files
+*.zip
