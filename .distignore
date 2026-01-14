@@ -1,6 +1,12 @@
 # ChatProjects - Distribution Ignore File
 # Files and directories listed here are excluded from the WordPress.org ZIP
 
+# This file itself
+.distignore
+
+# All hidden files (starting with .)
+.*
+
 # Git
 .git/
 .gitignore
