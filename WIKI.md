@@ -196,7 +196,8 @@ You need at least one API key to use ChatProjects. Each provider offers differen
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| Gemini 2.5 Pro | Latest flagship | 1M |
+| Gemini 3 Pro Preview | Latest flagship | 1M |
+| Gemini 2.5 Pro | Previous flagship | 1M |
 | Gemini 2.0 Flash | Fast responses | 1M |
 | Gemini 1.5 Pro | Previous generation | 1M |
 | Gemini 1.5 Flash | Budget option | 1M |
