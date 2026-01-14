@@ -175,8 +175,8 @@ You need at least one API key to use ChatProjects. Each provider offers differen
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| GPT-5.1 | Latest flagship model | 128K |
-| GPT-5.1 Codex | Optimized for code | 128K |
+| GPT-5.2 | Latest flagship model | 128K |
+| GPT-5.2 Codex | Optimized for code | 128K |
 | GPT-4o | Multimodal (text + vision) | 128K |
 | GPT-4o-mini | Fast and affordable | 128K |
 | GPT-4 Turbo | High capability | 128K |
