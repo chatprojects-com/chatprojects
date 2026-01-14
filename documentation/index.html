@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatProjects - AI Chat & Project Management for WordPress</title>
+    <meta name="description" content="AI-powered project management with multi-provider chat. Chat with GPT-5, Claude, Gemini. Compare AIs side-by-side. Edit images with Google Nano Banana. Your API keys, your server.">
+    <style>
+        /* Reset & Base */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #10b981;
+            --dark-bg: #1f2937;
+            --darker-bg: #111827;
+            --light-bg: #f9fafb;
+            --white: #ffffff;
+            --text-dark: #111827;
+            --text-muted: #6b7280;
+            --text-light: #f9fafb;
+            --border: #e5e7eb;
+            --border-dark: #374151;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--white);
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--primary-dark);
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        h1 { font-size: 3rem; }
+        h2 { font-size: 2.25rem; }
+        h3 { font-size: 1.5rem; }
+        h4 { font-size: 1.25rem; }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        section {
+            padding: 5rem 0;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.875rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            color: var(--white);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--text-dark);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-success {
+            background: var(--secondary);
+            color: var(--white);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            color: var(--white);
+        }
+
+        /* ==================== */
+        /* HEADER / NAVIGATION */
+        /* ==================== */
+        header {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .logo span {
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* ==================== */
+        /* HERO SECTION */
+        /* ==================== */
+        .hero {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+            color: var(--text-light);
+            padding: 6rem 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero h1 span {
+            color: var(--primary);
+        }
+
+        .hero .tagline {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .hero .description {
+            font-size: 1.25rem;
+            color: #9ca3af;
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 4rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            color: #9ca3af;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ==================== */
+        /* FEATURES SECTION */
+        /* ==================== */
+        .features {
+            background: var(--light-bg);
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 3rem;
+        }
+
+        .section-header h2 {
+            color: var(--text-dark);
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.125rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--white);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        .pro-badge {
+            display: inline-block;
+            font-size: 0.6em;
+            padding: 2px 8px;
+            background: linear-gradient(135deg, #9333ea, #db2777);
+            color: white;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ==================== */
+        /* PROVIDERS SECTION */
+        /* ==================== */
+        .providers {
+            background: var(--white);
+        }
+
+        .providers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .provider-card {
+            background: var(--light-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: border-color 0.2s ease;
+        }
+
+        .provider-card:hover {
+            border-color: var(--primary);
+        }
+
+        .provider-logo {
+            width: 48px;
+            height: 48px;
+            background: var(--white);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            border: 1px solid var(--border);
+        }
+
+        .provider-card h4 {
+            margin-bottom: 0.5rem;
+        }
+
+        .provider-card .models {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        /* ==================== */
+        /* GETTING STARTED */
+        /* ==================== */
+        .getting-started {
+            background: var(--dark-bg);
+            color: var(--text-light);
+        }
+
+        .getting-started .section-header h2 {
+            color: var(--text-light);
+        }
+
+        .getting-started .section-header p {
+            color: #9ca3af;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 2rem;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 auto 1rem;
+        }
+
+        .step h4 {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+
+        .step p {
+            color: #9ca3af;
+            font-size: 0.9375rem;
+            margin-bottom: 0;
+        }
+
+        .step code {
+            background: var(--darker-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+
+        /* ==================== */
+        /* SCREENSHOTS */
+        /* ==================== */
+        .screenshots {
+            background: var(--light-bg);
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .screenshot-item {
+            background: var(--white);
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .screenshot-placeholder {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 1rem;
+            border: 2px dashed var(--border-dark);
+            margin: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .screenshot-caption {
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ==================== */
+        /* COMPARISON TABLE */
+        /* ==================== */
+        .comparison {
+            background: var(--white);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table thead {
+            background: var(--dark-bg);
+            color: var(--text-light);
+        }
+
+        .comparison-table th:first-child {
+            width: 50%;
+        }
+
+        .comparison-table th:not(:first-child) {
+            text-align: center;
+        }
+
+        .comparison-table td:not(:first-child) {
+            text-align: center;
+        }
+
+        .comparison-table tbody tr:hover {
+            background: var(--light-bg);
+        }
+
+        .check {
+            color: var(--secondary);
+            font-size: 1.25rem;
+        }
+
+        .cross {
+            color: #9ca3af;
+            font-size: 1.25rem;
+        }
+
+        .comparison-cta {
+            text-align: center;
+            margin-top: 2.5rem;
+        }
+
+        /* ==================== */
+        /* FAQ SECTION */
+        /* ==================== */
+        .faq {
+            background: var(--light-bg);
+        }
+
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            background: var(--white);
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .faq-question {
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .faq-question:hover {
+            background: var(--light-bg);
+        }
+
+        .faq-question::after {
+            content: '+';
+            font-size: 1.5rem;
+            color: var(--primary);
+            transition: transform 0.2s ease;
+        }
+
+        .faq-item.active .faq-question::after {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            padding: 0 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .faq-item.active .faq-answer {
+            padding: 0 1.5rem 1.25rem;
+            max-height: 500px;
+        }
+
+        .faq-answer p {
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        /* ==================== */
+        /* FOOTER */
+        /* ==================== */
+        footer {
+            background: var(--darker-bg);
+            color: var(--text-light);
+            padding: 4rem 0 2rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .footer-brand .logo {
+            color: var(--text-light);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .footer-brand p {
+            color: #9ca3af;
+            font-size: 0.9375rem;
+        }
+
+        .footer-links h4 {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+            color: #9ca3af;
+            font-size: 0.9375rem;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border-dark);
+            padding-top: 2rem;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        /* ==================== */
+        /* RESPONSIVE */
+        /* ==================== */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.25rem; }
+            h2 { font-size: 1.75rem; }
+
+            .hero h1 { font-size: 2.5rem; }
+            .hero .tagline { font-size: 1.25rem; }
+            .hero .description { font-size: 1rem; }
+
+            .nav-links {
+                display: none;
+            }
+
+            section {
+                padding: 3rem 0;
+            }
+
+            .hero-stats {
+                gap: 2rem;
+            }
+
+            .stat-number {
+                font-size: 2rem;
+            }
+
+            .screenshot-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .screenshot-placeholder {
+                height: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="#" class="logo"><span>Chat</span>Projects</a>
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#providers">Providers</a></li>
+                    <li><a href="#getting-started">Getting Started</a></li>
+                    <li><a href="#comparison">Free vs Pro</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+                <a href="https://chatprojects.com/" class="btn btn-primary">Get Pro</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1><span>Chat</span>Projects Free</h1>
+            <p class="tagline">Own your Chat</p>
+            <p class="description">
+                AI-powered project management with multi-provider chat support.
+                Chat with GPT-5, Claude, Gemini, and more using your own API keys.
+                Compare AI models side-by-side and edit images with Google Nano Banana.
+                Your data stays on your server.
+            </p>
+            <div class="hero-buttons">
+                <a href="https://wordpress.org/plugins/chatprojects/" class="btn btn-primary">Download Free</a>
+                <a href="https://chatprojects.com/" class="btn btn-secondary">View Pro Features</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-number">5</div>
+                    <div class="stat-label">AI Providers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">100+</div>
+                    <div class="stat-label">AI Models</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">50MB</div>
+                    <div class="stat-label">Max File Size</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">AES-256</div>
+                    <div class="stat-label">Encryption</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Powerful Features</h2>
+                <p>Everything you need to chat with AI and manage your documents, right in WordPress.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#129302;</div>
+                    <h3>Multi-Provider Chat</h3>
+                    <p>Chat with GPT-5, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter. Switch providers mid-conversation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128194;</div>
+                    <h3>Project Management</h3>
+                    <p>Create projects with OpenAI's Vector Store integration. Your documents are indexed and searchable by AI.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128196;</div>
+                    <h3>File Upload</h3>
+                    <p>Upload PDFs, Word docs, text files, markdown, and code files. Up to 50MB per file (configurable to 512MB).</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127769;</div>
+                    <h3>Modern Interface</h3>
+                    <p>Clean, responsive chat interface with dark mode support. Works beautifully on desktop and mobile.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128274;</div>
+                    <h3>Privacy First</h3>
+                    <p>Your API keys are encrypted with AES-256 and stored locally. Your data never touches our servers.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128296;</div>
+                    <h3>Easy Embedding</h3>
+                    <p>Add ChatProjects to any page with a simple shortcode: <code>[chatprojects_main]</code></p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127912;</div>
+                    <h3>Image Studio <span class="pro-badge">Pro</span></h3>
+                    <p>Multi-turn AI image editing with Gemini. Describe, refine, and iterate on images through natural conversation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Providers Section -->
+    <section id="providers" class="providers">
+        <div class="container">
+            <div class="section-header">
+                <h2>Supported AI Providers</h2>
+                <p>Use your own API keys from any of these providers. Mix and match as needed.</p>
+            </div>
+            <div class="providers-grid">
+                <div class="provider-card">
+                    <div class="provider-logo">AI</div>
+                    <h4>OpenAI</h4>
+                    <p class="models">GPT-4o, GPT-4o-mini, GPT-4-turbo, o1</p>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-logo">A</div>
+                    <h4>Anthropic</h4>
+                    <p class="models">Claude Sonnet 4, Claude 3.5, Claude 3 Haiku</p>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-logo">G</div>
+                    <h4>Google Gemini</h4>
+                    <p class="models">Gemini 3 Pro, 2.5 Pro, 2.0 Flash</p>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-logo">C</div>
+                    <h4>Chutes</h4>
+                    <p class="models">DeepSeek V3, DeepSeek R1, Qwen, Mistral, Llama</p>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-logo">OR</div>
+                    <h4>OpenRouter</h4>
+                    <p class="models">100+ models from various providers</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Getting Started Section -->
+    <section id="getting-started" class="getting-started">
+        <div class="container">
+            <div class="section-header">
+                <h2>Getting Started</h2>
+                <p>Up and running in 5 minutes or less.</p>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h4>Install Plugin</h4>
+                    <p>Upload to <code>/wp-content/plugins/</code> and activate via Plugins menu.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h4>Add API Key</h4>
+                    <p>Go to ChatProjects &gt; Settings and add at least one API key.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h4>Create Page</h4>
+                    <p>Add <code>[chatprojects_main]</code> shortcode to any page.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h4>Create Project</h4>
+                    <p>Click "New Project" and add a title, description, and instructions.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <h4>Start Chatting</h4>
+                    <p>Upload files and chat with AI about your documents!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section id="screenshots" class="screenshots">
+        <div class="container">
+            <div class="section-header">
+                <h2>Screenshots</h2>
+                <p>See ChatProjects in action.</p>
+            </div>
+            <div class="screenshot-grid">
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: Main chat interface with provider dropdown]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">Chat Interface</div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: Project dashboard with file list]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">Project Dashboard</div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: File upload panel with drag & drop]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">File Upload</div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: Settings page with API key fields]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">Settings Page</div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: Dark mode chat view]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">Dark Mode</div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        [Screenshot: Mobile responsive view]<br><br>
+                        <em>Replace with actual screenshot</em>
+                    </div>
+                    <div class="screenshot-caption">Mobile View</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section id="comparison" class="comparison">
+        <div class="container">
+            <div class="section-header">
+                <h2>Free vs Pro</h2>
+                <p>Choose the plan that fits your needs.</p>
+            </div>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Free</th>
+                        <th>Pro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Projects</td>
+                        <td>5 (shared)</td>
+                        <td>Unlimited</td>
+                    </tr>
+                    <tr>
+                        <td>AI Providers (OpenAI, Claude, Gemini, Chutes, OpenRouter)</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>File Upload to Vector Store</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>OpenAI File Search</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Dark Mode</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Encrypted API Keys</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Per-User Projects</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Project Sharing Controls</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Side-by-Side Model Comparison</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Audio Transcription (Whisper)</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Prompt Library</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Image Studio (Multi-Turn Editing)</td>
+                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Support</td>
+                        <td>Community Forum</td>
+                        <td>Priority Email</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="comparison-cta">
+                <a href="https://chatprojects.com/" class="btn btn-success">Upgrade to Pro</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq">
+        <div class="container">
+            <div class="section-header">
+                <h2>Frequently Asked Questions</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <div class="faq-question">Do I need all 5 API keys?</div>
+                    <div class="faq-answer">
+                        <p>No! You only need one API key to start chatting. OpenAI is required for project features (Vector Stores). Add more providers as needed.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">Where are my API keys stored?</div>
+                    <div class="faq-answer">
+                        <p>Your API keys are encrypted using AES-256-CBC and stored in your WordPress database. They never leave your server or touch our systems.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">What file types can I upload?</div>
+                    <div class="faq-answer">
+                        <p>PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP. Default max size is 50MB per file (configurable up to 512MB).</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">Can multiple users access the same project?</div>
+                    <div class="faq-answer">
+                        <p>Yes! In the Free version, there are 5 shared projects accessible to all logged-in users. Pro version adds per-user projects and sharing controls.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">Can I use this on client sites?</div>
+                    <div class="faq-answer">
+                        <p>Yes! The Free version is GPL licensed. For commercial use with advanced features like per-user projects and transcription, consider the Pro version.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">How do I get support?</div>
+                    <div class="faq-answer">
+                        <p>Free version: Use the WordPress.org support forum. Pro version: Priority email support at support@chatprojects.com.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">What are the requirements?</div>
+                    <div class="faq-answer">
+                        <p>WordPress 5.8 or higher, PHP 7.4 or higher, and at least one API key from OpenAI, Anthropic, Google, Chutes, or OpenRouter.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <a href="#" class="logo"><span>Chat</span>Projects</a>
+                    <p>AI-powered project management for WordPress. Your keys. Your data. Your server.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="https://chatprojects.com/">Pricing</a></li>
+                        <li><a href="https://chatprojects.com/changelog/">Changelog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://chatprojects.com/docs/">Documentation</a></li>
+                        <li><a href="https://wordpress.org/support/plugin/chatprojects/">Support Forum</a></li>
+                        <li><a href="#faq">FAQ</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="https://chatprojects.com/privacy/">Privacy Policy</a></li>
+                        <li><a href="https://chatprojects.com/terms/">Terms of Service</a></li>
+                        <li><a href="https://www.gnu.org/licenses/gpl-2.0.html">GPL License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 ChatProjects. Built by GPTAdviser.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- FAQ Toggle Script -->
+    <script>
+        document.querySelectorAll('.faq-question').forEach(question => {
+            question.addEventListener('click', () => {
+                const item = question.parentElement;
+                const wasActive = item.classList.contains('active');
+
+                // Close all items
+                document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+
+                // Open clicked item if it wasn't active
+                if (!wasActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

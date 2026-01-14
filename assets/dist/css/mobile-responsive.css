@@ -1,0 +1,661 @@
+/**
+ * ChatProjects Mobile Responsive Styles
+ *
+ * This file contains mobile-first responsive fixes for:
+ * - Project List page
+ * - Project Assistant/Chat Interface
+ * - General Chat page
+ *
+ * Target breakpoints:
+ * - xs: 375px (small phones)
+ * - sm: 480px (large phones)
+ * - md: 768px (tablets)
+ * - lg: 1024px (desktops)
+ */
+
+/* ==========================================================================
+   CSS Variables for Mobile
+   ========================================================================== */
+
+:root {
+    --vp-sidebar-width: 280px;
+    --vp-card-min-width: 100%;
+    --vp-touch-target: 44px;
+    --vp-padding-mobile: 0.75rem;
+    --vp-padding-tablet: 1rem;
+    --vp-padding-desktop: 1.5rem;
+    --vp-mobile-header-height: 56px;
+}
+
+@media (min-width: 480px) {
+    :root {
+        --vp-sidebar-width: 320px;
+        --vp-card-min-width: 280px;
+    }
+}
+
+@media (min-width: 768px) {
+    :root {
+        --vp-card-min-width: 320px;
+    }
+}
+
+/* ==========================================================================
+   Model Selector (General Chat)
+   ========================================================================== */
+
+/* Hidden on mobile by default, shown on desktop */
+.cp-model-selector {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .cp-model-selector {
+        display: block;
+    }
+}
+
+/* When toggled open on mobile, show it */
+.cp-model-selector.is-open {
+    display: block;
+}
+
+/* ==========================================================================
+   Global Touch Target Fixes
+   ========================================================================== */
+
+/* Ensure 44px minimum touch targets on touch devices and mobile */
+@media (hover: none), (max-width: 767px) {
+    .vp-btn-icon,
+    .vp-card-action-btn,
+    .vp-chat-action-btn,
+    .vp-nav-icon,
+    .vp-modal-close,
+    .vp-project-card-delete,
+    .vp-hamburger-btn,
+    .vp-mobile-menu-toggle,
+    [class*="vp-icon-btn"] {
+        min-width: 44px !important;
+        min-height: 44px !important;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Show hover actions on touch devices (since no hover state) */
+    .group-hover\:opacity-100,
+    .vp-card-actions,
+    .vp-chat-actions {
+        opacity: 1 !important;
+    }
+
+    /* Make list items and nav items touch-friendly */
+    .vp-switcher-item,
+    .vp-nav-item,
+    .vp-chat-item,
+    .vp-project-item {
+        min-height: 44px;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+}
+
+/* ==========================================================================
+   Mobile Header Component
+   ========================================================================== */
+
+.vp-mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 12px;
+    align-items: center;
+    z-index: 50;
+}
+
+.dark .vp-mobile-header {
+    background: #1f2937;
+    border-bottom-color: #374151;
+}
+
+@media (max-width: 767px) {
+    .vp-mobile-header {
+        display: flex;
+    }
+
+    /* Add padding to main content when mobile header is shown */
+    .vp-main-content,
+    .vp-chat-main,
+    .vp-projects-main {
+        padding-top: 52px !important;
+    }
+}
+
+.vp-mobile-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.dark .vp-mobile-title {
+    color: #f9fafb;
+}
+
+/* ==========================================================================
+   Hamburger Button
+   ========================================================================== */
+
+.vp-hamburger-btn,
+.vp-mobile-menu-toggle {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #374151;
+    flex-shrink: 0;
+}
+
+.dark .vp-hamburger-btn,
+.dark .vp-mobile-menu-toggle {
+    color: #d1d5db;
+}
+
+.vp-hamburger-btn:hover,
+.vp-mobile-menu-toggle:hover {
+    background: #f3f4f6;
+}
+
+.dark .vp-hamburger-btn:hover,
+.dark .vp-mobile-menu-toggle:hover {
+    background: #374151;
+}
+
+@media (min-width: 768px) {
+    .vp-hamburger-btn,
+    .vp-mobile-menu-toggle {
+        display: none;
+    }
+}
+
+/* ==========================================================================
+   Sidebar Overlay
+   ========================================================================== */
+
+.vp-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 40;
+}
+
+.vp-sidebar-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (min-width: 768px) {
+    .vp-sidebar-overlay {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   Sidebar - Mobile Off-Canvas
+   ========================================================================== */
+
+.vp-sidebar,
+.vp-chat-sidebar,
+.vp-projects-sidebar,
+.vp-project-sidebar,
+[class*="vp-sidebar"] {
+    transition: transform 0.3s ease;
+}
+
+@media (max-width: 767px) {
+    .vp-sidebar,
+    .vp-chat-sidebar,
+    .vp-projects-sidebar,
+    .vp-project-sidebar {
+        position: fixed !important;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: var(--vp-sidebar-width) !important;
+        max-width: calc(100vw - 60px);
+        transform: translateX(-100%);
+        z-index: 60; /* Above mobile header (z-50) */
+    }
+
+    .vp-sidebar.mobile-open,
+    .vp-chat-sidebar.mobile-open,
+    .vp-projects-sidebar.mobile-open,
+    .vp-project-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-sidebar,
+    .vp-chat-sidebar,
+    .vp-projects-sidebar,
+    .vp-project-sidebar {
+        position: relative;
+        transform: none !important;
+    }
+}
+
+/* ==========================================================================
+   Projects Grid - Responsive
+   ========================================================================== */
+
+.vp-projects-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 480px) {
+    .vp-projects-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1.25rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-projects-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1366px) {
+    .vp-projects-grid {
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    }
+}
+
+/* ==========================================================================
+   Chat Message Bubbles - Responsive Width
+   ========================================================================== */
+
+.vp-message-content,
+.vp-chat-message-content,
+[class*="message-content"] {
+    max-width: 90%;
+}
+
+@media (min-width: 480px) {
+    .vp-message-content,
+    .vp-chat-message-content,
+    [class*="message-content"] {
+        max-width: 85%;
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-message-content,
+    .vp-chat-message-content,
+    [class*="message-content"] {
+        max-width: 75%;
+    }
+}
+
+@media (min-width: 1024px) {
+    .vp-message-content,
+    .vp-chat-message-content,
+    [class*="message-content"] {
+        max-width: 70%;
+    }
+}
+
+/* ==========================================================================
+   Chat Input Area - Responsive Padding
+   ========================================================================== */
+
+.vp-chat-input-container,
+.vp-input-container,
+[class*="chat-input"] {
+    padding: var(--vp-padding-mobile);
+}
+
+@media (min-width: 480px) {
+    .vp-chat-input-container,
+    .vp-input-container,
+    [class*="chat-input"] {
+        padding: var(--vp-padding-tablet);
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-chat-input-container,
+    .vp-input-container,
+    [class*="chat-input"] {
+        padding: var(--vp-padding-tablet) var(--vp-padding-desktop);
+    }
+}
+
+/* ==========================================================================
+   Container Padding - Responsive
+   ========================================================================== */
+
+.vp-container,
+.vp-content-container,
+.vp-page-container {
+    padding: var(--vp-padding-mobile);
+}
+
+@media (min-width: 480px) {
+    .vp-container,
+    .vp-content-container,
+    .vp-page-container {
+        padding: var(--vp-padding-tablet);
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-container,
+    .vp-content-container,
+    .vp-page-container {
+        padding: var(--vp-padding-desktop);
+    }
+}
+
+/* ==========================================================================
+   Modal - Mobile Responsive
+   ========================================================================== */
+
+.vp-modal-content,
+[class*="modal-content"] {
+    width: 95%;
+    max-width: 95vw;
+    max-height: 90vh;
+    margin: 5vh auto;
+}
+
+@media (min-width: 480px) {
+    .vp-modal-content,
+    [class*="modal-content"] {
+        width: 90%;
+        max-width: 500px;
+    }
+}
+
+@media (min-width: 768px) {
+    .vp-modal-content,
+    [class*="modal-content"] {
+        max-width: 600px;
+    }
+}
+
+/* ==========================================================================
+   Navigation Icons - Touch-Friendly on Mobile
+   ========================================================================== */
+
+.vp-nav-touch-target {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (min-width: 768px) {
+    .vp-nav-touch-target {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* ==========================================================================
+   Flex Layout Fixes
+   ========================================================================== */
+
+/* Stack flex containers vertically on mobile */
+@media (max-width: 479px) {
+    .vp-flex-responsive {
+        flex-direction: column !important;
+    }
+
+    .vp-flex-responsive > * {
+        width: 100% !important;
+    }
+}
+
+/* ==========================================================================
+   Typography - Responsive Font Sizes
+   ========================================================================== */
+
+@media (max-width: 479px) {
+    .vp-heading-lg {
+        font-size: 1.5rem !important;
+    }
+
+    .vp-heading-md {
+        font-size: 1.25rem !important;
+    }
+
+    .vp-text-lg {
+        font-size: 1rem !important;
+    }
+}
+
+/* ==========================================================================
+   Hide/Show Utilities for Mobile
+   ========================================================================== */
+
+.vp-mobile-only {
+    display: none;
+}
+
+.vp-desktop-only {
+    display: block;
+}
+
+@media (max-width: 767px) {
+    .vp-mobile-only {
+        display: block;
+    }
+
+    .vp-desktop-only {
+        display: none;
+    }
+}
+
+/* ==========================================================================
+   Scrollbar Adjustments for Mobile
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    /* Thinner scrollbars on mobile to save space */
+    .vp-chat-messages::-webkit-scrollbar,
+    .vp-sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .vp-chat-messages::-webkit-scrollbar-thumb,
+    .vp-sidebar::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 2px;
+    }
+}
+
+/* ==========================================================================
+   Pro Chat Sidebar Width Fix
+   ========================================================================== */
+
+/* Fix for Tailwind w-80 class on mobile */
+@media (max-width: 479px) {
+    .w-80,
+    [class*="w-80"] {
+        width: 280px !important;
+    }
+}
+
+/* ==========================================================================
+   Chat Input Textarea - Mobile Height
+   ========================================================================== */
+
+/* Make chat input taller on mobile to show placeholder text */
+@media (max-width: 767px) {
+    /* Target the chat textarea */
+    .vp-chat-input-container textarea,
+    [data-pro-chat] textarea,
+    [data-project-id] textarea,
+    form textarea[x-ref="messageInput"],
+    .flex-1 textarea {
+        min-height: 56px !important;
+        padding-top: 0.875rem !important;
+        padding-bottom: 0.875rem !important;
+    }
+}
+
+/* ==========================================================================
+   Mobile Keyboard / Virtual Keyboard Support
+   ========================================================================== */
+
+/* Ensure chat input stays above mobile keyboard */
+@media (max-width: 767px) {
+    /* Use dynamic viewport height for full page chat containers */
+    [data-pro-chat],
+    [data-project-id],
+    .flex.flex-col.h-full {
+        height: 100dvh;
+        height: -webkit-fill-available;
+    }
+
+    /* Make input area sticky at bottom and account for keyboard */
+    .flex-shrink-0.border-t {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: inherit;
+        /* Add safe area padding for iOS */
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
+    /* When keyboard is open, add class via JS for additional adjustments */
+    body.vp-keyboard-open .flex-shrink-0.border-t {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+    }
+
+    body.vp-keyboard-open [data-pro-chat] .flex-1.overflow-y-auto,
+    body.vp-keyboard-open [data-project-id] .flex-1.overflow-y-auto,
+    body.vp-keyboard-open .flex.flex-col.h-full .flex-1.overflow-y-auto {
+        padding-bottom: 120px;
+    }
+
+    /* Ensure messages container adjusts */
+    .flex-1.overflow-y-auto {
+        flex: 1 1 0%;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* iOS-specific fixes for keyboard handling */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        /* Prevent iOS bounce/rubber-banding that causes issues */
+        [data-pro-chat],
+        [data-project-id] {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        /* Allow scrolling only in messages area */
+        .flex-1.overflow-y-auto {
+            overflow-y: scroll;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+}
+
+/* ==========================================================================
+   Mobile Chat Input Placeholder Text Fix
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    /* Ensure textarea placeholder is visible and not cut off */
+    .vp-chat-textarea,
+    textarea[x-ref="messageInput"] {
+        min-height: 52px !important;
+        padding: 0.875rem 1rem !important;
+        font-size: 16px !important; /* Prevents iOS zoom on focus */
+        line-height: 1.4 !important;
+    }
+
+    .vp-chat-textarea::placeholder,
+    textarea[x-ref="messageInput"]::placeholder {
+        font-size: 14px;
+        color: #9ca3af;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Ensure input container has proper spacing */
+    .flex-shrink-0.border-t .px-4.py-4 {
+        padding: 0.75rem !important;
+    }
+}
+
+/* ==========================================================================
+   Mobile Input Focus Scrolling Fix
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    /* When input is focused, ensure it stays visible */
+    .vp-chat-textarea:focus,
+    textarea[x-ref="messageInput"]:focus {
+        position: relative;
+        z-index: 101;
+    }
+
+    /* Smooth scroll behavior for messages container */
+    .flex-1.overflow-y-auto {
+        scroll-behavior: smooth;
+    }
+}
+
+/* ==========================================================================
+   JavaScript Toggle Support Classes
+   ========================================================================== */
+
+/* These classes are toggled by JavaScript */
+body.vp-sidebar-open {
+    overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    body.vp-sidebar-open {
+        overflow: auto;
+    }
+}

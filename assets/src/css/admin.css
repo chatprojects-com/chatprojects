@@ -1,0 +1,347 @@
+/**
+ * ChatProjects - Admin Stylesheet
+ *
+ * This file contains styles for the WordPress admin pages:
+ * - Settings page
+ * - Project metaboxes
+ * - Admin forms
+ *
+ * @package ChatProjects
+ * @version 1.0.0
+ */
+
+/* ============================================================================
+   ADMIN PAGE CONTAINER
+   ============================================================================ */
+
+.chatprojects-admin-wrap {
+    max-width: 900px;
+    margin: 20px 20px 20px 0;
+}
+
+.chatprojects-admin-wrap h1 {
+    margin-bottom: 20px;
+}
+
+/* ============================================================================
+   SETTINGS CARDS
+   ============================================================================ */
+
+.chatprojects-settings-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.chatprojects-settings-card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #c3c4c7;
+    background: #f6f7f7;
+}
+
+.chatprojects-settings-card-header h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.chatprojects-settings-card-body {
+    padding: 20px;
+}
+
+/* ============================================================================
+   FORM ELEMENTS
+   ============================================================================ */
+
+.chatprojects-form-row {
+    margin-bottom: 20px;
+}
+
+.chatprojects-form-row:last-child {
+    margin-bottom: 0;
+}
+
+.chatprojects-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.chatprojects-form-description {
+    margin-top: 6px;
+    color: #646970;
+    font-size: 13px;
+    font-style: italic;
+}
+
+.chatprojects-form-input {
+    width: 100%;
+    max-width: 400px;
+}
+
+.chatprojects-form-input.large {
+    max-width: 600px;
+}
+
+.chatprojects-form-textarea {
+    width: 100%;
+    max-width: 600px;
+    min-height: 150px;
+}
+
+/* ============================================================================
+   API KEY FIELDS
+   ============================================================================ */
+
+.chatprojects-api-key-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.chatprojects-api-key-input {
+    flex: 1;
+    max-width: 400px;
+}
+
+.chatprojects-api-key-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.chatprojects-test-btn {
+    white-space: nowrap;
+}
+
+/* API key status indicators */
+.chatprojects-api-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.chatprojects-api-status.connected {
+    background: #d4edda;
+    color: #155724;
+}
+
+.chatprojects-api-status.not-configured {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.chatprojects-api-status.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ============================================================================
+   PROVIDER TABS
+   ============================================================================ */
+
+.chatprojects-provider-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #c3c4c7;
+    margin-bottom: 20px;
+}
+
+.chatprojects-provider-tab {
+    padding: 10px 20px;
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-bottom: none;
+    margin-bottom: -1px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.chatprojects-provider-tab:first-child {
+    border-radius: 4px 0 0 0;
+}
+
+.chatprojects-provider-tab:last-child {
+    border-radius: 0 4px 0 0;
+}
+
+.chatprojects-provider-tab:hover {
+    background: #fff;
+}
+
+.chatprojects-provider-tab.active {
+    background: #fff;
+    border-bottom-color: #fff;
+}
+
+.chatprojects-provider-panel {
+    display: none;
+}
+
+.chatprojects-provider-panel.active {
+    display: block;
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.chatprojects-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.chatprojects-btn-primary {
+    background: #2271b1;
+    border: 1px solid #2271b1;
+    color: #fff;
+}
+
+.chatprojects-btn-primary:hover {
+    background: #135e96;
+    border-color: #135e96;
+    color: #fff;
+}
+
+.chatprojects-btn-secondary {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    color: #2c3338;
+}
+
+.chatprojects-btn-secondary:hover {
+    background: #f0f0f1;
+    border-color: #8c8f94;
+    color: #2c3338;
+}
+
+.chatprojects-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+   NOTICES
+   ============================================================================ */
+
+.chatprojects-notice {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border-left: 4px solid;
+}
+
+.chatprojects-notice-info {
+    background: #f0f6fc;
+    border-color: #72aee6;
+    color: #135e96;
+}
+
+.chatprojects-notice-success {
+    background: #edfaef;
+    border-color: #00a32a;
+    color: #00450c;
+}
+
+.chatprojects-notice-warning {
+    background: #fcf9e8;
+    border-color: #dba617;
+    color: #6e4a00;
+}
+
+.chatprojects-notice-error {
+    background: #fcf0f1;
+    border-color: #d63638;
+    color: #8a1114;
+}
+
+/* ============================================================================
+   METABOX STYLES
+   ============================================================================ */
+
+.chatprojects-metabox-row {
+    margin-bottom: 15px;
+}
+
+.chatprojects-metabox-row:last-child {
+    margin-bottom: 0;
+}
+
+.chatprojects-metabox-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.chatprojects-metabox-input {
+    width: 100%;
+}
+
+/* ============================================================================
+   LOADING STATES
+   ============================================================================ */
+
+.chatprojects-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chatprojects-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #c3c4c7;
+    border-top-color: #2271b1;
+    border-radius: 50%;
+    animation: chatprojects-spin 0.8s linear infinite;
+}
+
+@keyframes chatprojects-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media screen and (max-width: 782px) {
+    .chatprojects-admin-wrap {
+        margin-right: 10px;
+    }
+
+    .chatprojects-api-key-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chatprojects-api-key-input {
+        max-width: none;
+    }
+
+    .chatprojects-provider-tabs {
+        flex-wrap: wrap;
+    }
+
+    .chatprojects-provider-tab {
+        flex: 1;
+        text-align: center;
+        min-width: 100px;
+    }
+}

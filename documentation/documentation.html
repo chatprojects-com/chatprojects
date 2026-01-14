@@ -1,0 +1,735 @@
+<div class="cp-docs">
+    <style>
+        .cp-docs {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+            color: #1e293b;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0;
+            font-size: 16px;
+            background: #fff;
+        }
+        .cp-docs .header {
+            text-align: center;
+            padding: 64px 32px;
+            margin: 0;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .cp-docs .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .cp-docs .header h1 {
+            font-size: 3em;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 16px 0;
+            letter-spacing: -1px;
+            position: relative;
+        }
+        .cp-docs .header .subtitle {
+            color: #94a3b8;
+            font-size: 1.3em;
+            margin: 0;
+            padding: 0;
+            border: none;
+            font-weight: 400;
+            position: relative;
+        }
+        .cp-docs .content-wrap {
+            padding: 48px 40px;
+            background: #fff;
+        }
+        .cp-docs .tagline {
+            font-size: 1.15em;
+            color: #64748b;
+            text-align: center;
+            max-width: 680px;
+            margin: 0 auto 32px auto;
+        }
+        .cp-docs h2 {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 56px 0 24px 0;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #6366f1;
+            display: inline-block;
+            width: 100%;
+        }
+        .cp-docs h3 {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 32px 0 12px 0;
+        }
+        .cp-docs h4 {
+            font-size: 1em;
+            font-weight: 600;
+            color: #334155;
+            margin: 24px 0 8px 0;
+        }
+        .cp-docs p {
+            margin: 0 0 16px 0;
+            color: #475569;
+        }
+        .cp-docs ul, .cp-docs ol {
+            margin: 0 0 16px 0;
+            padding-left: 24px;
+        }
+        .cp-docs li {
+            margin-bottom: 10px;
+            color: #475569;
+        }
+        .cp-docs li strong {
+            color: #1e293b;
+        }
+        .cp-docs a {
+            color: #4f46e5;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .cp-docs a:hover {
+            color: #6366f1;
+            text-decoration: underline;
+        }
+        .cp-docs code {
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.875em;
+            background: #f1f5f9;
+            color: #4f46e5;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        .cp-docs pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 16px 0;
+            font-size: 0.875em;
+        }
+        .cp-docs pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: inherit;
+        }
+        .cp-docs table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        .cp-docs th, .cp-docs td {
+            text-align: left;
+            padding: 14px 18px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .cp-docs th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .cp-docs td {
+            background: #fff;
+            color: #475569;
+        }
+        .cp-docs tr:last-child td {
+            border-bottom: none;
+        }
+        .cp-docs tbody tr:hover td {
+            background: #f8fafc;
+        }
+        .cp-docs .pro-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff;
+            font-size: 0.65em;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+            vertical-align: middle;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .cp-docs .note {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #6366f1;
+            border-radius: 8px;
+            padding: 18px 22px;
+            margin: 24px 0;
+        }
+        .cp-docs .note-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cp-docs .note p:last-child {
+            margin-bottom: 0;
+        }
+        .cp-docs .warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+        .cp-docs .warning .note-title {
+            color: #d97706;
+        }
+        .cp-docs .toc {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin: 32px 0;
+        }
+        .cp-docs .toc-title {
+            font-weight: 700;
+            margin-bottom: 18px;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #6366f1;
+        }
+        .cp-docs .toc ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            column-count: 2;
+            column-gap: 40px;
+        }
+        .cp-docs .toc li {
+            margin-bottom: 10px;
+            break-inside: avoid;
+        }
+        .cp-docs .toc a {
+            color: #64748b;
+            text-decoration: none;
+            transition: all 0.15s;
+            display: inline-block;
+        }
+        .cp-docs .toc a:hover {
+            color: #4f46e5;
+            transform: translateX(4px);
+        }
+        .cp-docs .check {
+            color: #16a34a;
+            font-weight: 600;
+        }
+        .cp-docs .dash {
+            color: #cbd5e1;
+        }
+        .cp-docs hr {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 48px 0;
+        }
+        .cp-docs .steps {
+            counter-reset: step;
+            list-style: none;
+            padding-left: 0;
+        }
+        .cp-docs .steps li {
+            position: relative;
+            padding-left: 56px;
+            margin-bottom: 24px;
+        }
+        .cp-docs .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 0.9em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cp-docs .highlight-box {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: #fff;
+            padding: 28px 32px;
+            border-radius: 16px;
+            margin: 32px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .cp-docs .highlight-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #6366f1 100%);
+        }
+        .cp-docs .highlight-box p {
+            color: #cbd5e1;
+            margin: 0;
+            font-size: 1.05em;
+        }
+        .cp-docs .highlight-box strong {
+            color: #fff;
+        }
+        .cp-docs .footer {
+            margin-top: 64px;
+            padding: 32px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-size: 0.9em;
+            text-align: center;
+        }
+        .cp-docs .footer a {
+            color: #64748b;
+        }
+        .cp-docs .footer a:hover {
+            color: #4f46e5;
+        }
+        .cp-docs .footer strong {
+            color: #1e293b;
+        }
+        .cp-docs .cta-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff !important;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none !important;
+            font-weight: 600;
+            margin-top: 12px;
+            transition: all 0.2s;
+        }
+        .cp-docs .cta-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(99, 102, 241, 0.3);
+        }
+        @media (max-width: 600px) {
+            .cp-docs .toc ul {
+                column-count: 1;
+            }
+            .cp-docs .header {
+                padding: 48px 24px;
+            }
+            .cp-docs .header h1 {
+                font-size: 2.2em;
+            }
+            .cp-docs .content-wrap {
+                padding: 32px 20px;
+            }
+            .cp-docs .highlight-box,
+            .cp-docs .toc {
+                padding: 20px;
+            }
+        }
+    </style>
+
+    <div class="header">
+        <h1>Documentation</h1>
+        <p class="subtitle">AI Chat & Vector Store, Responses API Assistants for WordPress</p>
+    </div>
+
+    <div class="content-wrap">
+        <p class="tagline">Connect your own API keys. Chat with ChatGPT 5, Claude, Gemini, and 100+ models. Create projects with document storage powered by OpenAI Vector Stores.</p>
+
+        <div class="highlight-box">
+            <p><strong>Your keys. Your data. Your server.</strong> — API keys are encrypted with AES-256 and stored locally. All API calls go directly from your server to the AI providers.</p>
+        </div>
+
+        <div class="toc">
+            <div class="toc-title">Contents</div>
+            <ul>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#configuration">Configuration</a></li>
+                <li><a href="#usage">Usage</a></li>
+                <li><a href="#shortcodes">Shortcodes</a></li>
+                <li><a href="#providers">AI Providers</a></li>
+                <li><a href="#file-support">File Support</a></li>
+                <li><a href="#pro-features">Pro Features</a></li>
+                <li><a href="#security">Security</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#support">Support</a></li>
+            </ul>
+        </div>
+
+        <h2 id="features">Features</h2>
+
+        <h4>Core (Free)</h4>
+        <ul>
+            <li><strong>Multi-provider chat</strong> — ChatGPT 5, Claude, Gemini, DeepSeek, 100+ OpenRouter models</li>
+            <li><strong>Project management</strong> — Organize conversations with OpenAI Vector Stores</li>
+            <li><strong>File upload</strong> — PDF, DOCX, TXT, code files up to 512MB</li>
+            <li><strong>Document search</strong> — AI searches uploaded files for contextual answers</li>
+            <li><strong>Dark mode</strong> — System-aware theme switching</li>
+            <li><strong>Encrypted storage</strong> — AES-256 encryption for all API keys</li>
+        </ul>
+
+        <h4>Pro</h4>
+        <ul>
+            <li><strong>Unlimited projects</strong> — Per-user projects (vs. 5 shared in Free)</li>
+            <li><strong>Project sharing</strong> — Private, shared, or team-wide access</li>
+            <li><strong>Audio transcription</strong> — Whisper-1 integration with permanent save</li>
+            <li><strong>Prompt library</strong> — Save and organize prompts with AI enhancement</li>
+            <li><strong>Model comparison</strong> — Side-by-side responses from multiple models</li>
+            <li><strong>Chat branching</strong> — Fork conversations to explore different directions</li>
+            <li><strong>Spreadsheet import</strong> — Import CSV/Excel data for AI analysis</li>
+            <li><strong>Image generation</strong> — GPT-Image-1 for creating images</li>
+            <li><strong>Priority support</strong> — Direct email support</li>
+        </ul>
+
+        <h2 id="installation">Installation</h2>
+
+        <ol class="steps">
+            <li><strong>Download</strong> the plugin from WordPress.org (Free) or your account (Pro)</li>
+            <li><strong>Upload</strong> via <code>Plugins → Add New → Upload Plugin</code> or FTP to <code>/wp-content/plugins/</code></li>
+            <li><strong>Activate</strong> the plugin in WordPress admin</li>
+            <li><strong>Configure</strong> API keys at <code>ChatProjects → Settings</code></li>
+            <li><strong>Add shortcode</strong> <code>[chatprojects_main]</code> to any page</li>
+        </ol>
+
+        <h2 id="configuration">Configuration</h2>
+
+        <h3>API Keys</h3>
+
+        <p>Add at least one API key at <code>ChatProjects → Settings</code>. OpenAI is required for project features (Vector Stores).</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>API Key URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>OpenAI</td>
+                    <td><a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></td>
+                </tr>
+                <tr>
+                    <td>Anthropic</td>
+                    <td><a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a></td>
+                </tr>
+                <tr>
+                    <td>Google Gemini</td>
+                    <td><a href="https://ai.google.dev" target="_blank">ai.google.dev</a></td>
+                </tr>
+                <tr>
+                    <td>Chutes</td>
+                    <td><a href="https://chutes.ai" target="_blank">chutes.ai</a></td>
+                </tr>
+                <tr>
+                    <td>OpenRouter</td>
+                    <td><a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="note">
+            <div class="note-title">Note</div>
+            <p>You can chat with Claude, Gemini, or OpenRouter models without an OpenAI key. However, project features (Vector Stores, file search) require OpenAI.</p>
+        </div>
+
+        <h2 id="usage">Usage</h2>
+
+        <h3>Creating a Project</h3>
+        <ol class="steps">
+            <li>Navigate to your ChatProjects page</li>
+            <li>Click <strong>Projects</strong> → <strong>New Project</strong></li>
+            <li>Enter title, description, and optional AI instructions</li>
+            <li>Click <strong>Create Project</strong></li>
+        </ol>
+
+        <p>Each project automatically creates an OpenAI Vector Store for document indexing.</p>
+
+        <h3>Uploading Files</h3>
+        <ol class="steps">
+            <li>Open a project and go to the <strong>Files</strong> tab</li>
+            <li>Drag and drop files or click to browse</li>
+            <li>Files are automatically indexed in the Vector Store</li>
+        </ol>
+
+        <h3>Chatting</h3>
+        <ol class="steps">
+            <li>Open a project and go to the <strong>Chat</strong> tab</li>
+            <li>Select provider and model from dropdowns</li>
+            <li>Type your message and press Enter</li>
+        </ol>
+
+        <p>The AI will search your uploaded documents when answering questions.</p>
+
+        <h2 id="shortcodes">Shortcodes</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Shortcode</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>[chatprojects_main]</code></td>
+                    <td>Main interface (default view)</td>
+                </tr>
+                <tr>
+                    <td><code>[chatprojects_main default_tab="chat"]</code></td>
+                    <td>Opens to chat tab</td>
+                </tr>
+                <tr>
+                    <td><code>[chatprojects_main default_tab="projects"]</code></td>
+                    <td>Opens to projects list</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="providers">AI Providers</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Models</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>OpenAI</td>
+                    <td>ChatGPT 5.1, ChatGPT 5.0, GPT-4o, GPT-4o-mini, o1, o1 Mini</td>
+                </tr>
+                <tr>
+                    <td>Anthropic</td>
+                    <td>Claude Sonnet 4, Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus</td>
+                </tr>
+                <tr>
+                    <td>Google</td>
+                    <td>Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash</td>
+                </tr>
+                <tr>
+                    <td>Chutes</td>
+                    <td>DeepSeek V3, DeepSeek R1</td>
+                </tr>
+                <tr>
+                    <td>OpenRouter</td>
+                    <td>100+ models from various providers</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="file-support">File Support</h2>
+
+        <h4>Supported Types</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Extensions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Documents</td>
+                    <td>PDF, DOC, DOCX, TXT, MD</td>
+                </tr>
+                <tr>
+                    <td>Data</td>
+                    <td>CSV, JSON, XML, HTML</td>
+                </tr>
+                <tr>
+                    <td>Code</td>
+                    <td>JS, PY, PHP, CSS, Java, C++</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>Size Limits</h4>
+        <ul>
+            <li><strong>Default:</strong> 50MB per file</li>
+            <li><strong>Maximum:</strong> 512MB (configurable in Settings, limited by OpenAI)</li>
+        </ul>
+
+        <div class="note warning">
+            <div class="note-title">Server Configuration</div>
+            <p>Ensure your server's <code>upload_max_filesize</code> and <code>post_max_size</code> in php.ini support your desired limit.</p>
+        </div>
+
+        <h2 id="pro-features">Pro Features</h2>
+
+        <h3>Audio Transcription <span class="pro-tag">Pro</span></h3>
+        <p>Convert audio to text using OpenAI Whisper-1. Supports MP3, WAV, M4A, WEBM (max 25MB). Optionally save transcriptions permanently with AI rewriting in different tones.</p>
+
+        <h3>Prompt Library <span class="pro-tag">Pro</span></h3>
+        <p>Save and organize prompts with categories. Includes AI-powered prompt enhancement and usage tracking.</p>
+
+        <h3>Project Sharing <span class="pro-tag">Pro</span></h3>
+        <p>Control access per-project:</p>
+        <ul>
+            <li><strong>Private</strong> — Only owner can access</li>
+            <li><strong>Shared</strong> — Specific invited users</li>
+            <li><strong>Team</strong> — All logged-in users</li>
+        </ul>
+
+        <h3>Model Comparison <span class="pro-tag">Pro</span></h3>
+        <p>Send the same prompt to multiple models and compare responses side-by-side.</p>
+
+        <h3>Chat Branching <span class="pro-tag">Pro</span></h3>
+        <p>Fork any conversation at any point to explore different directions. Create multiple branches from a single message to test alternative prompts or continue conversations in parallel without losing context.</p>
+
+        <h3>Spreadsheet Import <span class="pro-tag">Pro</span></h3>
+        <p>Import CSV and Excel files directly into chat for AI analysis. The AI can read, summarize, and answer questions about your spreadsheet data. Supports large datasets with automatic chunking.</p>
+
+        <h3>Image Generation <span class="pro-tag">Pro</span></h3>
+        <p>Generate images using GPT-Image-1 directly in chat. Describe what you want and get high-quality images. Supports standard and HD quality, square and wide aspect ratios.</p>
+
+        <hr>
+
+        <h4>Free vs Pro</h4>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Free</th>
+                    <th>Pro</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Projects</td>
+                    <td>5 shared</td>
+                    <td>Unlimited per-user</td>
+                </tr>
+                <tr>
+                    <td>AI Providers</td>
+                    <td class="check">✓</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>File Upload & Search</td>
+                    <td class="check">✓</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Dark Mode</td>
+                    <td class="check">✓</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Encrypted API Keys</td>
+                    <td class="check">✓</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Per-User Projects</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Project Sharing</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Audio Transcription</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Prompt Library</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Model Comparison</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Chat Branching</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Spreadsheet Import</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Image Generation</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+                <tr>
+                    <td>Priority Support</td>
+                    <td class="dash">—</td>
+                    <td class="check">✓</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="text-align: center;"><a href="https://chatprojects.com/" target="_blank" class="cta-link">Upgrade to Pro →</a></p>
+
+        <h2 id="security">Security</h2>
+
+        <ul>
+            <li><strong>AES-256 encryption</strong> — API keys encrypted before database storage</li>
+            <li><strong>Local storage</strong> — Keys never sent to ChatProjects servers</li>
+            <li><strong>Direct API calls</strong> — Your server communicates directly with AI providers</li>
+            <li><strong>WordPress standards</strong> — Nonce verification, capability checks, input sanitization</li>
+            <li><strong>File validation</strong> — Type and size validation on all uploads</li>
+        </ul>
+
+        <h2 id="faq">FAQ</h2>
+
+        <h4>Do I need all 5 API keys?</h4>
+        <p>No. One key is enough to start. OpenAI is only required for project features (Vector Stores, file search).</p>
+
+        <h4>Where are API keys stored?</h4>
+        <p>Encrypted with AES-256 in your WordPress database. Never transmitted to external servers except directly to the AI providers.</p>
+
+        <h4>Can I use ChatProjects without OpenAI?</h4>
+        <p>Yes, for basic chat. You can use Claude, Gemini, or OpenRouter without OpenAI. Project features require OpenAI.</p>
+
+        <h4>What are the API costs?</h4>
+        <p>ChatProjects uses your own keys — you pay providers directly. Costs vary by model. Vector Store storage is ~$0.10/GB/day.</p>
+
+        <h4>How do I upgrade to Pro?</h4>
+        <p>Purchase at <a href="https://chatprojects.com/" target="_blank">chatprojects.com/pricing</a>. Deactivate Free, install Pro. Projects and settings are preserved.</p>
+
+        <h2 id="support">Support</h2>
+
+        <ul>
+            <li><strong>Documentation:</strong> <a href="https://chatprojects.com/docs/" target="_blank">chatprojects.com/docs</a></li>
+            <li><strong>Free support:</strong> <a href="https://wordpress.org/support/plugin/chatprojects/" target="_blank">WordPress.org forums</a></li>
+            <li><strong>Pro support:</strong> <a href="mailto:support@chatprojects.com">support@chatprojects.com</a></li>
+        </ul>
+
+        <div class="footer">
+            <p><strong>ChatProjects</strong> · Developed by <a href="https://gptadviser.com" target="_blank">GPTAdviser</a> · <a href="https://chatprojects.com" target="_blank">chatprojects.com</a></p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+
+# Build artifacts (keep dist/ in repo for WordPress.org)
+# assets/dist/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Package manager lock files (optional - uncomment if you want to exclude)
+# package-lock.json
+# yarn.lock
+
+# Test coverage
+coverage/
+
+# Vite
+*.local
+
+# Sensitive files (extra safety)
+sftp.json
+sftp-config.json
+ftp-config.json
+*.pem
+*.key
+*credentials*
+*secrets*
+CLAUDE.md
+.claude/
+wp-config.php
+.htaccess

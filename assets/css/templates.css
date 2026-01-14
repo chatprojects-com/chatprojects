@@ -1,0 +1,842 @@
+/**
+ * ChatProjects Template Styles
+ *
+ * Consolidated CSS for all frontend templates
+ * Properly enqueued via wp_enqueue_style()
+ *
+ * @package ChatProjects
+ */
+
+/* ==========================================================================
+   Alpine.js x-cloak - Hide elements until Alpine initializes
+   ========================================================================== */
+[x-cloak] { display: none !important; }
+[x-cloak] * { display: none !important; }
+
+/* ==========================================================================
+   Base Body Styles
+   ========================================================================== */
+body.cp-template {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #f3f4f6;
+}
+.dark body.cp-template {
+    background: #111827;
+}
+
+/* ==========================================================================
+   App Layout
+   ========================================================================== */
+.vp-app-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ==========================================================================
+   Sidebar Styles
+   ========================================================================== */
+.vp-sidebar {
+    width: 280px;
+    min-width: 280px;
+    max-width: calc(100vw - 60px);
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+}
+@media (min-width: 480px) {
+    .vp-sidebar {
+        width: 320px;
+        min-width: 320px;
+    }
+}
+.dark .vp-sidebar {
+    background: #111827;
+    border-color: #374151;
+}
+
+/* Project Sidebar (single project page) */
+.vp-project-sidebar {
+    width: 280px;
+    min-width: 280px;
+}
+@media (min-width: 480px) {
+    .vp-project-sidebar {
+        width: 320px;
+        min-width: 320px;
+    }
+}
+
+/* Sidebar Header */
+.cp-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+.dark .cp-sidebar-header {
+    border-color: #374151;
+    background: #1f2937;
+}
+
+/* Sidebar Content */
+.vp-sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+}
+
+/* Sidebar Footer */
+.vp-sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+}
+.dark .vp-sidebar-footer {
+    border-color: #374151;
+}
+
+/* Sidebar Section */
+.vp-sidebar-section {
+    margin-bottom: 1.5rem;
+}
+.vp-sidebar-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+    margin-bottom: 0.75rem;
+}
+
+/* ==========================================================================
+   Main Content
+   ========================================================================== */
+.vp-main-content {
+    flex: 1;
+    margin-left: 280px;
+    min-height: 100vh;
+}
+@media (min-width: 480px) {
+    .vp-main-content {
+        margin-left: 320px;
+    }
+}
+
+/* ==========================================================================
+   ChatProjects Logo Typography
+   ========================================================================== */
+.cp-logo {
+    font-size: 1.32rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: baseline;
+    text-decoration: none;
+}
+.cp-logo-chat {
+    color: #1e40af;
+    font-weight: 500;
+}
+.dark .cp-logo-chat {
+    color: #60a5fa;
+}
+.cp-logo-projects {
+    font-weight: 700;
+    color: #111827;
+}
+.dark .cp-logo-projects {
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Navigation Icons
+   ========================================================================== */
+.cp-nav-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+.cp-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    color: #9ca3af;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+@media (min-width: 768px) {
+    .cp-nav-icon {
+        width: 36px;
+        height: 36px;
+    }
+}
+.cp-nav-icon:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+.dark .cp-nav-icon {
+    color: #6b7280;
+}
+.dark .cp-nav-icon:hover {
+    background: #374151;
+    color: #e5e7eb;
+}
+.cp-nav-icon.active {
+    background: #e5e7eb;
+    color: #1f2937;
+}
+.dark .cp-nav-icon.active {
+    background: #374151;
+    color: #f3f4f6;
+}
+.cp-nav-icon.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.cp-nav-icon.disabled:hover {
+    background: transparent;
+}
+
+/* Footer Navigation Icons */
+.vp-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    color: #6b7280;
+    transition: all 0.15s;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+@media (min-width: 768px) {
+    .vp-nav-icon {
+        width: 36px;
+        height: 36px;
+    }
+}
+.vp-nav-icon:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+.dark .vp-nav-icon {
+    color: #d1d5db;
+}
+.dark .vp-nav-icon:hover {
+    background: #374151;
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Pro Badge Tooltip
+   ========================================================================== */
+.cp-pro-badge,
+.vp-pro-badge {
+    position: relative;
+}
+.cp-pro-badge::after,
+.vp-pro-badge::after {
+    content: 'Pro';
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.cp-pro-badge:hover::after,
+.vp-pro-badge:hover::after {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   Mobile Header
+   ========================================================================== */
+.vp-mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: 52px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    align-items: center;
+    padding: 0 12px;
+}
+.dark .vp-mobile-header {
+    background: #1f2937;
+    border-color: #374151;
+}
+.vp-mobile-header-btn {
+    position: relative;
+    z-index: 10;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #374151;
+}
+.dark .vp-mobile-header-btn {
+    color: #f3f4f6;
+}
+.vp-mobile-header-btn:hover {
+    background: #f3f4f6;
+}
+.dark .vp-mobile-header-btn:hover {
+    background: #374151;
+}
+.vp-mobile-header-logo {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 1rem;
+    pointer-events: none;
+}
+.vp-mobile-header-logo > * {
+    pointer-events: auto;
+}
+
+/* Mobile Responsive */
+@media (max-width: 767px) {
+    .vp-mobile-header {
+        display: flex;
+    }
+    .vp-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    .vp-sidebar.open {
+        transform: translateX(0);
+        z-index: 60;
+    }
+    .vp-main-content {
+        margin-left: 0;
+        padding-top: 60px;
+    }
+    .vp-sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 35;
+    }
+    .vp-sidebar-overlay.open {
+        display: block;
+    }
+}
+
+/* ==========================================================================
+   Sidebar Form Elements
+   ========================================================================== */
+.vp-sidebar-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background: #ffffff;
+    color: #111827;
+}
+.dark .vp-sidebar-input {
+    background: #111827;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+.vp-sidebar-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.vp-sidebar-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background: #ffffff;
+    color: #111827;
+    cursor: pointer;
+}
+.dark .vp-sidebar-select {
+    background: #111827;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+/* ==========================================================================
+   Login Page Styles
+   ========================================================================== */
+.cp-login-input-wrapper {
+    position: relative;
+}
+.cp-login-input-wrapper .cp-input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    pointer-events: none;
+}
+.cp-login-input-wrapper input {
+    padding-left: 40px;
+}
+.cp-login-input-wrapper .cp-password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    color: #6b7280;
+}
+.cp-login-input-wrapper .cp-password-toggle:hover {
+    color: #374151;
+}
+
+/* ==========================================================================
+   Modal Styles (class-frontend.php)
+   ========================================================================== */
+#vp-create-project-modal {
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    z-index: 999999 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+#vp-create-project-modal.open {
+    display: block !important;
+}
+#vp-create-project-modal .vp-modal-content {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+/* ==========================================================================
+   Admin: Hide "Add New" button on projects list
+   ========================================================================== */
+.post-type-chatpr_project .page-title-action {
+    display: none !important;
+}
+
+/* ==========================================================================
+   User Settings Page Styles
+   ========================================================================== */
+.cp-settings-body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.dark .cp-settings-body {
+    background: #111827;
+}
+.cp-settings-btn-reset {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+/* Override WordPress/theme button styles in settings nav */
+.cp-settings-nav button {
+    background-color: transparent !important;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+.cp-settings-nav button:hover,
+.cp-settings-nav button:focus {
+    background-color: transparent !important;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+/* Spinner animation */
+@keyframes cp-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.cp-spinner,
+.animate-spin {
+    animation: cp-spin 1s linear infinite;
+}
+.cp-btn-disabled,
+button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Login Page Input Wrapper (vp- prefix variant)
+   ========================================================================== */
+.vp-login-input-wrapper {
+    position: relative;
+}
+.vp-login-input-wrapper .vp-input-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.75rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 1;
+}
+.vp-login-input-wrapper .vp-input-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #9ca3af;
+}
+.vp-login-input-wrapper input {
+    padding-left: 2.5rem !important;
+}
+.vp-login-input-wrapper input[type="password"] {
+    padding-right: 2.5rem !important;
+}
+.vp-login-input-wrapper .vp-toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1;
+}
+.vp-login-input-wrapper .vp-toggle-password svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #9ca3af;
+}
+.vp-login-input-wrapper .vp-toggle-password:hover svg {
+    color: #6b7280;
+}
+
+/* ==========================================================================
+   Chat Sidebar (Pro Chat page)
+   ========================================================================== */
+.vp-chat-sidebar {
+    width: 280px;
+    min-width: 280px;
+}
+@media (min-width: 480px) {
+    .vp-chat-sidebar {
+        width: 320px;
+        min-width: 320px;
+    }
+}
+
+/* ==========================================================================
+   Legacy Logo Styles (vp- prefix for project-shell.php)
+   ========================================================================== */
+.vp-logo {
+    font-size: 1.32rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: baseline;
+    text-decoration: none;
+}
+.vp-logo-vector {
+    color: #1e40af;
+    font-weight: 500;
+}
+.dark .vp-logo-vector {
+    color: #60a5fa;
+}
+.vp-logo-projects {
+    font-weight: 700;
+    color: #111827;
+}
+.dark .vp-logo-projects {
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Legacy Navigation Icons (vp- prefix variants)
+   ========================================================================== */
+.vp-nav-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+.vp-nav-icon.active {
+    background: #e5e7eb;
+    color: #1f2937;
+}
+.dark .vp-nav-icon.active {
+    background: #374151;
+    color: #f3f4f6;
+}
+.vp-nav-icon.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Pro Badge Nav (project-shell.php) */
+.vp-pro-badge-nav {
+    position: relative;
+}
+.vp-pro-badge-nav::after {
+    content: 'Pro';
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.vp-pro-badge-nav:hover::after {
+    opacity: 1;
+}
+
+/* Footer Icons (project-shell.php) */
+.vp-footer-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: #9ca3af;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+.vp-footer-icon:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+.dark .vp-footer-icon {
+    color: #6b7280;
+}
+.dark .vp-footer-icon:hover {
+    background: #374151;
+    color: #e5e7eb;
+}
+
+/* Mobile Header Logo Wrapper (project-shell.php) */
+.vp-mobile-header-logo-wrapper {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 5;
+}
+.vp-mobile-header-logo-wrapper .vp-mobile-header-logo {
+    pointer-events: auto;
+    text-decoration: none;
+    font-size: 1rem;
+    display: flex;
+    align-items: baseline;
+}
+
+/* ==========================================================================
+   Main App Shell Styles (shortcode container)
+   ========================================================================== */
+.vp-main-app-container {
+    --vp-bg: #f3f4f6;
+    --vp-bg-secondary: #e5e7eb;
+    --vp-surface: #ffffff;
+    --vp-border: #e5e7eb;
+    --vp-text: #111827;
+    --vp-text-muted: #6b7280;
+    --vp-primary: #2563eb;
+    --vp-primary-hover: #1d4ed8;
+    --tw-text-opacity: 1;
+    --tw-bg-opacity: 1;
+}
+.vp-main-app-container [x-data*="chat("] {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.vp-main-app-container.dark {
+    --dark-bg: #111827;
+    --dark-surface: #1f2937;
+    --dark-border: #374151;
+    --dark-hover: #374151;
+    --vp-bg: #111827;
+    --vp-bg-secondary: #1f2937;
+    --vp-surface: #1f2937;
+    --vp-border: #374151;
+    --vp-text: #f9fafb;
+    --vp-text-muted: #9ca3af;
+}
+.vp-tab-btn {
+    background: transparent;
+    color: var(--vp-text-muted);
+}
+.vp-tab-btn:hover {
+    background: var(--vp-surface);
+    color: var(--vp-text);
+}
+.vp-tab-active {
+    background: var(--vp-surface) !important;
+    color: var(--vp-primary) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.vp-tab-inactive {
+    background: transparent;
+    color: var(--vp-text-muted);
+}
+.vp-app-content::-webkit-scrollbar {
+    width: 6px;
+}
+.vp-app-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+.vp-app-content::-webkit-scrollbar-thumb {
+    background: var(--vp-border);
+    border-radius: 3px;
+}
+.vp-app-content::-webkit-scrollbar-thumb:hover {
+    background: var(--vp-text-muted);
+}
+@media (max-width: 640px) {
+    .vp-app-header nav {
+        gap: 0.125rem !important;
+    }
+    .vp-tab-btn {
+        padding: 0.375rem 0.5rem !important;
+    }
+    .vp-tab-btn span {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   Model Dropdown Styles (Pro Chat)
+   Moved from chat-interface-modern.php for WP guidelines compliance
+   ========================================================================== */
+.cp-model-dropdown-item:hover {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+}
+/* Dark mode: slightly brighter blue for better visibility */
+.dark .cp-model-dropdown-item:hover {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+/* Selected item styling */
+.cp-model-dropdown-item.selected,
+.cp-model-dropdown-item[aria-selected="true"] {
+    background-color: #dbeafe !important;
+    font-weight: 500;
+}
+.dark .cp-model-dropdown-item.selected,
+.dark .cp-model-dropdown-item[aria-selected="true"] {
+    background-color: #1e40af !important;
+    color: #ffffff !important;
+}
+/* Model notification styles */
+.cp-model-notification {
+    background-color: #171717 !important;
+    color: #ffffff !important;
+    z-index: 9999 !important;
+}
+.dark .cp-model-notification {
+    background-color: #404040 !important;
+}
+/* Model filter input - white text in dark mode */
+.dark .cp-model-filter-input {
+    color: #ffffff !important;
+}
+.dark .cp-model-filter-input::placeholder {
+    color: #a3a3a3 !important;
+}
+
+/* ==========================================================================
+   Chat Interface Thinking Wave Animation
+   ========================================================================== */
+.thinking-wave {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 20px;
+}
+.thinking-wave span {
+    width: 3px;
+    background: linear-gradient(180deg, #8b5cf6, #3b82f6, #06b6d4);
+    background-size: 100% 200%;
+    border-radius: 2px;
+    animation: thinking-wave 1s ease-in-out infinite, thinking-gradient 2s ease infinite;
+}
+.thinking-wave span:nth-child(1) { animation-delay: 0s, 0s; }
+.thinking-wave span:nth-child(2) { animation-delay: 0.15s, 0.2s; }
+.thinking-wave span:nth-child(3) { animation-delay: 0.3s, 0.4s; }
+.thinking-wave span:nth-child(4) { animation-delay: 0.45s, 0.6s; }
+.thinking-wave span:nth-child(5) { animation-delay: 0.6s, 0.8s; }
+
+@keyframes thinking-wave {
+    0%, 100% { height: 4px; }
+    50% { height: 20px; }
+}
+
+@keyframes thinking-gradient {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 0% 100%; }
+}

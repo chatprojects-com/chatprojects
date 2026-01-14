@@ -1,0 +1,234 @@
+# Copyright (C) 2024 GPTAdviser
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: ChatProjects 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/chatprojects\n"
+"POT-Creation-Date: 2024-11-29T00:00:00+00:00\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: WP-CLI 2.8.1\n"
+"X-Domain: chatprojects\n"
+
+#: chatprojects.php
+msgid "ChatProjects requires PHP version 7.4 or higher."
+msgstr ""
+
+#: chatprojects.php
+msgid "ChatProjects requires WordPress version 5.8 or higher."
+msgstr ""
+
+#: includes/class-chatprojects.php
+msgid "ChatProjects"
+msgstr ""
+
+#: includes/class-chatprojects.php
+msgid "Settings"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "API Settings"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "OpenAI API Key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Enter your OpenAI API key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Anthropic API Key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Enter your Anthropic API key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Google Gemini API Key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Enter your Gemini API key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Chutes API Key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Enter your Chutes API key"
+msgstr ""
+
+#: admin/views/settings-page.php
+msgid "Save Settings"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "You must be logged in"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Message is required"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Project ID is required"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Access denied"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Free version limit reached (5 projects). Upgrade to Pro for unlimited projects."
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Project created successfully"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "Project deleted successfully"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "File uploaded successfully"
+msgstr ""
+
+#: public/ajax-handlers.php
+msgid "File deleted successfully"
+msgstr ""
+
+#: public/templates/chat-interface.php
+msgid "Send"
+msgstr ""
+
+#: public/templates/chat-interface.php
+msgid "Type your message..."
+msgstr ""
+
+#: public/templates/chat-interface.php
+msgid "New Chat"
+msgstr ""
+
+#: public/templates/projects-list.php
+msgid "Projects"
+msgstr ""
+
+#: public/templates/projects-list.php
+msgid "Create Project"
+msgstr ""
+
+#: public/templates/projects-list.php
+msgid "Delete"
+msgstr ""
+
+#: public/templates/file-manager-ui.php
+msgid "Files"
+msgstr ""
+
+#: public/templates/file-manager-ui.php
+msgid "Upload File"
+msgstr ""
+
+#: public/templates/file-manager-ui.php
+msgid "No files uploaded yet"
+msgstr ""
+
+#: public/templates/user-settings.php
+msgid "User Settings"
+msgstr ""
+
+#: public/templates/user-settings.php
+msgid "Display Name"
+msgstr ""
+
+#: public/templates/user-settings.php
+msgid "Email"
+msgstr ""
+
+#: public/templates/user-settings.php
+msgid "Upgrade to Pro"
+msgstr ""
+
+#: includes/class-security.php
+msgid "Image exceeds server upload limit."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Image exceeds form upload limit."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Image was only partially uploaded."
+msgstr ""
+
+#: includes/class-security.php
+msgid "No image file was uploaded."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Server missing temporary folder."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Failed to write image to disk."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Image upload stopped by extension."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Unknown upload error."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Image file not found."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Invalid image upload."
+msgstr ""
+
+#: includes/class-security.php
+#, php-format
+msgid "Image exceeds maximum size of %s MB."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Invalid image type. Allowed: JPEG, PNG, GIF, WebP."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Invalid image data format."
+msgstr ""
+
+#: includes/class-security.php
+msgid "Failed to decode image data."
+msgstr ""
+
+#: includes/providers/class-chutes-provider.php
+msgid "API key not configured."
+msgstr ""
+
+#: includes/providers/class-chutes-provider.php
+msgid "No messages in thread."
+msgstr ""
+
+#: includes/providers/class-chutes-provider.php
+msgid "No response from Chutes.ai."
+msgstr ""
+
+#: includes/providers/class-chutes-provider.php
+msgid "Invalid Chutes.ai API key."
+msgstr ""

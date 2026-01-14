@@ -1,0 +1,481 @@
+/**
+ * ChatProjects Main CSS
+ * Modern, ChatGPT/Claude-style interface with Tailwind CSS
+ */
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Highlight.js theme (GitHub Dark) */
+@import 'highlight.js/styles/github-dark.css';
+
+/**
+ * Base Styles & Design Tokens
+ */
+@layer base {
+  /* Inter font from Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  /* Root variables for JavaScript access */
+  :root {
+    --chatpr-sidebar-width: 280px;
+    --chatpr-header-height: 64px;
+    --chatpr-input-height: auto;
+    --chatpr-transition-speed: 200ms;
+    --chatpr-transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Base HTML styles */
+  html {
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-sans text-base text-neutral-900 bg-white dark:text-neutral-100 dark:bg-dark-bg;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-dark-bg;
+  }
+
+  /* Smooth scrolling */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 dark:bg-dark-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-400 dark:bg-neutral-600;
+  }
+}
+
+/**
+ * Custom Component Styles
+ */
+@layer components {
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-sidebar-text text-white hover:bg-gray-700 focus:ring-gray-500 active:bg-gray-800 shadow-sm dark:bg-neutral-200 dark:text-gray-900 dark:hover:bg-neutral-300;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-100 text-sidebar-text hover:bg-gray-200 focus:ring-gray-400 dark:bg-dark-elevated dark:text-neutral-100 dark:hover:bg-dark-hover;
+  }
+
+  .btn-ghost {
+    @apply btn text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-400 dark:text-neutral-300 dark:hover:bg-dark-hover;
+  }
+
+  .btn-danger {
+    @apply btn bg-error-600 text-white hover:bg-error-700 focus:ring-error-500 active:bg-error-800;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-lg;
+  }
+
+  /* Input styles */
+  .input {
+    @apply block w-full px-3 py-2 text-sm bg-white border border-neutral-300 rounded-lg shadow-sm placeholder:text-neutral-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:bg-dark-surface dark:border-dark-border dark:text-neutral-100 dark:placeholder:text-neutral-500;
+  }
+
+  .textarea {
+    @apply input resize-none;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl border border-neutral-200 shadow-soft dark:bg-dark-surface dark:border-dark-border;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-medium hover:border-neutral-300 dark:hover:border-neutral-600;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400;
+  }
+
+  .badge-success {
+    @apply badge bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400;
+  }
+
+  .badge-error {
+    @apply badge bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-400;
+  }
+
+  /* Toast notification */
+  .toast {
+    @apply flex items-start gap-3 p-4 bg-white border border-neutral-200 rounded-xl shadow-large dark:bg-dark-elevated dark:border-dark-border;
+  }
+
+  .toast-success {
+    @apply toast border-success-200 dark:border-success-900/30;
+  }
+
+  .toast-error {
+    @apply toast border-error-200 dark:border-error-900/30;
+  }
+
+  .toast-warning {
+    @apply toast border-warning-200 dark:border-warning-900/30;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply relative overflow-hidden bg-neutral-200 dark:bg-dark-elevated rounded;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Modal overlay */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm;
+  }
+
+  .modal-content {
+    @apply relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-large dark:bg-dark-surface;
+  }
+
+  /* Dropdown menu */
+  .dropdown-menu {
+    @apply absolute z-50 mt-2 bg-white border border-neutral-200 rounded-xl shadow-large dark:bg-dark-elevated dark:border-dark-border;
+  }
+
+  .dropdown-item {
+    @apply flex items-center gap-2 w-full px-4 py-2 text-sm text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-dark-hover first:rounded-t-xl last:rounded-b-xl;
+  }
+
+  /* Tab navigation */
+  .tab {
+    @apply flex items-center gap-2 px-4 py-2 text-sm font-medium text-sidebar-textMuted hover:text-sidebar-text hover:bg-sidebar-hover dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-dark-hover rounded-lg transition-colors border border-transparent;
+  }
+
+  .tab-active {
+    @apply tab text-sidebar-text bg-sidebar-hover dark:text-neutral-100 dark:bg-dark-hover border-sidebar-border dark:border-dark-border;
+  }
+}
+
+/**
+ * Utility Classes
+ */
+@layer utilities {
+  /* Hide WordPress admin bar when in full-screen mode */
+  .chatpr-fullscreen {
+    @apply fixed inset-0 z-50;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent;
+  }
+
+  /* Animations */
+  .animate-in {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  /* Truncate text helpers */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/**
+ * Chat-specific styles
+ */
+.chatpr-chat-message {
+  @apply flex gap-3 p-4 rounded-lg;
+}
+
+.chatpr-chat-message-user {
+  @apply chatpr-chat-message bg-neutral-50 dark:bg-dark-elevated;
+}
+
+.chatpr-chat-message-assistant {
+  @apply chatpr-chat-message bg-white dark:bg-dark-surface;
+}
+
+.chatpr-chat-input-wrapper {
+  @apply relative flex items-end gap-2 p-4 bg-white border-t border-neutral-200 dark:bg-dark-surface dark:border-dark-border;
+}
+
+.chatpr-chat-input {
+  @apply flex-1 min-h-[44px] max-h-[200px] px-4 py-3 text-sm bg-neutral-50 border border-neutral-200 rounded-xl resize-none focus:bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:bg-dark-elevated dark:border-dark-border dark:focus:bg-dark-surface;
+}
+
+/**
+ * Chat attachment styles
+ */
+.chatpr-attachment-preview {
+  @apply relative inline-flex items-center;
+}
+
+.chatpr-attachment-preview-image {
+  @apply w-16 h-16 object-cover rounded-lg border border-neutral-200 dark:border-dark-border;
+}
+
+.chatpr-attachment-preview-document {
+  @apply flex flex-col items-center justify-center w-16 h-16 bg-neutral-100 dark:bg-dark-elevated rounded-lg border border-neutral-200 dark:border-dark-border;
+}
+
+.chatpr-attachment-preview-document-icon {
+  @apply w-6 h-6 text-neutral-500 dark:text-neutral-400;
+}
+
+.chatpr-attachment-preview-document-ext {
+  @apply text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase mt-0.5;
+}
+
+.chatpr-attachment-remove {
+  @apply absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center bg-neutral-700 text-white rounded-full text-xs hover:bg-error-600 transition-colors cursor-pointer;
+}
+
+.chatpr-attachment-list {
+  @apply flex flex-wrap gap-2 mb-2;
+}
+
+/* Drag and drop overlay */
+.chatpr-drop-overlay {
+  @apply absolute inset-0 z-50 flex items-center justify-center bg-primary-500/10 border-2 border-dashed border-primary-500 rounded-xl pointer-events-none;
+}
+
+.chatpr-drop-overlay-text {
+  @apply text-sm font-medium text-primary-600 dark:text-primary-400;
+}
+
+/* Attachment button in chat input */
+.chatpr-attach-btn {
+  @apply p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-dark-hover rounded-lg transition-colors cursor-pointer;
+}
+
+.chatpr-attach-btn:hover {
+  @apply text-primary-600 dark:text-primary-400;
+}
+
+/**
+ * Sidebar styles
+ */
+.chatpr-sidebar {
+  @apply fixed top-0 left-0 h-full w-[280px] bg-sidebar-light dark:bg-dark-bg border-r border-sidebar-border dark:border-dark-border z-40 flex flex-col;
+}
+
+.chatpr-sidebar-header {
+  @apply flex items-center justify-between gap-3 p-4 border-b border-sidebar-border dark:border-dark-border;
+}
+
+.chatpr-sidebar-content {
+  @apply flex-1 overflow-y-auto;
+}
+
+.chatpr-sidebar-footer {
+  @apply p-4 border-t border-sidebar-border dark:border-dark-border;
+}
+
+/**
+ * Main content area
+ */
+.chatpr-main-content {
+  @apply ml-[280px] h-screen relative overflow-hidden bg-neutral-50 dark:bg-dark-bg;
+}
+
+.chatpr-main-header {
+  @apply flex items-center justify-between gap-4 px-6 py-4 bg-white border-b border-neutral-200 dark:bg-dark-surface dark:border-dark-border;
+}
+
+.chatpr-main-body {
+  @apply flex-1 overflow-y-auto;
+}
+
+/**
+ * Tab content panels
+ */
+.chatpr-tab-content {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.chatpr-tab-content.active {
+  display: block;
+}
+
+/**
+ * File upload drag-drop zone
+ */
+.chatpr-upload-zone {
+  @apply relative flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-neutral-300 rounded-xl transition-colors hover:border-primary-400 hover:bg-primary-50/50 dark:border-dark-border dark:hover:border-primary-600 dark:hover:bg-primary-900/10;
+}
+
+.chatpr-upload-zone-active {
+  @apply border-primary-500 bg-primary-50 dark:border-primary-600 dark:bg-primary-900/20;
+}
+
+/**
+ * Code block styles
+ */
+.chatpr-code-block {
+  @apply relative my-4 bg-neutral-900 dark:bg-black rounded-xl overflow-hidden shadow-medium;
+}
+
+.chatpr-code-header {
+  @apply flex items-center justify-between px-4 py-2 bg-neutral-800 dark:bg-neutral-950 border-b border-neutral-700;
+}
+
+.chatpr-code-language {
+  @apply text-xs font-medium text-neutral-400 uppercase tracking-wide;
+}
+
+.chatpr-code-copy {
+  @apply flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-700 rounded transition-colors;
+}
+
+.chatpr-code-copy-success {
+  @apply text-success-700 bg-success-50;
+}
+
+.dark .chatpr-code-copy-success {
+  color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.chatpr-code-content {
+  @apply p-0 overflow-x-auto;
+}
+
+.chatpr-code-content pre {
+  @apply m-0 p-4;
+}
+
+.chatpr-code-content code {
+  @apply font-mono text-sm;
+}
+
+/* Override highlight.js defaults for better dark mode */
+.hljs {
+  @apply bg-transparent;
+}
+
+/* Table wrapper for responsive tables in markdown */
+.chatpr-table-wrapper {
+  @apply overflow-x-auto my-4 rounded-lg border border-neutral-200 dark:border-dark-border;
+}
+
+.chatpr-table-wrapper table {
+  @apply min-w-full divide-y divide-neutral-200 dark:divide-dark-border;
+}
+
+.chatpr-table-wrapper thead {
+  @apply bg-neutral-50 dark:bg-dark-elevated;
+}
+
+.chatpr-table-wrapper th {
+  @apply px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider;
+}
+
+.chatpr-table-wrapper td {
+  @apply px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100;
+}
+
+.chatpr-table-wrapper tbody tr {
+  @apply hover:bg-neutral-50 dark:hover:bg-dark-hover transition-colors;
+}
+
+/**
+ * Responsive utilities
+ */
+@media (max-width: 768px) {
+  .chatpr-sidebar {
+    @apply -translate-x-full transition-transform;
+  }
+
+  .chatpr-sidebar-open {
+    @apply translate-x-0;
+  }
+
+  .chatpr-main-content {
+    @apply ml-0;
+  }
+}
+
+/**
+ * Print styles
+ */
+@media print {
+  .chatpr-sidebar,
+  .chatpr-main-header,
+  .chatpr-chat-input-wrapper {
+    @apply hidden;
+  }
+
+  .chatpr-main-content {
+    @apply ml-0;
+  }
+}

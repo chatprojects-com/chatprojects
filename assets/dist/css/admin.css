@@ -1,0 +1,84 @@
+/**
+ * ChatProjects - Admin Styles
+ * Minimal styles for WordPress admin area
+ */
+
+/* Admin page wrapper */
+.chatprojects-admin-wrap {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+/* Settings page styling */
+.vp-settings-form {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.vp-settings-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.vp-settings-form input[type="text"],
+.vp-settings-form input[type="password"],
+.vp-settings-form textarea,
+.vp-settings-form select {
+    width: 100%;
+    max-width: 400px;
+}
+
+.vp-settings-form .description {
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Notice styling */
+.vp-notice {
+    padding: 15px;
+    margin: 15px 0;
+    border-left: 4px solid #2271b1;
+    background: #f0f6fc;
+}
+
+.vp-notice.success {
+    border-color: #00a32a;
+    background: #d7ffd9;
+}
+
+.vp-notice.error {
+    border-color: #d63638;
+    background: #ffebe8;
+}
+
+/* Free version upgrade prompt */
+.vp-upgrade-prompt {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.vp-upgrade-prompt h3 {
+    color: white;
+    margin-top: 0;
+}
+
+.vp-upgrade-prompt .button {
+    background: white;
+    color: #667eea;
+    border: none;
+    font-weight: 600;
+}
+
+.vp-upgrade-prompt .button:hover {
+    background: #f0f0f0;
+    color: #764ba2;
+}
