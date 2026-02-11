@@ -75,11 +75,11 @@ class Chat_Interface {
             'openrouter' => 'OpenRouter_Provider',
         );
 
-        if (!isset($provider_map[$provider])) {
+        if (!isset($provider_map[ $provider ])) {
             return new \WP_Error('invalid_provider', __('Invalid AI provider.', 'chatprojects'));
         }
 
-        $class_name = 'ChatProjects\\Providers\\' . $provider_map[$provider];
+        $class_name = 'ChatProjects\\Providers\\' . $provider_map[ $provider ];
 
         if (!class_exists($class_name)) {
             return new \WP_Error('provider_not_found', __('Provider class not found.', 'chatprojects'));
@@ -146,9 +146,9 @@ class Chat_Interface {
      * Send message to general chat
      * Uses local message storage + provider run_completion
      *
-     * @param int $chat_id Chat ID
+     * @param int    $chat_id Chat ID
      * @param string $message Message content
-     * @param array $images Optional array of base64 image data URLs
+     * @param array  $images Optional array of base64 image data URLs
      * @return array|WP_Error Message data or error
      */
     public function send_general_message($chat_id, $message, $images = array()) {
@@ -193,8 +193,8 @@ class Chat_Interface {
         // If current message has images, update the last message to include them
         if (!empty($images) && !empty($messages)) {
             $last_idx = count($messages) - 1;
-            if ($messages[$last_idx]['role'] === 'user') {
-                $messages[$last_idx]['images'] = $images;
+            if ($messages[ $last_idx ]['role'] === 'user') {
+                $messages[ $last_idx ]['images'] = $images;
             }
         }
 
@@ -271,9 +271,14 @@ class Chat_Interface {
                 'created_at' => $message['created_at'],
             );
 
-            // Include images from metadata if present
-            if (!empty($message['metadata']) && isset($message['metadata']['images'])) {
-                $formatted_message['images'] = $message['metadata']['images'];
+            // Include full metadata for internal use (response_id for OpenAI continuity).
+            if (!empty($message['metadata'])) {
+                $formatted_message['metadata'] = $message['metadata'];
+
+                // Also include images at top level for backward compatibility.
+                if (isset($message['metadata']['images'])) {
+                    $formatted_message['images'] = $message['metadata']['images'];
+                }
             }
 
             $formatted[] = $formatted_message;
@@ -322,7 +327,7 @@ class Chat_Interface {
     /**
      * Create a new project chat
      *
-     * @param int $project_id Project ID
+     * @param int    $project_id Project ID
      * @param string $title Chat title (optional)
      * @return int|WP_Error Chat ID or error
      */
@@ -371,7 +376,7 @@ class Chat_Interface {
     /**
      * Send message to project chat (using Responses API with file search)
      *
-     * @param int $chat_id Chat ID
+     * @param int    $chat_id Chat ID
      * @param string $message Message content
      * @return array|WP_Error Message data or error
      */
@@ -412,51 +417,46 @@ class Chat_Interface {
         // Get model from project or use default
         $model = get_post_meta($chat->project_id, '_cp_model', true);
         if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2');
+            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
         }
 
         // Save user message to local storage
         $this->message_store->save_message($chat_id, 'user', $message);
 
-        // Build conversation context from history
-        $history = $this->message_store->get_recent_messages($chat_id, 10);
+        // Get last response_id from previous assistant message for conversation chaining
+        $last_response_id = $this->message_store->get_last_response_id($chat_id);
 
-        // Build input for Responses API - include conversation context
-        $conversation_context = '';
-        foreach ($history as $msg) {
-            if ($msg['role'] === 'user') {
-                $conversation_context .= "User: " . $msg['content'] . "\n\n";
-            } else if ($msg['role'] === 'assistant') {
-                $conversation_context .= "Assistant: " . $msg['content'] . "\n\n";
-            }
-        }
-
-        // The current message with context
-        $input_with_context = $conversation_context . "User: " . $message;
-
-        // Call Responses API with file_search
+        // Call Responses API with file_search and previous_response_id
         $response = $this->api->create_response_with_filesearch(
-            $input_with_context,
+            $message,
             $vector_store_id,
             $model,
             $instructions,
-            array('max_num_results' => 5)
+            array('max_num_results' => 5),
+            $last_response_id
         );
 
         if (is_wp_error($response)) {
             return $response;
         }
 
-        // Extract response content
+        // Extract response content and response_id for conversation chaining
         $assistant_content = $this->api->extract_response_text($response);
         $sources = $this->extract_sources_from_response($response);
+        $new_response_id = isset($response['id']) ? $response['id'] : null;
 
         if (empty($assistant_content)) {
             return new \WP_Error('no_response', __('No response from assistant.', 'chatprojects'));
         }
 
-        // Save assistant message
-        $metadata = !empty($sources) ? array('sources' => $sources) : array();
+        // Save assistant message with response_id for conversation chaining
+        $metadata = array();
+        if (!empty($sources)) {
+            $metadata['sources'] = $sources;
+        }
+        if (!empty($new_response_id)) {
+            $metadata['response_id'] = $new_response_id;
+        }
         $this->message_store->save_message($chat_id, 'assistant', $assistant_content, $metadata);
 
         // Update chat metadata
@@ -508,8 +508,8 @@ class Chat_Interface {
         $unique_sources = array();
         foreach ($sources as $source) {
             $key = $source['file_id'];
-            if (!isset($unique_sources[$key])) {
-                $unique_sources[$key] = $source;
+            if (!isset($unique_sources[ $key ])) {
+                $unique_sources[ $key ] = $source;
             }
         }
 
@@ -651,7 +651,7 @@ class Chat_Interface {
     /**
      * Update chat title
      *
-     * @param int $chat_id Chat ID
+     * @param int    $chat_id Chat ID
      * @param string $title New title
      * @return bool|WP_Error True on success, error on failure
      */

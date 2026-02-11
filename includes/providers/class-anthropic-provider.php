@@ -37,11 +37,9 @@ class Anthropic_Provider extends Base_Provider {
         $this->identifier = 'anthropic';
         $this->api_base_url = self::API_BASE_URL;
         $this->models = array(
-            'claude-opus-4-5-20251101' => 'Claude Opus 4.5',
-            'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5',
-            'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5',
-            'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet',
-            'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku',
+            'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
+            'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (Fast)',
+            'claude-opus-4-5-20251101' => 'Claude Opus 4.5 (Most Capable)',
         );
 
         parent::__construct();
@@ -114,143 +112,108 @@ class Anthropic_Provider extends Base_Provider {
     /**
      * Stream completion with callback
      *
+     * Uses WordPress HTTP API with http_api_curl hook for SSE streaming.
+     *
      * @param array    $messages Array of message objects
      * @param string   $model    Model identifier
      * @param callable $callback Callback for each chunk
      * @param array    $options  Additional options
      * @return void
      */
-    public function stream_completion($messages, $model, $callback, $options = array()) {
-        if (!$this->has_api_key()) {
-            $callback(array('type' => 'error', 'content' => __('Anthropic API key is not configured.', 'chatprojects')));
+    public function stream_completion( $messages, $model, $callback, $options = array() ) {
+        if ( ! $this->has_api_key() ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Anthropic API key is not configured.', 'chatprojects' ) ) );
             return;
         }
 
-        if (empty($messages)) {
-            $callback(array('type' => 'error', 'content' => __('No messages provided.', 'chatprojects')));
+        if ( empty( $messages ) ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'No messages provided.', 'chatprojects' ) ) );
             return;
         }
 
-        $formatted_messages = $this->format_messages_for_claude($messages);
+        $formatted_messages = $this->format_messages_for_claude( $messages );
 
         $data = array(
-            'model' => $model,
-            'messages' => $formatted_messages,
-            'max_tokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 4096,
-            'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-            'stream' => true,
+            'model'       => $model,
+            'messages'    => $formatted_messages,
+            'max_tokens'  => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 4096,
+            'temperature' => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
+            'stream'      => true,
         );
 
-        if (!empty($options['instructions'])) {
+        if ( ! empty( $options['instructions'] ) ) {
             $data['system'] = $options['instructions'];
         }
 
         $url = self::API_BASE_URL . 'messages';
 
-        // cURL is required for Server-Sent Events (SSE) streaming.
-        // WordPress HTTP API (wp_remote_*) does not support:
-        // 1. CURLOPT_WRITEFUNCTION callbacks for real-time chunk processing
-        // 2. Streaming responses - it waits for the entire response before returning
-        // 3. Progressive data handling needed for AI chat streaming
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_init -- Required for SSE streaming; WP HTTP API lacks callback support
-        $ch = curl_init($url);
+        // Headers for WordPress HTTP API (associative array format).
+        $headers = array(
+            'x-api-key'         => $this->api_key,
+            'anthropic-version' => self::API_VERSION,
+            'Content-Type'      => 'application/json',
+            'Accept'            => 'text/event-stream',
+        );
 
-        if ($ch === false) {
-            $callback(array('type' => 'error', 'content' => __('Failed to initialize streaming.', 'chatprojects')));
-            return;
-        }
+        // SSE parser for Anthropic's response format.
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
+            $buffer .= $chunk;
 
-        $buffer = '';
+            // Process complete SSE events (separated by double newlines).
+            while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
+                $event  = substr( $buffer, 0, $pos );
+                $buffer = substr( $buffer, $pos + 2 );
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt_array -- cURL required for SSE streaming
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => wp_json_encode($data),
-            CURLOPT_HTTPHEADER     => array(
-                'x-api-key: ' . $this->api_key,
-                'anthropic-version: ' . self::API_VERSION,
-                'Content-Type: application/json',
-                'Accept: text/event-stream',
-            ),
-            CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_TIMEOUT        => 300,
-            CURLOPT_CONNECTTIMEOUT => 30,
-            CURLOPT_BUFFERSIZE     => 128,
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- cURL required for SSE streaming
-            CURLOPT_WRITEFUNCTION  => function($ch, $chunk) use ($callback, &$buffer) {
-                $buffer .= $chunk;
+                $event = trim( $event );
+                if ( empty( $event ) ) {
+                    continue;
+                }
 
-                // Process complete SSE events
-                while (($pos = strpos($buffer, "\n\n")) !== false) {
-                    $event = substr($buffer, 0, $pos);
-                    $buffer = substr($buffer, $pos + 2);
+                // Parse event type and data from SSE format.
+                $event_type = null;
+                $event_data = null;
 
-                    $event = trim($event);
-                    if (empty($event)) {
-                        continue;
-                    }
-
-                    // Parse event type and data
-                    $event_type = null;
-                    $event_data = null;
-
-                    $lines = explode("\n", $event);
-                    foreach ($lines as $line) {
-                        if (strpos($line, 'event: ') === 0) {
-                            $event_type = trim(substr($line, 7));
-                        } elseif (strpos($line, 'data: ') === 0) {
-                            $event_data = trim(substr($line, 6));
-                        }
-                    }
-
-                    // Skip non-data events
-                    if (empty($event_data)) {
-                        continue;
-                    }
-
-                    $parsed = json_decode($event_data, true);
-                    if (!$parsed) {
-                        continue;
-                    }
-
-                    // Handle content_block_delta events (contains the actual text)
-                    if ($event_type === 'content_block_delta' && isset($parsed['delta']['text'])) {
-                        $callback(array('type' => 'content', 'content' => $parsed['delta']['text']));
-                    }
-
-                    // Handle errors
-                    if (isset($parsed['error'])) {
-                        $error_msg = isset($parsed['error']['message']) ? $parsed['error']['message'] : 'Unknown Anthropic error';
-                        $callback(array('type' => 'error', 'content' => $error_msg));
+                $lines = explode( "\n", $event );
+                foreach ( $lines as $line ) {
+                    if ( strpos( $line, 'event: ' ) === 0 ) {
+                        $event_type = trim( substr( $line, 7 ) );
+                    } elseif ( strpos( $line, 'data: ' ) === 0 ) {
+                        $event_data = trim( substr( $line, 6 ) );
                     }
                 }
 
-                return strlen($chunk);
-            },
-        ));
+                // Skip non-data events.
+                if ( empty( $event_data ) ) {
+                    continue;
+                }
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_exec -- cURL required for SSE streaming
-        $result = curl_exec($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_errno -- cURL required for SSE streaming
-        $error_no = curl_errno($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_error -- cURL required for SSE streaming
-        $error_msg = curl_error($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- cURL required for SSE streaming
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_close -- cURL required for SSE streaming
-        curl_close($ch);
+                $parsed = json_decode( $event_data, true );
+                if ( ! $parsed ) {
+                    continue;
+                }
 
-        if ($error_no !== 0) {
-            $callback(array('type' => 'error', 'content' => __('Connection error: ', 'chatprojects') . $error_msg));
+                // Handle content_block_delta events (contains the actual text).
+                if ( 'content_block_delta' === $event_type && isset( $parsed['delta']['text'] ) ) {
+                    $callback( array( 'type' => 'content', 'content' => $parsed['delta']['text'] ) );
+                }
+
+                // Handle errors.
+                if ( isset( $parsed['error'] ) ) {
+                    $error_msg = isset( $parsed['error']['message'] ) ? $parsed['error']['message'] : 'Unknown Anthropic error';
+                    $callback( array( 'type' => 'error', 'content' => $error_msg ) );
+                }
+            }
+        };
+
+        // Execute streaming request using WordPress HTTP API.
+        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+
+        if ( true !== $result ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
             return;
         }
 
-        if ($http_code >= 400) {
-            $callback(array('type' => 'error', 'content' => __('API error (HTTP ', 'chatprojects') . $http_code . ')'));
-            return;
-        }
-
-        $callback(array('type' => 'done'));
+        $callback( array( 'type' => 'done' ) );
     }
 
     /**
@@ -268,7 +231,7 @@ class Anthropic_Provider extends Base_Provider {
 
         // Simple test request
         $data = array(
-            'model' => 'claude-3-haiku-20240307',
+            'model' => 'claude-haiku-4-5-20251001',
             'max_tokens' => 10,
             'messages' => array(
                 array(

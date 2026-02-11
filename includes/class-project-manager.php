@@ -61,7 +61,7 @@ class Project_Manager {
             'post_status' => 'publish',
             'post_author' => get_current_user_id(),
             'instructions' => '',
-            'model' => get_option('chatprojects_default_model', 'gpt-5.2'),
+            'model' => get_option('chatprojects_default_model', 'gpt-5.2-chat-latest'),
             'tools' => array(array('type' => 'file_search')),
             'sharing_mode' => 'private',
             'shared_users' => array(),
@@ -109,7 +109,7 @@ class Project_Manager {
     /**
      * Update project
      *
-     * @param int $project_id Project ID
+     * @param int   $project_id Project ID
      * @param array $args Update arguments
      * @return bool|WP_Error True on success, error on failure
      */
@@ -229,7 +229,7 @@ class Project_Manager {
     /**
      * Get user's projects
      *
-     * @param int $user_id User ID (optional, defaults to current user)
+     * @param int   $user_id User ID (optional, defaults to current user)
      * @param array $args Query arguments
      * @return array Array of projects
      */
@@ -254,9 +254,9 @@ class Project_Manager {
     /**
      * Save project meta on post save
      *
-     * @param int $post_id Post ID
+     * @param int     $post_id Post ID
      * @param WP_Post $post Post object
-     * @param bool $update Whether this is an update
+     * @param bool    $update Whether this is an update
      */
     public function save_project_meta($post_id, $post, $update) {
         // Skip autosave
@@ -300,7 +300,7 @@ class Project_Manager {
 
         $model = get_post_meta($project_id, '_cp_model', true);
         if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2');
+            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
             update_post_meta($project_id, '_cp_model', $model);
         }
 
@@ -378,7 +378,7 @@ class Project_Manager {
         $new_columns = array();
         
         foreach ($columns as $key => $value) {
-            $new_columns[$key] = $value;
+            $new_columns[ $key ] = $value;
             
             if ($key === 'title') {
                 $new_columns['vector_store_id'] = __('Vector Store', 'chatprojects');
@@ -392,7 +392,7 @@ class Project_Manager {
      * Render custom columns
      *
      * @param string $column Column name
-     * @param int $post_id Post ID
+     * @param int    $post_id Post ID
      */
     public function render_project_columns($column, $post_id) {
         switch ($column) {

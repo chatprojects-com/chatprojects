@@ -1,11 +1,11 @@
 === ChatProjects ===
-Contributors: gptadviser, chatprojects
+Contributors: chatprojects
 Donate link: https://chatprojects.com/
-Tags: ai, chatgpt, openai, chatbot, project management
+Tags: ai, chatgpt, openai, chatbot, project management, vector store, responses api
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,11 +13,13 @@ AI-powered project management with multi-provider chat. Vector store file search
 
 == Description ==
 
-**ChatProjects** is a powerful WordPress plugin that brings AI-powered project management and chat capabilities directly to your website. Features vector store chat with OpenAI's Responses API for intelligent file search. Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.2), Anthropic (Claude), Google (Gemini 3 Pro), Chutes (DeepSeek), and OpenRouter.
+**ChatProjects** is the easiest way to chat with your files and documents in WordPress. AI-powered project chat with OpenAI Responses API vector store backend for intelligent file search.
+
+Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.2), Anthropic (Claude), Google (Gemini 3 Pro), Chutes (DeepSeek), and OpenRouter.
 
 = Key Features =
 
-* **Multi-Provider Chat** - Chat with GPT-5.2, Claude, Gemini 3 Pro, DeepSeek, and 100+ models via OpenRouter
+* **Multi-Provider Chat** - Chat with GPT-5.2, Claude 4.5, Gemini 3, DeepSeek, and 100+ models via OpenRouter
 * **Project Management** - Create projects with OpenAI's file search capability
 * **File Upload** - Upload documents (PDF, TXT, DOC) to your project's vector store
 * **Custom Instructions** - Set custom assistant instructions for each project
@@ -28,9 +30,9 @@ AI-powered project management with multi-provider chat. Vector store file search
 
 = Supported AI Providers =
 
-1. **OpenAI** - GPT-5.2, GPT-5.1, GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo
-2. **Anthropic** - Claude Sonnet 4, Claude 3.5 Sonnet, Claude 3 Haiku
-3. **Google Gemini** - Gemini 3 Pro, Gemini 2.5 Pro, Gemini 2.0 Flash
+1. **OpenAI** - GPT-5.2, GPT-5 Mini, GPT-4.1, GPT-4o, o4-mini, o3-mini
+2. **Anthropic** - Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.5
+3. **Google Gemini** - Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 Pro, Gemini 2.5 Flash
 4. **Chutes** - DeepSeek V3, DeepSeek R1, Qwen, Mistral, Llama
 5. **OpenRouter** - Access 100+ models from various providers
 
@@ -53,7 +55,7 @@ AI-powered project management with multi-provider chat. Vector store file search
 1. Upload the `chatprojects` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Go to ChatProjects > Settings to add your API keys
-4. Access the interface on https://yourdomain.com/projects/ or Create a page and add `[chatprojects_main]` shortcode
+4. Access the interface on https://yourdomain.com/chatprojects/ or Create a page and add `[chatprojects_main]` shortcode
 5. Start chatting!
 
 = Getting API Keys =
@@ -82,9 +84,9 @@ AI-powered project management with multi-provider chat. Vector store file search
 
 == Frequently Asked Questions ==
 
-= Do I need all 4 API keys? =
+= Do I need all 5 API keys? =
 
-No! You only need one API key to start chatting. Add more providers as needed.
+No! You only need one API key to start chatting. Add more providers as needed. Note: An OpenAI API key is required for Projects and document chat (vector store) features.
 
 = Where are my API keys stored? =
 
@@ -112,14 +114,42 @@ Use the WordPress.org support forum or email support@chatprojects.com
 
 == Screenshots ==
 
-1. Main chat interface with provider selection
-2. Project management dashboard
-3. File upload and vector store management
-4. Settings page with API key configuration
-5. Dark mode support
-6. Mobile responsive design
+1. Project management dashboard
+2. Main chat interface with provider selection
+3. Project assistant with ResponsesAPI powered OpenAI Vector Store chat
+4. Edit project assistant instructions 
+5. Upload files to OpenAI Vector Store from device or media library
+6. Chat administration settings and adding API keys
 
 == Changelog ==
+
+= 1.1.4 =
+* Fixed WordPress media library modal text invisible in dark mode
+* Fixed wp.media dependency loading on ChatProjects pages
+
+= 1.1.3 =
+* Fixed theme CSS conflicts (Astra, Elementor, and others) breaking ChatProjects UI
+* ChatProjects pages now fully isolate from all theme and plugin styles
+* Fixed missing dark/light toggle and wrong button colors on themed sites
+
+= 1.1.2 =
+* Fixed Elementor CSS conflicts causing invisible dark/light toggle button
+* Fixed Elementor popup/form HTML rendering on ChatProjects pages
+* Improved button hover colors and styles
+* Added comprehensive Elementor asset blocking on ChatProjects pages
+* Better plugin compatibility with page builders
+
+= 1.1.1 =
+* Fixed Alpine.js initialization timing issue that prevented UI components from loading
+* Improved JavaScript module loading reliability
+
+= 1.1.0 =
+* **IMPORTANT:** Changed plugin URLs to prevent conflicts with existing WordPress pages
+* New URLs: /chatprojects/ (was /projects/), /cp-settings/ (was /settings/), /cp-chat/ (was /pro-chat/)
+* Old URLs automatically redirect to new locations (backwards compatible)
+* Added conflict detection for URL slugs on plugin activation
+* Added developer filter hooks for slug customization
+* Improved deactivation cleanup
 
 = 1.0.0 =
 * Initial release
@@ -131,6 +161,9 @@ Use the WordPress.org support forum or email support@chatprojects.com
 * Shortcode embedding [chatprojects_main]
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+**IMPORTANT URL CHANGE:** Plugin URLs have changed to prevent conflicts. Old URLs (/projects/, /settings/, /pro-chat/) will automatically redirect to new URLs (/chatprojects/, /cp-settings/, /cp-chat/). Update your bookmarks. If you experience issues, go to Settings > Permalinks and click Save.
 
 = 1.0.0 =
 Initial release. Add your API keys and start chatting with AI!
@@ -239,15 +272,10 @@ The source files are located in `assets/src/` and compile to `assets/dist/`.
 
 = Technical Notes =
 
-**cURL Usage for SSE Streaming:**
-This plugin uses cURL directly (instead of WordPress HTTP API) for AI provider streaming responses. This is necessary because:
+**Streaming via WordPress HTTP API:**
+This plugin uses the WordPress HTTP API (`wp_remote_post`) for AI provider streaming. For real-time SSE chunk handling, it leverages the `http_api_curl` action hook to attach a `CURLOPT_WRITEFUNCTION` callback only when the WordPress HTTP API selects the cURL transport. This preserves WordPress compatibility (proxy settings, transport fallback, and security hooks) while still enabling low-latency streaming.
 
-1. Server-Sent Events (SSE) require real-time chunk-by-chunk data processing
-2. WordPress HTTP API (`wp_remote_*`) waits for the complete response before returning
-3. cURL's `CURLOPT_WRITEFUNCTION` callback enables processing each chunk as it arrives
-4. This provides users with real-time streaming chat responses instead of waiting for complete API responses
-
-The WordPress HTTP API does not support streaming callbacks, making cURL the only viable option for this functionality.
+If cURL is not available, the HTTP API will fall back to other transports and the request will still complete (though streaming callbacks are only available when cURL is the active transport).
 
 **PHP Configuration:**
 SSE streaming requires specific PHP settings (disabled output buffering, compression off) which are set only within the streaming endpoint functions, not globally.

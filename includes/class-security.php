@@ -222,7 +222,7 @@ class Security {
      * Check user capability
      *
      * @param string $capability Required capability
-     * @param int $user_id User ID (optional, defaults to current user)
+     * @param int    $user_id User ID (optional, defaults to current user)
      * @return bool
      */
     public static function user_can($capability, $user_id = null) {
@@ -260,7 +260,7 @@ class Security {
      * Validate file type
      *
      * @param string $file_path File path
-     * @param array $allowed_types Allowed file extensions
+     * @param array  $allowed_types Allowed file extensions
      * @return bool
      */
     public static function validate_file_type($file_path, $allowed_types = array()) {
@@ -313,8 +313,8 @@ class Security {
                 'cpp'  => array('text/x-c++src', 'text/plain'),
             );
 
-            if (isset($mime_map[$extension])) {
-                if (!in_array($detected_mime, $mime_map[$extension], true)) {
+            if (isset($mime_map[ $extension ])) {
+                if (!in_array($detected_mime, $mime_map[ $extension ], true)) {
                     return false;
                 }
             }
@@ -395,9 +395,9 @@ class Security {
      * Rate limit check
      *
      * @param string $action Action name
-     * @param int $user_id User ID
-     * @param int $limit Number of attempts allowed
-     * @param int $period Time period in seconds
+     * @param int    $user_id User ID
+     * @param int    $limit Number of attempts allowed
+     * @param int    $period Time period in seconds
      * @return bool True if allowed, false if rate limited
      */
     public static function check_rate_limit($action, $user_id, $limit = 10, $period = 60) {
@@ -431,7 +431,7 @@ class Security {
      *
      * @param string $event Event description
      * @param string $severity Severity level (info, warning, error)
-     * @param array $context Additional context
+     * @param array  $context Additional context
      */
     public static function log_security_event($event, $severity = 'info', $context = array()) {
         // Security logging disabled for production
@@ -504,7 +504,7 @@ class Security {
      * Validate an uploaded image file for chat
      *
      * @param array $file $_FILES array element
-     * @param int $max_size_mb Maximum file size in MB (default 10)
+     * @param int   $max_size_mb Maximum file size in MB (default 10)
      * @return true|\WP_Error True if valid, WP_Error otherwise
      */
     public static function validate_chat_image($file, $max_size_mb = 10) {
@@ -520,8 +520,8 @@ class Security {
                 UPLOAD_ERR_EXTENSION  => __('Image upload stopped by extension.', 'chatprojects'),
             );
             $error_code = isset($file['error']) ? $file['error'] : UPLOAD_ERR_NO_FILE;
-            $message = isset($error_messages[$error_code])
-                ? $error_messages[$error_code]
+            $message = isset($error_messages[ $error_code ])
+                ? $error_messages[ $error_code ]
                 : __('Unknown upload error.', 'chatprojects');
             return new \WP_Error('upload_error', $message);
         }
@@ -571,7 +571,7 @@ class Security {
      * Used for clipboard paste images that come as base64
      *
      * @param string $data_url Base64 data URL (data:image/type;base64,...)
-     * @param int $max_size_mb Maximum decoded size in MB (default 10)
+     * @param int    $max_size_mb Maximum decoded size in MB (default 10)
      * @return true|\WP_Error True if valid, WP_Error otherwise
      */
     public static function validate_base64_image($data_url, $max_size_mb = 10) {

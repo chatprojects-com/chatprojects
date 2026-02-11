@@ -68,7 +68,7 @@ class Metaboxes {
 
         // Vector store ID (no assistant needed with Responses API)
         $vector_store_id = get_post_meta($post->ID, '_cp_vector_store_id', true);
-        $model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', 'gpt-5.2');
+        $model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
         $instructions = get_post_meta($post->ID, '_cp_instructions', true);
 
         include CHATPROJECTS_PLUGIN_DIR . 'admin/views/project-meta.php';
@@ -215,7 +215,7 @@ class Metaboxes {
     /**
      * Save project meta
      *
-     * @param int $post_id Post ID
+     * @param int     $post_id Post ID
      * @param WP_Post $post Post object
      */
     public function save_project_meta($post_id, $post) {
@@ -259,7 +259,7 @@ class Metaboxes {
     /**
      * Save prompt meta
      *
-     * @param int $post_id Post ID
+     * @param int     $post_id Post ID
      * @param WP_Post $post Post object
      */
     public function save_prompt_meta($post_id, $post) {

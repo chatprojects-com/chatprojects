@@ -52,7 +52,7 @@ $project_count = count($projects);
             </p>
         </div>
         <button
-            @click="$dispatch('vp:project:create')"
+            @click="$dispatch('chatpr:project:create')"
             style="display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: var(--vp-primary); color: white; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 500; cursor: pointer;"
         >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +75,7 @@ $project_count = count($projects);
             <?php esc_html_e('Create your first project to get started with AI-powered assistance.', 'chatprojects'); ?>
         </p>
         <button
-            @click="$dispatch('vp:project:create')"
+            @click="$dispatch('chatpr:project:create')"
             style="padding: 0.75rem 1.5rem; background: var(--vp-primary); color: white; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 500; cursor: pointer;"
         >
             <?php esc_html_e('Create Your First Project', 'chatprojects'); ?>
@@ -140,7 +140,7 @@ $project_count = count($projects);
 <!-- Create Project Modal -->
 <div
     x-data="{ showCreateModal: false }"
-    @vp:project:create.window="showCreateModal = true"
+    @chatpr:project:create.window="showCreateModal = true"
 >
     <template x-if="showCreateModal">
         <div

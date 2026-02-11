@@ -47,6 +47,7 @@ Thumbs.db
 tests/
 phpunit.xml
 phpcs.xml
+phpcs.xml.dist
 
 # Composer (if used)
 composer.json

@@ -3,7 +3,7 @@
  * Plugin Name: ChatProjects
  * Plugin URI: https://chatprojects.com/chatprojects
  * Description: AI-powered project management with multi-provider chat support. Vector store chat with OpenAI Responses API. Chat with GPT-5, Claude, Gemini, and more using your own API keys.
- * Version: 1.0.0
+ * Version: 1.1.4
  * Author: chatprojects.com
  * Author URI: https://chatprojects.com
  * License: GPL v2 or later
@@ -22,7 +22,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CHATPROJECTS_VERSION', '1.0.0');
+define('CHATPROJECTS_VERSION', '1.1.4');
 define('CHATPROJECTS_PLUGIN_FILE', __FILE__);
 define('CHATPROJECTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CHATPROJECTS_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -274,54 +274,10 @@ function chatprojects_activate() {
 
     ChatProjects\Installer::activate();
 
-    // Create the single shared project for Free version
-    chatprojects_create_shared_project();
-
     // Set activation flag
     update_option('chatprojects_activated', time());
 }
 register_activation_hook(__FILE__, 'chatprojects_activate');
-
-/**
- * Create shared project for Free version
- * All users share this single project
- */
-function chatprojects_create_shared_project() {
-    // Check if shared project already exists
-    $existing = get_posts(array(
-        'post_type' => 'chatpr_project',
-        'posts_per_page' => 1,
-        'post_status' => 'publish',
-        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Required to find shared project
-        'meta_key' => '_cp_shared_project',
-        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Required to find shared project
-        'meta_value' => '1',
-    ));
-
-    if (!empty($existing)) {
-        return; // Already exists
-    }
-
-    // Get first admin user as author
-    $admins = get_users(array('role' => 'administrator', 'number' => 1));
-    $author_id = !empty($admins) ? $admins[0]->ID : 1;
-
-    // Create the shared project
-    $project_id = wp_insert_post(array(
-        'post_type' => 'chatpr_project',
-        'post_title' => __('Shared Project', 'chatprojects'),
-        'post_content' => __('This is the shared project for all users. Upload files and chat with AI assistants.', 'chatprojects'),
-        'post_status' => 'publish',
-        'post_author' => $author_id,
-    ));
-
-    if ($project_id && !is_wp_error($project_id)) {
-        // Mark as shared project
-        update_post_meta($project_id, '_cp_shared_project', '1');
-
-        // Initialize OpenAI Assistant and Vector Store will happen on first use
-    }
-}
 
 /**
  * Plugin deactivation hook

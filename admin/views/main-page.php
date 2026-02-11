@@ -81,11 +81,11 @@ call_user_func(function () {
                     <h3 style="margin: 0 0 0.5rem 0;"><?php esc_html_e('Configure OpenAI API Key', 'chatprojects'); ?></h3>
                     <p style="margin: 0; color: #64748b;">
                         <?php esc_html_e('Go to Settings and enter your OpenAI API key to enable AI features.', 'chatprojects'); ?>
-                        <?php if (!$api_key_configured): ?>
+                        <?php if (!$api_key_configured) : ?>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=chatprojects-settings')); ?>" style="color: #3b82f6;">
                             <?php esc_html_e('Configure Now', 'chatprojects'); ?> →
                         </a>
-                        <?php else: ?>
+                        <?php else : ?>
                         <span style="color: #10b981;">✓ <?php esc_html_e('Completed', 'chatprojects'); ?></span>
                         <?php endif; ?>
                     </p>

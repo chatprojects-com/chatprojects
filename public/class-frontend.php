@@ -27,12 +27,16 @@ class Frontend {
         add_action('init', array($this, 'maybe_flush_rewrite_rules'), 999);
 
         add_action('init', array($this, 'init'));
+        add_action('template_redirect', array($this, 'redirect_old_slugs'), 1); // Redirect old slugs first
         add_action('template_redirect', array($this, 'redirect_projects_users'));
+        add_action('template_redirect', array($this, 'disable_elementor_on_chatprojects_pages'), 5); // Disable Elementor early
+        add_action('template_redirect', array($this, 'start_output_buffer'), 1); // Start output buffer to strip Elementor HTML
         add_filter('template_include', array($this, 'load_project_template'), 999); // Very high priority to override block editor
         add_filter('the_content', array($this, 'inject_project_workspace'));
         add_shortcode('chatprojects_workspace', array($this, 'render_workspace'));
         add_shortcode('chatprojects_main', array($this, 'render_main_app'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_assets'));
+        add_action('wp_enqueue_scripts', array($this, 'dequeue_conflicting_scripts'), 999);
 
         // Hide admin bar on ChatProjects frontend pages
         add_filter('show_admin_bar', array($this, 'maybe_hide_admin_bar'));
@@ -41,14 +45,16 @@ class Frontend {
     /**
      * Flush rewrite rules once after custom endpoints are registered
      * This runs at very late priority (999) to ensure all rewrite rules are registered first
+     * Uses the actual plugin version so rules are flushed on every update or reinstall
      */
     public function maybe_flush_rewrite_rules() {
         $version_key = 'chatprojects_rewrites_flushed';
-        $current_version = '1.3.5'; // Force flush - fix rewrite rules registration
+        // Use actual plugin version - ensures flush on every update or reinstall
+        $current_version = defined( 'CHATPROJECTS_VERSION' ) ? CHATPROJECTS_VERSION : '1.0.0';
 
-        if (get_option($version_key) !== $current_version) {
+        if ( get_option( $version_key ) !== $current_version ) {
             flush_rewrite_rules();
-            update_option($version_key, $current_version);
+            update_option( $version_key, $current_version );
         }
     }
     
@@ -61,6 +67,120 @@ class Frontend {
         // Individual page loaders (load_projects_page, load_pro_chat_page, etc.)
         // also enqueue assets/dist/css/main.css as needed.
         // No additional global enqueues needed here.
+    }
+
+    /**
+     * Start output buffer on ChatProjects pages to strip Elementor HTML
+     */
+    public function start_output_buffer() {
+        // Check if we're on a ChatProjects page
+        $chatpr_page = get_query_var('chatpr_page');
+        $is_chatpr_page = !empty($chatpr_page) || is_singular('chatpr_project');
+
+        if (!$is_chatpr_page) {
+            return;
+        }
+
+        // Start output buffering with callback to clean Elementor content
+        ob_start(array($this, 'clean_output_buffer'));
+    }
+
+    /**
+     * Clean Elementor HTML from output buffer
+     */
+    public function clean_output_buffer($buffer) {
+        // Remove Elementor popups by finding and removing the entire div block
+        // Elementor popups are added just before </body> tag
+        $pattern = '/<div[^>]*data-elementor-type=["\']popup["\'][^>]*>[\s\S]*?<\/section>\s*<\/div>/i';
+        $buffer = preg_replace($pattern, '', $buffer);
+
+        // Also remove any Elementor frontend wrapper divs
+        $buffer = preg_replace('/<div[^>]*class=["\'][^"\']*elementor-location-popup[^"\']*["\'][^>]*>[\s\S]*?<\/div>/i', '', $buffer);
+
+        return $buffer;
+    }
+
+    /**
+     * Disable Elementor from rendering on ChatProjects pages
+     * This runs early during template_redirect to prevent Elementor from hooking into wp_head/wp_footer
+     */
+    public function disable_elementor_on_chatprojects_pages() {
+        // Check if we're on a ChatProjects page
+        $chatpr_page = get_query_var('chatpr_page');
+        $is_chatpr_page = !empty($chatpr_page) || is_singular('chatpr_project');
+
+        if (!$is_chatpr_page) {
+            return;
+        }
+
+        // Prevent Elementor from rendering any content
+        if (class_exists('\Elementor\Plugin')) {
+            // Tell Elementor not to run on this page
+            add_filter('elementor/frontend/builder_content_display', '__return_false');
+            add_filter('elementor/theme/need_override_location', '__return_false');
+            add_filter('elementor/frontend/print_google_fonts', '__return_false');
+        }
+    }
+
+    /**
+     * Dequeue all non-ChatProjects scripts and styles on ChatProjects pages
+     * ChatProjects pages are standalone apps and don't need theme or plugin assets
+     */
+    public function dequeue_conflicting_scripts() {
+        // Check if we're on a ChatProjects page
+        $chatpr_page = get_query_var('chatpr_page');
+        $is_chatpr_page = !empty($chatpr_page) || is_singular('chatpr_project');
+
+        if (!$is_chatpr_page) {
+            return;
+        }
+
+        // Prevent Elementor from rendering any content (popups, widgets, etc.)
+        if (class_exists('\Elementor\Plugin')) {
+            add_filter('elementor/frontend/builder_content_display', '__return_false');
+            remove_action('wp_footer', 'elementor_theme_do_location');
+            if (isset(\Elementor\Plugin::$instance->frontend)) {
+                remove_action('wp_head', array(\Elementor\Plugin::$instance->frontend, 'wp_head'));
+                remove_action('wp_footer', array(\Elementor\Plugin::$instance->frontend, 'wp_footer'));
+            }
+        }
+
+        // Whitelist: only keep ChatProjects and essential WordPress assets
+        $allowed_prefixes = array('chatprojects', 'chatpr', 'jquery', 'wp-', 'admin-bar', 'dashicons', 'media', 'backbone', 'underscore');
+
+        // Dequeue ALL non-whitelisted scripts
+        global $wp_scripts;
+        if (isset($wp_scripts->registered)) {
+            foreach ($wp_scripts->registered as $handle => $script) {
+                $allowed = false;
+                foreach ($allowed_prefixes as $prefix) {
+                    if (strpos($handle, $prefix) === 0) {
+                        $allowed = true;
+                        break;
+                    }
+                }
+                if (!$allowed) {
+                    wp_dequeue_script($handle);
+                }
+            }
+        }
+
+        // Dequeue ALL non-whitelisted styles
+        global $wp_styles;
+        if (isset($wp_styles->registered)) {
+            foreach ($wp_styles->registered as $handle => $style) {
+                $allowed = false;
+                foreach ($allowed_prefixes as $prefix) {
+                    if (strpos($handle, $prefix) === 0) {
+                        $allowed = true;
+                        break;
+                    }
+                }
+                if (!$allowed) {
+                    wp_dequeue_style($handle);
+                }
+            }
+        }
     }
 
     /**
@@ -101,11 +221,14 @@ class Frontend {
      * Register custom endpoints for frontend pages
      */
     public function register_custom_endpoints() {
+        // Get filterable slugs
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
+
         // Add rewrite rules for custom pages
-        add_rewrite_rule('^projects/?$', 'index.php?chatpr_page=projects', 'top');
-        add_rewrite_rule('^settings/?$', 'index.php?chatpr_page=settings', 'top');
-        add_rewrite_rule('^pro-chat/?$', 'index.php?chatpr_page=pro_chat', 'top');
-        add_rewrite_rule('^pro-chat/compare/?$', 'index.php?chatpr_page=pro_comparison', 'top');
+        add_rewrite_rule('^' . $slugs['projects'] . '/?$', 'index.php?chatpr_page=projects', 'top');
+        add_rewrite_rule('^' . $slugs['settings'] . '/?$', 'index.php?chatpr_page=settings', 'top');
+        add_rewrite_rule('^' . $slugs['chat'] . '/?$', 'index.php?chatpr_page=pro_chat', 'top');
+        add_rewrite_rule('^' . $slugs['comparison'] . '/?$', 'index.php?chatpr_page=pro_comparison', 'top');
 
         // Add query var
         add_filter('query_vars', function($vars) {
@@ -115,6 +238,34 @@ class Frontend {
 
         // Handle template loading for custom pages
         add_action('template_redirect', array($this, 'handle_custom_pages'));
+    }
+
+    /**
+     * Redirect old slugs to new slugs
+     * Ensures backwards compatibility for bookmarks and external links
+     */
+    public function redirect_old_slugs() {
+        $old_slugs = get_option('chatprojects_old_slugs', array());
+        $new_slugs = get_option('chatprojects_new_slugs', array());
+
+        if (empty($old_slugs) || empty($new_slugs)) {
+            return;
+        }
+
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+
+        foreach ($old_slugs as $key => $old_slug) {
+            if (strpos($request_uri, '/' . $old_slug . '/') !== false && isset($new_slugs[$key])) {
+                $new_url = str_replace('/' . $old_slug . '/', '/' . $new_slugs[$key] . '/', $request_uri);
+                wp_safe_redirect(home_url($new_url), 301);
+                exit;
+            } elseif (strpos($request_uri, '/' . $old_slug) !== false && isset($new_slugs[$key])) {
+                // Handle URLs without trailing slash
+                $new_url = str_replace('/' . $old_slug, '/' . $new_slugs[$key], $request_uri);
+                wp_safe_redirect(home_url($new_url), 301);
+                exit;
+            }
+        }
     }
 
     /**
@@ -187,6 +338,14 @@ class Frontend {
      * Load projects listing page
      */
     private function load_projects_page() {
+        // Check if OpenAI API key is configured (required for Projects)
+        $openai_key = get_option('chatprojects_openai_key', '');
+        if (empty($openai_key)) {
+            // Redirect to admin settings page (existing notice will show)
+            wp_safe_redirect(admin_url('admin.php?page=chatprojects-settings'));
+            exit;
+        }
+
         // Prevent browser caching to ensure fresh nonces and scripts
         nocache_headers();
 
@@ -211,7 +370,7 @@ class Frontend {
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js'),
+            CHATPROJECTS_VERSION . '-' . time(),
             true // Load in footer
         );
         // Add type="module" attribute
@@ -272,7 +431,7 @@ class Frontend {
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js'),
+            CHATPROJECTS_VERSION . '-' . time(),
             true
         );
 
@@ -332,7 +491,7 @@ class Frontend {
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js'),
+            CHATPROJECTS_VERSION . '-' . time(),
             true
         );
 
@@ -389,7 +548,8 @@ class Frontend {
 
         // Pro-only feature: redirect Free users to Pro Chat
         if (!defined('CHATPROJECTS_PRO_VERSION')) {
-            wp_safe_redirect(home_url('/pro-chat/'));
+            $slugs = \ChatProjects\ChatProjects::get_slugs();
+            wp_safe_redirect(home_url('/' . $slugs['chat'] . '/'));
             exit;
         }
 
@@ -409,7 +569,7 @@ class Frontend {
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js'),
+            CHATPROJECTS_VERSION . '-' . time(),
             true
         );
 
@@ -475,7 +635,8 @@ class Frontend {
             }
 
             // Redirect to projects page (frontend)
-            wp_safe_redirect(home_url('/projects/'));
+            $slugs = \ChatProjects\ChatProjects::get_slugs();
+            wp_safe_redirect(home_url('/' . $slugs['projects'] . '/'));
             exit;
         }
     }
@@ -557,7 +718,7 @@ class Frontend {
                 </button>
             </div>
             
-            <?php if (empty($projects)): ?>
+            <?php if (empty($projects)) : ?>
                 <div class="vp-empty-state" style="text-align: center; padding: 3rem; background: white; border-radius: 8px;">
                     <h2>Welcome to ChatProjects!</h2>
                     <p>You don't have any projects yet.</p>
@@ -565,9 +726,9 @@ class Frontend {
                         Create Your First Project
                     </button>
                 </div>
-            <?php else: ?>
+            <?php else : ?>
                 <div class="vp-projects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-                    <?php foreach ($projects as $project): ?>
+                    <?php foreach ($projects as $project) : ?>
                         <div class="vp-project-card" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <h3><?php echo esc_html($project->post_title); ?></h3>
                             <p><?php echo esc_html( wp_trim_words( $project->post_content, 20 ) ); ?></p>
@@ -681,13 +842,14 @@ class Frontend {
         $default_tab = sanitize_key($atts['default_tab']);
 
         // Build the redirect URL based on default tab
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
         $redirect_urls = array(
-            'projects' => home_url('/projects/'),
-            'chat' => home_url('/pro-chat/'),
-            'settings' => home_url('/settings/'),
+            'projects' => home_url('/' . $slugs['projects'] . '/'),
+            'chat' => home_url('/' . $slugs['chat'] . '/'),
+            'settings' => home_url('/' . $slugs['settings'] . '/'),
         );
 
-        $redirect_url = isset($redirect_urls[$default_tab]) ? $redirect_urls[$default_tab] : $redirect_urls['projects'];
+        $redirect_url = isset($redirect_urls[ $default_tab ]) ? $redirect_urls[ $default_tab ] : $redirect_urls['projects'];
 
         // Render navigation hub
         ob_start();
@@ -727,7 +889,7 @@ class Frontend {
             ?>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                 <!-- Projects -->
-                <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="cp-dashboard-card">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="cp-dashboard-card">
                     <svg style="width: 32px; height: 32px; margin: 0 auto 0.75rem; color: #2563eb;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                     </svg>
@@ -740,7 +902,7 @@ class Frontend {
                 </a>
 
                 <!-- Chat -->
-                <a href="<?php echo esc_url(home_url('/pro-chat/')); ?>" class="cp-dashboard-card">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['chat'] . '/')); ?>" class="cp-dashboard-card">
                     <svg style="width: 32px; height: 32px; margin: 0 auto 0.75rem; color: #2563eb;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                     </svg>
@@ -753,7 +915,7 @@ class Frontend {
                 </a>
 
                 <!-- Settings -->
-                <a href="<?php echo esc_url(home_url('/settings/')); ?>" class="cp-dashboard-card">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['settings'] . '/')); ?>" class="cp-dashboard-card">
                     <svg style="width: 32px; height: 32px; margin: 0 auto 0.75rem; color: #2563eb;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>

@@ -71,7 +71,7 @@ class AJAX_Handlers {
      * IMPORTANT: Callers MUST verify nonce using check_ajax_referer() before calling this method.
      * This helper does not perform nonce verification itself.
      *
-     * @param string               $key               Array key to retrieve.
+     * @param string          $key               Array key to retrieve.
      * @param callable|string $sanitize_callback Sanitization callback (required).
      * @param mixed           $default           Default value when key is absent.
      * @return mixed
@@ -240,7 +240,7 @@ class AJAX_Handlers {
 
             // Store vector store ID and model (no assistant needed with Responses API)
             update_post_meta($project_id, '_cp_vector_store_id', $vector_store_id);
-            update_post_meta($project_id, '_cp_model', get_option('chatprojects_default_model', 'gpt-5.2'));
+            update_post_meta($project_id, '_cp_model', get_option('chatprojects_default_model', 'gpt-5.2-chat-latest'));
         } catch (\Exception $e) {
             wp_delete_post($project_id, true);
             wp_send_json_error(array('message' => __('Failed to create OpenAI resources: ', 'chatprojects') . $e->getMessage()));
@@ -642,7 +642,7 @@ class AJAX_Handlers {
 
             $model = get_post_meta($project_id, '_cp_model', true);
             if (empty($model)) {
-                $model = get_option('chatprojects_default_model', 'gpt-5.2');
+                $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
             }
 
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
@@ -650,6 +650,7 @@ class AJAX_Handlers {
 
             // Store user message in database
             $messages_table = $wpdb->prefix . 'chatprojects_messages';
+            $messages_table_sql = esc_sql($messages_table);
             // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
             $wpdb->insert($messages_table, array(
                 'chat_id' => $chat_id,
@@ -658,14 +659,30 @@ class AJAX_Handlers {
                 'created_at' => current_time('mysql'),
             ), array('%d', '%s', '%s', '%s'));
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+            // Get last response_id from previous assistant message for conversation chaining
+            $last_response_id = null;
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
+            $last_assistant_msg = $wpdb->get_row($wpdb->prepare(
+                "SELECT metadata FROM {$messages_table_sql} WHERE chat_id = %d AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+                $chat_id
+            ));
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            if ($last_assistant_msg && !empty($last_assistant_msg->metadata)) {
+                $meta = json_decode($last_assistant_msg->metadata, true);
+                if (isset($meta['response_id'])) {
+                    $last_response_id = $meta['response_id'];
+                }
+            }
+
             // Stream the response using Responses API
             $assistant_content = '';
             $sources = array();
 
-            $this->get_api_handler()->stream_response_with_filesearch(
+            $new_response_id = $this->get_api_handler()->stream_response_with_filesearch(
                 $message,
                 $vector_store_id,
-                function($chunk) use (&$assistant_content, &$sources) {
+                function($chunk) use (&$assistant_content, &$sources, $chat_id) {
                     if (isset($chunk['type']) && $chunk['type'] === 'content') {
                         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
                         error_log('[ChatProjects] SSE chunk type=content len=' . strlen($chunk['content']));
@@ -677,10 +694,23 @@ class AJAX_Handlers {
                     } elseif (isset($chunk['type']) && $chunk['type'] === 'error') {
                         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
                         error_log('[ChatProjects] SSE chunk type=error message=' . ($chunk['content'] ?? ''));
+                    } elseif (isset($chunk['type']) && $chunk['type'] === 'done') {
+                        // Send chat_id BEFORE done event so frontend can capture it
+                        echo 'data: ' . wp_json_encode(array('type' => 'chat_id', 'chat_id' => $chat_id)) . "\n\n";
+                        if (function_exists('litespeed_flush')) {
+                            litespeed_flush();
+                        }
+                        if (function_exists('fastcgi_finish_request')) {
+                            fastcgi_finish_request();
+                        }
+                        if (ob_get_level() > 0) {
+                            ob_flush();
+                        }
+                        flush();
                     }
 
                     // Output immediately
-                    echo "data: " . wp_json_encode($chunk) . "\n\n";
+                    echo 'data: ' . wp_json_encode($chunk) . "\n\n";
 
                     // Try all flush methods
                     if (function_exists('litespeed_flush')) {
@@ -693,19 +723,31 @@ class AJAX_Handlers {
                     @flush();
                 },
                 $model,
-                $instructions
+                $instructions,
+                array(),
+                $last_response_id
             );
 
-            // Store assistant message in database
+            // Store assistant message in database with response_id for conversation chaining
             if (!empty($assistant_content)) {
                 // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-                error_log(sprintf('[ChatProjects] SSE assistant message captured len=%d', strlen($assistant_content)));
+                error_log(sprintf('[ChatProjects] SSE assistant message captured len=%d response_id=%s', strlen($assistant_content), $new_response_id ?? 'null'));
+
+                // Build metadata with sources and response_id
+                $metadata = array();
+                if (!empty($sources)) {
+                    $metadata['sources'] = $sources;
+                }
+                if (!empty($new_response_id)) {
+                    $metadata['response_id'] = $new_response_id;
+                }
+
                 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
                 $wpdb->insert($messages_table, array(
                     'chat_id' => $chat_id,
                     'role' => 'assistant',
                     'content' => $assistant_content,
-                    'metadata' => !empty($sources) ? wp_json_encode(array('sources' => $sources)) : null,
+                    'metadata' => !empty($metadata) ? wp_json_encode($metadata) : null,
                     'created_at' => current_time('mysql'),
                 ), array('%d', '%s', '%s', '%s', '%s'));
                 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
@@ -780,11 +822,8 @@ class AJAX_Handlers {
                 }
             }
 
-            // Send chat_id for frontend to track (fixes chat splitting bug)
-            $this->send_sse_data(array(
-                'type' => 'chat_id',
-                'chat_id' => $chat_id
-            ));
+            // Note: chat_id is now sent in the callback before 'done' event
+            // to ensure frontend receives it before stopping SSE parsing
 
             // Send completion signal LAST
             $this->send_sse_done();
@@ -908,11 +947,12 @@ class AJAX_Handlers {
 
         $model = get_post_meta($project_id, '_cp_model', true);
         if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2');
+            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
         }
 
         // Store user message
         $messages_table = $wpdb->prefix . 'chatprojects_messages';
+        $messages_table_sql = esc_sql($messages_table);
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
         $wpdb->insert($messages_table, array(
             'chat_id' => $chat_id,
@@ -921,6 +961,21 @@ class AJAX_Handlers {
             'created_at' => current_time('mysql'),
         ), array('%d', '%s', '%s', '%s'));
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+        // Get last response_id from previous assistant message for conversation chaining
+        $last_response_id = null;
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
+        $last_assistant_msg = $wpdb->get_row($wpdb->prepare(
+            "SELECT metadata FROM {$messages_table_sql} WHERE chat_id = %d AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+            $chat_id
+        ));
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        if ($last_assistant_msg && !empty($last_assistant_msg->metadata)) {
+            $meta = json_decode($last_assistant_msg->metadata, true);
+            if (isset($meta['response_id'])) {
+                $last_response_id = $meta['response_id'];
+            }
+        }
 
         // Clear buffers again before streaming
         while (ob_get_level()) {
@@ -931,7 +986,7 @@ class AJAX_Handlers {
         $assistant_content = '';
         $sources = array();
 
-        $this->get_api_handler()->stream_response_with_filesearch(
+        $new_response_id = $this->get_api_handler()->stream_response_with_filesearch(
             $message,
             $vector_store_id,
             function($chunk) use (&$assistant_content, &$sources) {
@@ -941,7 +996,7 @@ class AJAX_Handlers {
                     $sources = $chunk['sources'];
                 }
 
-                echo "data: " . wp_json_encode($chunk) . "\n\n";
+                echo 'data: ' . wp_json_encode($chunk) . "\n\n";
 
                 if (function_exists('litespeed_flush')) {
                     litespeed_flush();
@@ -950,17 +1005,28 @@ class AJAX_Handlers {
                 @flush();
             },
             $model,
-            $instructions
+            $instructions,
+            array(),
+            $last_response_id
         );
 
-        // Store assistant message
+        // Store assistant message with response_id for conversation chaining
         if (!empty($assistant_content)) {
+            // Build metadata with sources and response_id
+            $metadata = array();
+            if (!empty($sources)) {
+                $metadata['sources'] = $sources;
+            }
+            if (!empty($new_response_id)) {
+                $metadata['response_id'] = $new_response_id;
+            }
+
             // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
             $wpdb->insert($messages_table, array(
                 'chat_id' => $chat_id,
                 'role' => 'assistant',
                 'content' => $assistant_content,
-                'metadata' => !empty($sources) ? wp_json_encode(array('sources' => $sources)) : null,
+                'metadata' => !empty($metadata) ? wp_json_encode($metadata) : null,
                 'created_at' => current_time('mysql'),
             ), array('%d', '%s', '%s', '%s', '%s'));
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
@@ -1005,7 +1071,7 @@ class AJAX_Handlers {
      * Send SSE data chunk
      */
     private function send_sse_data($data) {
-        echo "data: " . wp_json_encode($data) . "\n\n";
+        echo 'data: ' . wp_json_encode($data) . "\n\n";
 
         // Flush output buffers if any exist
         if (ob_get_level() > 0) {

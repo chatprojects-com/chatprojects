@@ -70,6 +70,21 @@ class ChatProjects {
     }
 
     /**
+     * Get filterable slug configurations
+     * Allows developers to customize slugs via filters
+     *
+     * @return array Slug mappings
+     */
+    public static function get_slugs() {
+        return array(
+            'projects'   => apply_filters('chatprojects_slug_projects', 'chatprojects'),
+            'settings'   => apply_filters('chatprojects_slug_settings', 'cp-settings'),
+            'chat'       => apply_filters('chatprojects_slug_chat', 'cp-chat'),
+            'comparison' => apply_filters('chatprojects_slug_comparison', 'cp-chat/compare'),
+        );
+    }
+
+    /**
      * Constructor
      */
     private function __construct() {
@@ -88,6 +103,8 @@ class ChatProjects {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+        add_action('admin_notices', array($this, 'show_slug_conflict_notice'));
+        add_action('admin_notices', array($this, 'show_slug_migration_notice'));
 
         // Initialize frontend
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
@@ -105,14 +122,14 @@ class ChatProjects {
         add_action('admin_enqueue_scripts', array($this, 'hide_add_new_button'));
         add_action('load-post-new.php', array($this, 'redirect_from_new_project'));
 
-        // Add theme initialization script to wp_head (priority 1 to run early)
-        add_action('wp_head', array($this, 'output_theme_init_script'), 1);
+        // Theme initialization is handled directly in project-shell-modern.php template
+        // add_action('wp_head', array($this, 'output_theme_init_script'), 1);
     }
 
     /**
      * Output theme initialization script via wp_head
      * This runs before body to prevent flash of unstyled content
-     * Uses wp_add_inline_script for WordPress guidelines compliance
+     * Output directly (not via wp_add_inline_script) to ensure it runs IMMEDIATELY
      */
     public function output_theme_init_script() {
         // Only output on ChatProjects pages
@@ -120,11 +137,10 @@ class ChatProjects {
             return;
         }
 
-        // Register a placeholder script to attach the inline script to
-        wp_register_script('chatprojects-theme-init', false, array(), CHATPROJECTS_VERSION, false);
-        wp_enqueue_script('chatprojects-theme-init');
-
-        $script = "(function() {
+        // Output script directly in head for immediate execution (prevents FOUC)
+        ?>
+        <script>
+        (function() {
             var theme = localStorage.getItem('cp_theme_preference');
             if (theme === 'dark') {
                 document.documentElement.classList.add('dark');
@@ -138,9 +154,9 @@ class ChatProjects {
                 document.documentElement.classList.remove('dark');
             }
             // If no theme set, leave as server-rendered
-        })();";
-
-        wp_add_inline_script('chatprojects-theme-init', $script);
+        })();
+        </script>
+        <?php
     }
 
     /**
@@ -238,6 +254,10 @@ class ChatProjects {
 
         // Initialize frontend
         new Frontend();
+
+        // Initialize REST API stream endpoint
+        $rest_stream = new REST_Stream_Endpoint();
+        $rest_stream->init();
     }
 
     /**
@@ -639,5 +659,82 @@ class ChatProjects {
             wp_safe_redirect(admin_url('edit.php?post_type=chatpr_project'));
             exit;
         }
+    }
+
+    /**
+     * Show admin notice if there are URL slug conflicts
+     */
+    public function show_slug_conflict_notice() {
+        $conflicts = get_option('chatprojects_slug_conflicts');
+
+        if (empty($conflicts) || !is_array($conflicts)) {
+            return;
+        }
+
+        // Re-check if conflicts still exist (user may have fixed them)
+        $still_conflicting = array();
+        foreach ($conflicts as $conflict) {
+            $page = get_page_by_path($conflict['slug']);
+            if ($page && $page->post_status === 'publish') {
+                $still_conflicting[] = $conflict;
+            }
+        }
+
+        // Update or clear the option based on current state
+        if (empty($still_conflicting)) {
+            delete_option('chatprojects_slug_conflicts');
+            return;
+        }
+
+        update_option('chatprojects_slug_conflicts', $still_conflicting);
+
+        echo '<div class="notice notice-warning">';
+        echo '<p><strong>' . esc_html__('ChatProjects:', 'chatprojects') . '</strong> ';
+        echo esc_html__('The following pages have URLs that conflict with plugin pages:', 'chatprojects') . '</p>';
+        echo '<ul style="margin-left: 20px; list-style: disc;">';
+
+        foreach ($still_conflicting as $conflict) {
+            $edit_link = get_edit_post_link($conflict['page_id']);
+            echo '<li>';
+            echo '"<strong>' . esc_html($conflict['title']) . '</strong>" ';
+            echo '(/' . esc_html($conflict['slug']) . ') &mdash; ';
+            if ($edit_link) {
+                echo '<a href="' . esc_url($edit_link) . '">' . esc_html__('Edit page', 'chatprojects') . '</a>';
+            }
+            echo '</li>';
+        }
+
+        echo '</ul>';
+        echo '<p>' . esc_html__('Please change these page slugs to avoid conflicts. The original pages are currently inaccessible at their URLs.', 'chatprojects') . '</p>';
+        echo '</div>';
+    }
+
+    /**
+     * Show admin notice after slug migration
+     */
+    public function show_slug_migration_notice() {
+        if (!get_transient('chatprojects_slug_migration_notice')) {
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $slugs = self::get_slugs();
+        ?>
+        <div class="notice notice-info is-dismissible">
+            <h3><?php esc_html_e('ChatProjects URLs Updated', 'chatprojects'); ?></h3>
+            <p><?php esc_html_e('ChatProjects has updated its URL structure to avoid conflicts with existing pages:', 'chatprojects'); ?></p>
+            <ul style="list-style: disc; margin-left: 2em;">
+                <li><strong><?php esc_html_e('Projects:', 'chatprojects'); ?></strong> <?php echo esc_html(home_url('/' . $slugs['projects'] . '/')); ?></li>
+                <li><strong><?php esc_html_e('Chat:', 'chatprojects'); ?></strong> <?php echo esc_html(home_url('/' . $slugs['chat'] . '/')); ?></li>
+                <li><strong><?php esc_html_e('Settings:', 'chatprojects'); ?></strong> <?php echo esc_html(home_url('/' . $slugs['settings'] . '/')); ?></li>
+            </ul>
+            <p><?php esc_html_e('Old URLs will automatically redirect to the new locations. Please update your bookmarks.', 'chatprojects'); ?></p>
+        </div>
+        <?php
+
+        delete_transient('chatprojects_slug_migration_notice');
     }
 }

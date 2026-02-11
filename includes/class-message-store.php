@@ -212,6 +212,37 @@ class Message_Store {
     }
 
     /**
+     * Get the last response_id from the most recent assistant message
+     *
+     * Used for OpenAI Responses API conversation chaining via previous_response_id
+     *
+     * @param int $chat_id Chat ID
+     * @return string|null Response ID or null if not found
+     */
+    public function get_last_response_id($chat_id) {
+        global $wpdb;
+
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
+        $result = $wpdb->get_var($wpdb->prepare(
+            "SELECT metadata FROM {$this->table_name_sql}
+             WHERE chat_id = %d AND role = 'assistant'
+             ORDER BY id DESC
+             LIMIT 1",
+            absint($chat_id)
+        ));
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+        if (!empty($result)) {
+            $metadata = json_decode($result, true);
+            if (isset($metadata['response_id'])) {
+                return $metadata['response_id'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Delete all messages for a chat (privacy compliance)
      *
      * @param int $chat_id Chat ID

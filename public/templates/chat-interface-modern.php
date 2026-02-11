@@ -45,7 +45,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
     x-data="<?php echo esc_attr( $cp_x_data_full ); ?>"
     class="flex flex-col h-full bg-white dark:bg-dark-bg"
 >
-    <?php if ($cp_chat_mode === 'general'): ?>
+    <?php if ($cp_chat_mode === 'general') : ?>
     <!-- Provider/Model Selection Toolbar (Pro Chat Only) -->
     <div class="flex-shrink-0 border-b border-neutral-200 dark:border-dark-border bg-white dark:bg-dark-surface relative overflow-visible"
          x-data="{
@@ -63,6 +63,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
         <!-- Model Change Notification -->
         <div
             x-show="showModelNotification"
+            x-cloak
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 transform -translate-y-2"
             x-transition:enter-end="opacity-100 transform translate-y-0"
@@ -80,7 +81,11 @@ call_user_func(function () use ($chatprojects_chat_context) {
         </div>
 
         <!-- Mobile: Compact header showing current selection (visible < md) -->
-        <div class="md:hidden flex items-center justify-between px-4 py-2">
+        <div @click="modelSelectorOpen = !modelSelectorOpen"
+             class="md:hidden flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-dark-hover transition-colors"
+             role="button"
+             :aria-expanded="modelSelectorOpen"
+             aria-label="<?php esc_attr_e('Toggle model selector', 'chatprojects'); ?>">
             <div class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 min-w-0">
                 <svg class="w-4 h-4 flex-shrink-0 text-neutral-500 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
@@ -90,14 +95,11 @@ call_user_func(function () use ($chatprojects_chat_context) {
                 <!-- Actual provider/model display -->
                 <span x-show="availableProviders && availableProviders.length > 0" x-cloak class="truncate" x-text="(availableProviders.find(p => p.id === selectedProvider)?.name || selectedProvider) + ' / ' + selectedModel"></span>
             </div>
-            <button @click="modelSelectorOpen = !modelSelectorOpen"
-                    class="md:hidden p-2 -mr-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-dark-hover text-neutral-500 dark:text-neutral-400 transition-colors"
-                    :aria-expanded="modelSelectorOpen"
-                    aria-label="<?php esc_attr_e('Toggle model selector', 'chatprojects'); ?>">
+            <div class="p-2 -mr-2 text-neutral-500 dark:text-neutral-400">
                 <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': modelSelectorOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
-            </button>
+            </div>
         </div>
 
         <!-- Full selector: always visible on desktop (md+), collapsible on mobile -->
@@ -209,7 +211,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                     ?>
                 </p>
 
-                <?php if ($cp_chat_mode === 'project' && !empty($chatpr_project_instructions)): ?>
+                <?php if ($cp_chat_mode === 'project' && !empty($chatpr_project_instructions)) : ?>
                 <div class="vp-instructions-preview bg-neutral-50 dark:bg-dark-surface border border-neutral-200 dark:border-dark-border rounded-xl p-4 mb-4 max-w-lg text-left">
                     <p class="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">
                         <?php esc_html_e('Current Instructions', 'chatprojects'); ?>
@@ -218,13 +220,13 @@ call_user_func(function () use ($chatprojects_chat_context) {
                         <?php echo esc_html(wp_trim_words($chatpr_project_instructions, 30, '...')); ?>
                     </p>
                 </div>
-                <?php elseif ($cp_chat_mode === 'project'): ?>
+                <?php elseif ($cp_chat_mode === 'project') : ?>
                 <div class="vp-welcome-no-instructions text-sm text-neutral-500 dark:text-neutral-400 mb-4">
                     <?php esc_html_e('No custom instructions set for this project.', 'chatprojects'); ?>
                 </div>
                 <?php endif; ?>
 
-                <?php if ($cp_chat_mode === 'project'): ?>
+                <?php if ($cp_chat_mode === 'project') : ?>
                 <a href="#" id="vp-edit-instructions-link" class="inline-flex items-center gap-1 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -375,7 +377,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
 
             <!-- Input Form -->
             <form @submit.prevent="sendMessage()" class="relative">
-                <?php if ($cp_chat_mode === 'general'): ?>
+                <?php if ($cp_chat_mode === 'general') : ?>
                 <!-- Image Preview Area (General Chat Only) -->
                 <template x-if="attachedImages && attachedImages.length > 0">
                     <div class="flex flex-wrap gap-2 mb-3 p-2 bg-neutral-50 dark:bg-dark-bg rounded-lg border border-neutral-200 dark:border-dark-border">
@@ -402,7 +404,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                 <?php endif; ?>
 
                 <div class="flex items-end gap-3">
-                    <?php if ($cp_chat_mode === 'general'): ?>
+                    <?php if ($cp_chat_mode === 'general') : ?>
                     <!-- Attach Image Button (General Chat Only - Free: Images Only) -->
                     <button
                         type="button"
@@ -427,7 +429,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                     <?php endif; ?>
 
                     <div class="flex-1 relative"
-                        <?php if ($cp_chat_mode === 'general'): ?>
+                        <?php if ($cp_chat_mode === 'general') : ?>
                         :class="{ 'ring-2 ring-primary-500 rounded-xl': isDragOver }"
                         @dragover.prevent="isDragOver = true"
                         @dragleave.prevent="isDragOver = false"
@@ -438,11 +440,9 @@ call_user_func(function () use ($chatprojects_chat_context) {
                             x-ref="messageInput"
                             x-model="input"
                             @keydown="handleKeydown($event)"
-                            <?php if ($cp_chat_mode === 'general'): ?>
+                            <?php if ($cp_chat_mode === 'general') : ?>
                             @paste="handlePaste($event)"
                             <?php endif; ?>
-                            @focus="handleInputFocus()"
-                            @blur="handleInputBlur()"
                             :disabled="streaming || loading"
                             placeholder="<?php esc_attr_e('Type your message...', 'chatprojects'); ?>"
                             rows="1"

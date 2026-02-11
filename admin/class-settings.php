@@ -109,18 +109,18 @@ class Settings {
         $valid_prefixes = array('sk-', 'sk-proj-', 'AIza', 'sk-ant-', 'cpat_', 'cpk_', 'sk-or-');
 
         foreach ($api_key_fields as $field) {
-            if (!isset($_POST[$field])) {
+            if (!isset($_POST[ $field ])) {
                 continue;
             }
 
-            $value = sanitize_text_field(wp_unslash($_POST[$field]));
+            $value = sanitize_text_field(wp_unslash($_POST[ $field ]));
 
             // If empty, save empty and remove from POST
             if (empty($value)) {
                 $this->intentional_save = $field;
                 update_option($field, '');
                 $this->intentional_save = null;
-                unset($_POST[$field]);
+                unset($_POST[ $field ]);
                 continue;
             }
 
@@ -135,7 +135,7 @@ class Settings {
 
             if (!$has_valid_prefix) {
                 // Invalid input - keep old value
-                unset($_POST[$field]);
+                unset($_POST[ $field ]);
                 continue;
             }
 
@@ -169,7 +169,7 @@ class Settings {
                 wp_cache_delete('alloptions', 'options');
 
                 // Remove from POST so WordPress Settings API doesn't touch this option
-                unset($_POST[$field]);
+                unset($_POST[ $field ]);
             }
         }
     }
@@ -283,7 +283,7 @@ class Settings {
             array(
                 'type' => 'string',
                 'sanitize_callback' => 'sanitize_text_field',
-                'default' => 'gpt-5.2',
+                'default' => 'gpt-5.2-chat-latest',
             )
         );
 
@@ -660,31 +660,27 @@ class Settings {
         // Get all available models for each provider
         $all_models = array(
             'openai' => array(
-                'gpt-5.2' => 'GPT-5.2 (Latest)',
-                'gpt-5.2-pro' => 'GPT-5.2 Pro',
-                'gpt-5.2-chat-latest' => 'GPT-5.2 Instant',
+                'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
                 'gpt-5-mini' => 'GPT-5 Mini',
-                'gpt-5-nano' => 'GPT-5 Nano',
-                'gpt-5.1' => 'GPT-5.1',
-                'gpt-5.1-codex-max' => 'GPT-5.1 Codex Max',
+                'gpt-4.1' => 'GPT-4.1',
+                'gpt-4.1-mini' => 'GPT-4.1 Mini',
                 'gpt-4o' => 'GPT-4o',
                 'gpt-4o-mini' => 'GPT-4o Mini',
-                'gpt-4-turbo' => 'GPT-4 Turbo',
+                'o4-mini' => 'o4-mini (Reasoning)',
+                'o3-mini' => 'o3-mini (Reasoning)',
             ),
             'anthropic' => array(
-                'claude-opus-4-5-20251101' => 'Claude Opus 4.5',
-                'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5',
-                'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5',
-                'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet',
-                'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku',
+                'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
+                'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (Fast)',
+                'claude-opus-4-5-20251101' => 'Claude Opus 4.5 (Most Capable)',
             ),
             'gemini' => array(
                 'gemini-3-pro-preview' => 'Gemini 3 Pro (Preview)',
+                'gemini-3-flash-preview' => 'Gemini 3 Flash (Preview)',
                 'gemini-2.5-pro' => 'Gemini 2.5 Pro',
-                'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+                'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommended)',
                 'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite',
                 'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-                'gemini-2.0-flash-lite' => 'Gemini 2.0 Flash Lite',
             ),
             'chutes' => array(
                 'default' => 'Chutes Default Model',
@@ -707,7 +703,7 @@ class Settings {
         }
 
         // Get models for current provider
-        $current_models = isset($all_models[$provider]) ? $all_models[$provider] : $all_models['openai'];
+        $current_models = isset($all_models[ $provider ]) ? $all_models[ $provider ] : $all_models['openai'];
 
         // Encode models as JSON for JavaScript
         $models_json = wp_json_encode($all_models);
@@ -724,9 +720,9 @@ class Settings {
         </p>
         <?php
         // Provider/model selector script - using wp_print_inline_script_tag for WordPress compliance
-        $provider_model_script = "(function($) {
+        $provider_model_script = '(function($) {
             $(document).ready(function() {
-                var allModels = " . wp_json_encode(json_decode($models_json, true)) . ";
+                var allModels = ' . wp_json_encode(json_decode($models_json, true)) . ";
                 var \$providerSelect = $('#chatprojects_general_chat_provider');
                 var \$modelSelect = $('#chatprojects_general_chat_model');
 
@@ -770,15 +766,14 @@ class Settings {
      * Render model field
      */
     public function render_model_field() {
-        $model = get_option('chatprojects_default_model', 'gpt-5.2');
+        $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
         $models = array(
-            'gpt-5.2' => 'GPT-5.2 (Recommended)',
-            'gpt-5.2-pro' => 'GPT-5.2 Pro',
-            'gpt-5.1' => 'GPT-5.1',
+            'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
+            'gpt-5-mini' => 'GPT-5 Mini',
+            'gpt-4.1' => 'GPT-4.1',
+            'gpt-4.1-mini' => 'GPT-4.1 Mini',
             'gpt-4o' => 'GPT-4o',
             'gpt-4o-mini' => 'GPT-4o Mini',
-            'gpt-4-turbo' => 'GPT-4 Turbo',
-            'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
         );
         ?>
         <select id="chatprojects_default_model" name="chatprojects_default_model">
@@ -856,7 +851,7 @@ class Settings {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only, no form processing
         if ( isset( $_GET['page'] ) && sanitize_text_field( wp_unslash( $_GET['page'] ) ) === 'chatprojects-settings' ) {
             $api_key = get_option('chatprojects_openai_key', '');
-            
+
             if (empty($api_key)) {
                 ?>
                 <div class="notice notice-warning">
@@ -1038,7 +1033,7 @@ class Settings {
                 $id = $model['id'] ?? $model['name'] ?? '';
                 $name = $model['id'] ?? $model['name'] ?? '';
                 if ($id && $name) {
-                    $models[$id] = $name;
+                    $models[ $id ] = $name;
                 }
             }
             if (!empty($models)) {
@@ -1104,7 +1099,7 @@ class Settings {
                 $id = $model['id'] ?? $model['name'] ?? '';
                 $name = $model['name'] ?? $model['id'] ?? '';
                 if ($id && $name) {
-                    $models[$id] = $name;
+                    $models[ $id ] = $name;
                 }
             }
             if (!empty($models)) {

@@ -425,6 +425,35 @@ call_user_func(function () {
             $(this).removeClass('open');
         });
 
+        // Close sidebar when clicking navigation links (on mobile)
+        function closeSidebarOnMobile() {
+            if (window.innerWidth < 768) {
+                $('#vp-sidebar').removeClass('open');
+                $('#vp-sidebar-overlay').removeClass('open');
+            }
+        }
+
+        // Close sidebar on nav link clicks
+        $('#vp-sidebar .vp-nav-icon:not(.disabled)').on('click', closeSidebarOnMobile);
+        $('#vp-sidebar .vp-nav-item:not(.disabled)').on('click', closeSidebarOnMobile);
+        $('#vp-sidebar .vp-switcher-item').on('click', closeSidebarOnMobile);
+        $('#vp-sidebar .vp-logo').on('click', closeSidebarOnMobile);
+
+        // Close sidebar when clicking New Chat button
+        $(document).on('click', '#vp-new-chat-btn-sidebar', closeSidebarOnMobile);
+
+        // Close sidebar when clicking any chat item in the history area
+        // Use event delegation to catch dynamically rendered items
+        $(document).on('click', '.vp-sidebar-chat-history', function(e) {
+            var target = $(e.target);
+            // Don't close if clicking edit/delete/rename buttons or inputs
+            if (target.closest('button').length || target.is('input') || target.is('button')) {
+                return;
+            }
+            // Close sidebar when clicking on chat items
+            closeSidebarOnMobile();
+        });
+
         // Theme toggle
         $('#vp-theme-toggle').on('click', function() {
             window.VPTheme?.toggle();

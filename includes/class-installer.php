@@ -52,9 +52,85 @@ class Installer {
         // Flush rewrite rules
         flush_rewrite_rules();
 
+        // Run slug migration for existing installations
+        self::maybe_run_slug_migration();
+
+        // Check for URL slug conflicts with existing pages
+        self::check_slug_conflicts();
+
         // Store activation time
         update_option('chatprojects_activated', time());
         update_option('chatprojects_db_version', self::DB_VERSION);
+    }
+
+    /**
+     * Run slug migration for existing installations
+     * Only runs once per version to avoid repeated execution
+     */
+    private static function maybe_run_slug_migration() {
+        $migration_version = '1.1.0'; // Version when slug migration was introduced
+        $migrated = get_option('chatprojects_slug_migration_version', false);
+
+        // Skip if already migrated to this version
+        if ($migrated === $migration_version) {
+            return;
+        }
+
+        // Get new slugs
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
+
+        // Store old slugs for redirect mapping
+        $old_slugs = array(
+            'projects'   => 'projects',
+            'settings'   => 'settings',
+            'chat'       => 'pro-chat',
+            'comparison' => 'pro-chat/compare',
+        );
+
+        update_option('chatprojects_old_slugs', $old_slugs);
+        update_option('chatprojects_new_slugs', $slugs);
+
+        // Flush rewrite rules to register new slugs
+        flush_rewrite_rules();
+
+        // Mark migration as complete
+        update_option('chatprojects_slug_migration_version', $migration_version);
+
+        // Set admin notice for users
+        set_transient('chatprojects_slug_migration_notice', true, DAY_IN_SECONDS);
+    }
+
+    /**
+     * Check for URL slug conflicts with existing pages
+     *
+     * The plugin uses rewrite rules for /chatprojects, /cp-settings, and /cp-chat
+     * which will override any existing WordPress pages with those slugs.
+     */
+    private static function check_slug_conflicts() {
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
+        $reserved_slugs = array(
+            $slugs['projects'],
+            $slugs['settings'],
+            $slugs['chat'],
+        );
+        $conflicts = array();
+
+        foreach ($reserved_slugs as $slug) {
+            $page = get_page_by_path($slug);
+            if ($page && $page->post_status === 'publish') {
+                $conflicts[] = array(
+                    'slug'    => $slug,
+                    'page_id' => $page->ID,
+                    'title'   => $page->post_title
+                );
+            }
+        }
+
+        if (!empty($conflicts)) {
+            update_option('chatprojects_slug_conflicts', $conflicts);
+        } else {
+            delete_option('chatprojects_slug_conflicts');
+        }
     }
 
     /**
@@ -102,6 +178,15 @@ class Installer {
     public static function deactivate() {
         flush_rewrite_rules();
         wp_clear_scheduled_hook('chatprojects_cleanup_transients');
+
+        // Delete rewrite flush flag so reinstall triggers a fresh flush
+        delete_option('chatprojects_rewrites_flushed');
+
+        // Clean up slug migration data
+        delete_option('chatprojects_old_slugs');
+        delete_option('chatprojects_new_slugs');
+        delete_option('chatprojects_slug_migration_version');
+        delete_transient('chatprojects_slug_migration_notice');
     }
 
     /**
@@ -149,7 +234,7 @@ class Installer {
         ) $charset_collate;";
 
         // Execute table creation
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($chats_sql);
         dbDelta($messages_sql);
 
@@ -200,7 +285,7 @@ class Installer {
         }
 
         if (get_option('chatprojects_default_model') === false) {
-            update_option('chatprojects_default_model', 'gpt-5.2');
+            update_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
         }
 
         if (get_option('chatprojects_max_file_size') === false) {

@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+vendor/
 
 # Build artifacts (keep dist/ in repo for WordPress.org)
 # assets/dist/

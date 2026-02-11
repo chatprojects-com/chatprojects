@@ -186,7 +186,7 @@ class Chutes_Provider extends Base_Provider {
                 $id = $model['id'] ?? $model['name'] ?? '';
                 $name = $model['id'] ?? $model['name'] ?? '';
                 if ($id && $name) {
-                    $models[$id] = $name;
+                    $models[ $id ] = $name;
                 }
             }
             if (!empty($models)) {

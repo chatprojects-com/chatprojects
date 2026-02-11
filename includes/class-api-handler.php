@@ -49,7 +49,7 @@ class API_Handler {
      */
     public function __construct() {
         $this->api_key = Security::get_api_key();
-        $this->default_model = get_option('chatprojects_default_model', 'gpt-5.2');
+        $this->default_model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
     }
 
     /**
@@ -162,13 +162,17 @@ class API_Handler {
      */
     public function upload_file($file_path, $purpose = 'assistants', $original_filename = null) {
         if (!file_exists($file_path)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] upload_file: File not found: ' . $file_path);
+            }
             return new \WP_Error('file_not_found', __('File not found.', 'chatprojects'));
         }
 
         $url = self::API_BASE_URL . 'files';
 
         $boundary = wp_generate_password(24, false);
-        
+
         $headers = array(
             'Authorization' => 'Bearer ' . $this->api_key,
             'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
@@ -176,6 +180,12 @@ class API_Handler {
 
         $file_contents = file_get_contents($file_path);
         $filename = $original_filename ? $original_filename : basename($file_path);
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+            error_log('[ChatProjects] upload_file: Starting upload - ' . $filename . ' (' . strlen($file_contents) . ' bytes)');
+        }
+
 
         $body = "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"purpose\"\r\n\r\n";
@@ -196,6 +206,10 @@ class API_Handler {
         $response = wp_remote_request($url, $args);
 
         if (is_wp_error($response)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] upload_file: WP_Error - ' . $response->get_error_message());
+            }
             return $response;
         }
 
@@ -205,7 +219,19 @@ class API_Handler {
 
         if ($status_code < 200 || $status_code >= 300) {
             $error_message = isset($decoded['error']['message']) ? $decoded['error']['message'] : __('Unknown API error', 'chatprojects');
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] upload_file: API error ' . $status_code . ' - ' . $error_message);
+                error_log('[ChatProjects] upload_file: Response body: ' . $body);
+                // phpcs:enable WordPress.PHP.DevelopmentFunctions.error_log_error_log
+            }
             return new \WP_Error('api_error', $error_message, array('status' => $status_code));
+        }
+
+        $file_id = isset($decoded['id']) ? $decoded['id'] : 'unknown';
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+            error_log('[ChatProjects] upload_file: SUCCESS - File uploaded with ID: ' . $file_id);
         }
 
         return $decoded;
@@ -367,9 +393,10 @@ class API_Handler {
      * @param string $model Model to use
      * @param string $instructions System instructions
      * @param array  $options Additional options (max_num_results, etc.)
+     * @param string $previous_response_id Previous response ID for conversation continuity
      * @return array|WP_Error
      */
-    public function create_response_with_filesearch($input, $vector_store_id, $model = null, $instructions = '', $options = array()) {
+    public function create_response_with_filesearch($input, $vector_store_id, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
         if (null === $model) {
             $model = $this->default_model;
         }
@@ -389,6 +416,15 @@ class API_Handler {
         // Add instructions if provided
         if (!empty($instructions)) {
             $data['instructions'] = $instructions;
+        }
+
+        // Add previous response ID for conversation continuity
+        if (!empty($previous_response_id)) {
+            $data['previous_response_id'] = $previous_response_id;
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+            }
         }
 
         // Merge any additional options (like max_num_results)
@@ -415,7 +451,7 @@ class API_Handler {
         $system_message = "You are a prompt enhancement expert. Improve the given prompt to make it more effective, clear, and actionable while maintaining the user's original intent.";
         
         if (!empty($context)) {
-            $system_message .= " Context: " . $context;
+            $system_message .= ' Context: ' . $context;
         }
 
         $messages = array(
@@ -440,9 +476,9 @@ class API_Handler {
      * Create Response using Responses API (without file search)
      *
      * @param array|string $input Messages array or single message string
-     * @param string $model Model to use
-     * @param string $instructions System instructions
-     * @param array $options Additional options
+     * @param string       $model Model to use
+     * @param string       $instructions System instructions
+     * @param array        $options Additional options
      * @return array|WP_Error
      */
     public function create_response($input, $model = null, $instructions = '', $options = array()) {
@@ -473,16 +509,17 @@ class API_Handler {
      * Stream response using Responses API (without file search)
      *
      * @param array|string $input Messages array or single message string
-     * @param callable $callback Callback function for each chunk
-     * @param string $model Model to use
-     * @param string $instructions System instructions
-     * @param array $options Additional options
-     * @return void
+     * @param callable     $callback Callback function for each chunk
+     * @param string       $model Model to use
+     * @param string       $instructions System instructions
+     * @param array        $options Additional options
+     * @param string       $previous_response_id Previous response ID for conversation continuity
+     * @return string|null Response ID from the API
      */
-    public function stream_response($input, $callback, $model = null, $instructions = '', $options = array()) {
+    public function stream_response($input, $callback, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
         if (!$this->has_api_key()) {
             $callback(array('type' => 'error', 'content' => 'OpenAI API key is not configured'));
-            return;
+            return null;
         }
 
         if (null === $model) {
@@ -503,22 +540,34 @@ class API_Handler {
             $data['instructions'] = $instructions;
         }
 
+        // Add previous response ID for conversation continuity
+        if (!empty($previous_response_id)) {
+            $data['previous_response_id'] = $previous_response_id;
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+            }
+        }
+
         // Merge any additional options
         $data = array_merge($data, $options);
 
         // Context for tracking state (not used for non-file-search but required by method)
         $context = array();
 
-        // Use cURL streaming
-        $result = $this->make_streaming_request($url, $data, $callback, $context);
+        // Use WordPress HTTP API streaming
+        $response_id = $this->make_streaming_request($url, $data, $callback, $context);
 
-        // Handle streaming errors
-        if ($result !== true) {
-            $callback(array('type' => 'error', 'content' => $result));
-            return;
+        // Handle streaming errors (make_streaming_request returns error strings)
+        if (is_string($response_id) && (strpos($response_id, 'error:') !== false || strpos($response_id, 'Error:') !== false)) {
+            $callback(array('type' => 'error', 'content' => $response_id));
+            return null;
         }
 
         $callback(array('type' => 'done'));
+
+        // Return the captured response_id for conversation continuity
+        return $response_id;
     }
 
     /**
@@ -550,7 +599,9 @@ class API_Handler {
     }
 
     /**
-     * Make a streaming HTTP request using cURL
+     * Make a streaming HTTP request using WordPress HTTP API
+     *
+     * Uses SSE_Stream_Manager with http_api_curl hook for streaming callbacks.
      *
      * @param string   $url      API URL
      * @param array    $data     Request data
@@ -558,197 +609,175 @@ class API_Handler {
      * @param array    $context  Context data (for annotations tracking)
      * @return bool|string True on success, error message on failure
      */
-    private function make_streaming_request($url, $data, $callback, &$context = array()) {
-        // cURL is required for Server-Sent Events (SSE) streaming.
-        // WordPress HTTP API (wp_remote_*) does not support:
-        // 1. CURLOPT_WRITEFUNCTION callbacks for real-time chunk processing
-        // 2. Streaming responses - it waits for the entire response before returning
-        // 3. Progressive data handling needed for AI chat streaming
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_init -- Required for SSE streaming; WP HTTP API lacks callback support
-        $ch = curl_init($url);
+    private function make_streaming_request( $url, $data, $callback, &$context = array() ) {
+        // Track response_id from response.completed event
+        $response_id = null;
 
-        if ($ch === false) {
-            return 'Failed to initialize cURL';
-        }
+        // Headers for WordPress HTTP API (associative array format).
+        $headers = array(
+            'Authorization' => 'Bearer ' . $this->api_key,
+            'Content-Type'  => 'application/json',
+            'Accept'        => 'text/event-stream',
+        );
 
-        // Reset buffer for this request
-        $this->sse_buffer = '';
+        // Create SSE parser for OpenAI Responses API format.
+        // This parser handles file search, annotations, and content deltas.
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) use ( &$context, &$response_id ) {
+            $buffer .= $chunk;
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt_array -- cURL required for streaming
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => wp_json_encode($data),
-            CURLOPT_HTTPHEADER     => array(
-                'Authorization: Bearer ' . $this->api_key,
-                'Content-Type: application/json',
-                'Accept: text/event-stream',
-                'Expect: ', // Disable Expect header that can cause buffering
-            ),
-            CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_TIMEOUT        => 300,
-            CURLOPT_CONNECTTIMEOUT => 30,
-            CURLOPT_BUFFERSIZE     => 128, // Small buffer for immediate chunks
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- cURL required for streaming
-            CURLOPT_WRITEFUNCTION  => function($ch, $chunk) use ($callback, &$context) {
-                $this->parse_sse_chunk($chunk, $callback, $context);
-                return strlen($chunk);
-            },
-        ));
+            // Split by double newline (SSE event separator).
+            $parts  = explode( "\n\n", $buffer );
+            $buffer = array_pop( $parts );
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_exec -- cURL required for streaming
-        $result = curl_exec($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_errno -- cURL required for streaming
-        $error_no = curl_errno($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_error -- cURL required for streaming
-        $error_msg = curl_error($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- cURL required for streaming
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_close -- cURL required for streaming
-        curl_close($ch);
-
-        if ($error_no !== 0) {
-            return 'cURL error: ' . $error_msg;
-        }
-
-        if ($http_code >= 400) {
-            return 'HTTP error: ' . $http_code;
-        }
-
-        return true;
-    }
-
-    /**
-     * Parse SSE chunk and call callback for each event
-     *
-     * @param string   $chunk    Raw SSE chunk data
-     * @param callable $callback Callback for each parsed event
-     * @param array    $context  Context for tracking state (annotations, etc.)
-     * @return void
-     */
-    private function parse_sse_chunk($chunk, $callback, &$context) {
-        // Add chunk to buffer
-        $this->sse_buffer .= $chunk;
-
-        // Split by double newline (SSE event separator)
-        $parts = explode("\n\n", $this->sse_buffer);
-
-        // Keep the last part as it may be incomplete
-        $this->sse_buffer = array_pop($parts);
-
-        foreach ($parts as $part) {
-            $part = trim($part);
-            if (empty($part)) {
-                continue;
-            }
-
-            // Parse SSE event
-            $event_type = null;
-            $event_data = null;
-
-            $lines = explode("\n", $part);
-            foreach ($lines as $line) {
-                if (strpos($line, 'event: ') === 0) {
-                    $event_type = substr($line, 7);
-                } elseif (strpos($line, 'data: ') === 0) {
-                    $event_data = substr($line, 6);
+            foreach ( $parts as $part ) {
+                $part = trim( $part );
+                if ( empty( $part ) ) {
+                    continue;
                 }
-            }
 
-            // If no event type, check if data line exists on its own
-            if ($event_data === null) {
-                foreach ($lines as $line) {
-                    if (strpos($line, 'data:') === 0) {
-                        $event_data = trim(substr($line, 5));
-                        break;
+                // Parse SSE event.
+                $event_type = null;
+                $event_data = null;
+
+                $lines = explode( "\n", $part );
+                foreach ( $lines as $line ) {
+                    if ( strpos( $line, 'event: ' ) === 0 ) {
+                        $event_type = substr( $line, 7 );
+                    } elseif ( strpos( $line, 'data: ' ) === 0 ) {
+                        $event_data = substr( $line, 6 );
                     }
                 }
-            }
 
-            if ($event_data === null || $event_data === '[DONE]') {
-                continue;
-            }
-
-            $decoded = json_decode($event_data, true);
-            if (!$decoded || !isset($decoded['type'])) {
-                continue;
-            }
-
-            $type = $decoded['type'];
-
-            // Handle text delta - the main streaming content
-            if ($type === 'response.output_text.delta') {
-                if (isset($decoded['delta'])) {
-                    $callback(array(
-                        'type'    => 'content',
-                        'content' => $decoded['delta'],
-                    ));
+                // If no event data found, check for data: without space.
+                if ( null === $event_data ) {
+                    foreach ( $lines as $line ) {
+                        if ( strpos( $line, 'data:' ) === 0 ) {
+                            $event_data = trim( substr( $line, 5 ) );
+                            break;
+                        }
+                    }
                 }
-            }
-            // Handle file search in progress - show searching status
-            elseif ($type === 'response.file_search_call.searching') {
-                $callback(array(
-                    'type'    => 'status',
-                    'content' => 'Searching files...',
-                ));
-            }
-            // Handle file search completed - extract sources
-            elseif ($type === 'response.file_search_call.completed') {
-                if (isset($decoded['results']) && is_array($decoded['results'])) {
-                    $sources = array();
-                    foreach ($decoded['results'] as $result) {
-                        if (isset($result['filename'])) {
-                            $sources[] = array(
-                                'file_id'  => isset($result['file_id']) ? $result['file_id'] : '',
-                                'filename' => $result['filename'],
+
+                if ( null === $event_data || '[DONE]' === $event_data ) {
+                    continue;
+                }
+
+                $decoded = json_decode( $event_data, true );
+                if ( ! $decoded || ! isset( $decoded['type'] ) ) {
+                    continue;
+                }
+
+                $type = $decoded['type'];
+
+                // Handle text delta - the main streaming content.
+                if ( 'response.output_text.delta' === $type ) {
+                    if ( isset( $decoded['delta'] ) ) {
+                        $callback(
+                            array(
+                                'type'    => 'content',
+                                'content' => $decoded['delta'],
+                            )
+                        );
+                    }
+                } elseif ( 'response.file_search_call.searching' === $type ) {
+                    // Handle file search in progress - show searching status.
+                    $callback(
+                        array(
+                            'type'    => 'status',
+                            'content' => 'Searching files...',
+                        )
+                    );
+                } elseif ( 'response.file_search_call.completed' === $type ) {
+                    // Handle file search completed - extract sources.
+                    if ( isset( $decoded['results'] ) && is_array( $decoded['results'] ) ) {
+                        $sources = array();
+                        foreach ( $decoded['results'] as $result ) {
+                            if ( isset( $result['filename'] ) ) {
+                                $sources[] = array(
+                                    'file_id'  => isset( $result['file_id'] ) ? $result['file_id'] : '',
+                                    'filename' => $result['filename'],
+                                );
+                            }
+                        }
+                        if ( ! empty( $sources ) ) {
+                            $context['sources'] = $sources;
+                        }
+                    }
+                } elseif ( 'response.output_text.annotation.added' === $type ) {
+                    // Handle text annotation added - for inline citations.
+                    if ( isset( $decoded['annotation'] ) ) {
+                        $annotation = $decoded['annotation'];
+                        if ( isset( $annotation['filename'] ) ) {
+                            if ( ! isset( $context['annotations'] ) ) {
+                                $context['annotations'] = array();
+                            }
+                            $context['annotations'][] = array(
+                                'file_id'  => isset( $annotation['file_id'] ) ? $annotation['file_id'] : '',
+                                'filename' => $annotation['filename'],
                             );
                         }
                     }
-                    if (!empty($sources)) {
-                        $context['sources'] = $sources;
-                    }
-                }
-            }
-            // Handle text annotation added - for inline citations
-            elseif ($type === 'response.output_text.annotation.added') {
-                if (isset($decoded['annotation'])) {
-                    $annotation = $decoded['annotation'];
-                    if (isset($annotation['filename'])) {
-                        if (!isset($context['annotations'])) {
-                            $context['annotations'] = array();
+                } elseif ( 'response.completed' === $type ) {
+                    // Handle response completion - capture response_id for conversation continuity.
+                    // The response.completed event has the ID in response.id
+                    if ( isset( $decoded['response']['id'] ) ) {
+                        $response_id = $decoded['response']['id'];
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                            error_log( '[ChatProjects] Captured response_id: ' . $response_id );
                         }
-                        $context['annotations'][] = array(
-                            'file_id'  => isset($annotation['file_id']) ? $annotation['file_id'] : '',
-                            'filename' => $annotation['filename'],
-                        );
                     }
+                } elseif ( 'error' === $type ) {
+                    // Handle errors.
+                    $error_msg = isset( $decoded['error']['message'] ) ? $decoded['error']['message'] : 'Unknown streaming error';
+                    $callback(
+                        array(
+                            'type'    => 'error',
+                            'content' => $error_msg,
+                        )
+                    );
                 }
             }
-            // Handle errors
-            elseif ($type === 'error') {
-                $error_msg = isset($decoded['error']['message']) ? $decoded['error']['message'] : 'Unknown streaming error';
-                $callback(array(
-                    'type'    => 'error',
-                    'content' => $error_msg,
-                ));
-            }
+        };
+
+        // Execute streaming request using WordPress HTTP API.
+        $manager  = SSE_Stream_Manager::get_instance();
+        $response = $manager->stream_request( $url, $data, $headers, $callback, $parser );
+
+        if ( is_wp_error( $response ) ) {
+            return 'Connection error: ' . $response->get_error_message();
         }
+
+        $status_code = wp_remote_retrieve_response_code( $response );
+        if ( $status_code >= 400 ) {
+            return 'HTTP error: ' . $status_code;
+        }
+
+        // Return the captured response_id for conversation continuity
+        return $response_id;
     }
 
     /**
      * Stream response with file search using Responses API
      *
-     * @param string $input User input/message
-     * @param string $vector_store_id Vector store ID
+     * @param string   $input User input/message
+     * @param string   $vector_store_id Vector store ID
      * @param callable $callback Callback function for each chunk
-     * @param string $model Model to use
-     * @param string $instructions Optional system instructions
-     * @param array $options Additional options
-     * @return void
+     * @param string   $model Model to use
+     * @param string   $instructions Optional system instructions
+     * @param array    $options Additional options
+     * @param string   $previous_response_id Previous response ID for conversation continuity
+     * @return string|null Response ID from the API
      */
-    public function stream_response_with_filesearch($input, $vector_store_id, $callback, $model = null, $instructions = '', $options = array()) {
+    public function stream_response_with_filesearch($input, $vector_store_id, $callback, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+            error_log('[ChatProjects] stream_response_with_filesearch called - VERSION 2.0 WITH FIXES');
+        }
+
         if (!$this->has_api_key()) {
             $callback(array('type' => 'error', 'content' => 'OpenAI API key is not configured'));
-            return;
+            return null;
         }
 
         if (null === $model) {
@@ -775,6 +804,15 @@ class API_Handler {
             $data['instructions'] = $instructions;
         }
 
+        // Add previous response ID for conversation continuity
+        if (!empty($previous_response_id)) {
+            $data['previous_response_id'] = $previous_response_id;
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
+                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+            }
+        }
+
         // Merge any additional options
         $data = array_merge($data, $options);
 
@@ -784,13 +822,13 @@ class API_Handler {
             'annotations' => array(),
         );
 
-        // Use cURL streaming
-        $result = $this->make_streaming_request($url, $data, $callback, $context);
+        // Use WordPress HTTP API streaming
+        $response_id = $this->make_streaming_request($url, $data, $callback, $context);
 
-        // Handle streaming errors
-        if ($result !== true) {
-            $callback(array('type' => 'error', 'content' => $result));
-            return;
+        // Handle streaming errors (make_streaming_request returns error strings)
+        if (is_string($response_id) && (strpos($response_id, 'error:') !== false || strpos($response_id, 'Error:') !== false)) {
+            $callback(array('type' => 'error', 'content' => $response_id));
+            return null;
         }
 
         // Send sources collected during streaming
@@ -808,8 +846,8 @@ class API_Handler {
             $seen = array();
             foreach ($sources as $source) {
                 $key = $source['filename'];
-                if (!isset($seen[$key])) {
-                    $seen[$key] = true;
+                if (!isset($seen[ $key ])) {
+                    $seen[ $key ] = true;
                     $unique_sources[] = $source;
                 }
             }
@@ -817,5 +855,8 @@ class API_Handler {
         }
 
         $callback(array('type' => 'done'));
+
+        // Return the captured response_id for conversation continuity
+        return $response_id;
     }
 }

@@ -369,37 +369,61 @@ class General_Chat_Ajax {
             // Build messages array from history for the API call
             $history = $chat_interface->get_general_chat_history($chat_id);
             $api_messages = array();
+            $previous_response_id = null;
+
             if (!is_wp_error($history)) {
                 foreach ($history as $msg) {
                     $api_messages[] = array(
                         'role' => $msg['role'],
                         'content' => $msg['content']
                     );
+
+                    // For OpenAI, get the last assistant message's response_id for conversation continuity.
+                    if ($provider_name === 'openai' && $msg['role'] === 'assistant' && !empty($msg['metadata'])) {
+                        $metadata = is_string($msg['metadata']) ? json_decode($msg['metadata'], true) : $msg['metadata'];
+                        if (isset($metadata['response_id'])) {
+                            $previous_response_id = $metadata['response_id'];
+                        }
+                    }
                 }
             }
 
             // Attach images to the last user message for vision support
             if (!empty($images) && !empty($api_messages)) {
                 for ($i = count($api_messages) - 1; $i >= 0; $i--) {
-                    if ($api_messages[$i]['role'] === 'user') {
-                        $api_messages[$i]['images'] = $images;
+                    if ($api_messages[ $i ]['role'] === 'user') {
+                        $api_messages[ $i ]['images'] = $images;
                         break;
                     }
                 }
             }
 
+            // Build options for provider
+            $provider_options = array('images' => $images);
+            if ($provider_name === 'openai' && $previous_response_id) {
+                $provider_options['previous_response_id'] = $previous_response_id;
+            }
+
             // Stream response from provider
             $assistant_content = '';
+            $captured_response_id = null;
+
             $provider_instance->stream_completion(
                 $api_messages,
                 $model,
-                function($chunk) use (&$assistant_content) {
+                function($chunk) use (&$assistant_content, &$captured_response_id) {
                     if (isset($chunk['type'])) {
                         if ($chunk['type'] === 'content' && isset($chunk['content'])) {
                             $assistant_content .= $chunk['content'];
                         }
+                        // Capture response_id from OpenAI Responses API.
+                        if ($chunk['type'] === 'response_id' && isset($chunk['response_id'])) {
+                            $captured_response_id = $chunk['response_id'];
+                            // Don't send response_id to frontend, it's internal.
+                            return;
+                        }
                         // Output immediately
-                        echo "data: " . wp_json_encode($chunk) . "\n\n";
+                        echo 'data: ' . wp_json_encode($chunk) . "\n\n";
                         // Flush with LiteSpeed support
                         if (function_exists('litespeed_flush')) {
                             litespeed_flush();
@@ -408,18 +432,27 @@ class General_Chat_Ajax {
                         @flush();
                     }
                 },
-                array('images' => $images)
+                $provider_options
             );
 
-            // Save assistant response to database
+            // Save assistant response to database with response_id in metadata (for OpenAI).
             if (!empty($assistant_content)) {
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
-                $wpdb->insert($this->messages_table, array(
+                $insert_data = array(
                     'chat_id' => $chat_id,
                     'role' => 'assistant',
                     'content' => $assistant_content,
                     'created_at' => current_time('mysql'),
-                ), array('%d', '%s', '%s', '%s'));
+                );
+                $insert_format = array('%d', '%s', '%s', '%s');
+
+                // Store response_id in metadata for OpenAI provider.
+                if ($provider_name === 'openai' && $captured_response_id) {
+                    $insert_data['metadata'] = wp_json_encode(array('response_id' => $captured_response_id));
+                    $insert_format[] = '%s';
+                }
+
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
+                $wpdb->insert($this->messages_table, $insert_data, $insert_format);
             }
 
             // Update message count
@@ -531,7 +564,7 @@ class General_Chat_Ajax {
      * @param array $data Data to send
      */
     private function send_sse_data($data) {
-        echo "data: " . wp_json_encode($data) . "\n\n";
+        echo 'data: ' . wp_json_encode($data) . "\n\n";
         if (function_exists('litespeed_flush')) {
             litespeed_flush();
         }
@@ -827,11 +860,11 @@ class General_Chat_Ajax {
             'openrouter' => 'OpenRouter_Provider',
         );
 
-        if (!isset($provider_map[$provider])) {
+        if (!isset($provider_map[ $provider ])) {
             return null;
         }
 
-        $class_name = 'ChatProjects\\Providers\\' . $provider_map[$provider];
+        $class_name = 'ChatProjects\\Providers\\' . $provider_map[ $provider ];
 
         if (!class_exists($class_name)) {
             return null;

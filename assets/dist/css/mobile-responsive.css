@@ -60,6 +60,19 @@
     display: block;
 }
 
+/* Add space for fixed mobile header in project assistant page */
+@media (max-width: 767px) {
+    /* Add padding to the messages container on mobile (project assistant only) */
+    [data-project-id] .flex-1.overflow-y-auto {
+        padding-top: 52px !important;
+    }
+
+    /* Add padding to model selector toolbar on pro-chat page so it appears below fixed header */
+    [data-pro-chat] main .flex-shrink-0.border-b {
+        padding-top: 52px;
+    }
+}
+
 /* ==========================================================================
    Global Touch Target Fixes
    ========================================================================== */
@@ -207,7 +220,8 @@
     z-index: 40;
 }
 
-.vp-sidebar-overlay.visible {
+.vp-sidebar-overlay.visible,
+.vp-sidebar-overlay.open {
     opacity: 1;
     visibility: visible;
 }
@@ -246,9 +260,13 @@
     }
 
     .vp-sidebar.mobile-open,
+    .vp-sidebar.open,
     .vp-chat-sidebar.mobile-open,
+    .vp-chat-sidebar.open,
     .vp-projects-sidebar.mobile-open,
-    .vp-project-sidebar.mobile-open {
+    .vp-projects-sidebar.open,
+    .vp-project-sidebar.mobile-open,
+    .vp-project-sidebar.open {
         transform: translateX(0);
     }
 }

@@ -76,12 +76,12 @@ document.addEventListener('alpine:init', () => {
             }
 
             // Listen for new chat event
-            window.addEventListener('vp:chat:new', () => {
+            window.addEventListener('chatpr:chat:new', () => {
                 this.startNewChat();
             });
 
             // Listen for chat switch event
-            window.addEventListener('vp:chat:switch', (e) => {
+            window.addEventListener('chatpr:chat:switch', (e) => {
                 this.switchChat(e.detail.threadId);
             });
 
@@ -292,13 +292,13 @@ document.addEventListener('alpine:init', () => {
             await this.processSSEStream(response, assistantMessage);
 
             // Update chat list
-            window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+            window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                 detail: { threadId: this.threadId }
             }));
 
             // Refresh chat list after delay
             setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+                window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                     detail: { threadId: this.threadId }
                 }));
             }, 2500);
@@ -329,12 +329,12 @@ document.addEventListener('alpine:init', () => {
             await this.processSSEStream(response, assistantMessage);
 
             // Update chat list
-            window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+            window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                 detail: { threadId: this.threadId }
             }));
 
             setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+                window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                     detail: { threadId: this.threadId }
                 }));
             }, 2500);
@@ -390,7 +390,7 @@ document.addEventListener('alpine:init', () => {
                             assistantMessage.sources = parsed.sources;
                         } else if (parsed.type === 'chat_id' && parsed.chat_id) {
                             this.threadId = parsed.chat_id;
-                            window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+                            window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                                 detail: { threadId: this.threadId }
                             }));
                         } else if (parsed.type === 'error') {
@@ -697,7 +697,7 @@ document.addEventListener('alpine:init', () => {
                     this.currentChatProvider = this.selectedProvider;
                     this.currentChatModel = this.selectedModel;
 
-                    window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+                    window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                         detail: { threadId: this.threadId }
                     }));
 

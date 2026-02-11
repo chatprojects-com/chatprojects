@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<ruleset name="ChatProjects">
+	<description>PHPCS ruleset for ChatProjects plugin</description>
+
+	<!-- Scan these files -->
+	<file>.</file>
+
+	<!-- Exclude paths -->
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+	<exclude-pattern>/assets/dist/*</exclude-pattern>
+	<exclude-pattern>/assets/src/*</exclude-pattern>
+	<exclude-pattern>*.min.js</exclude-pattern>
+	<exclude-pattern>*.css</exclude-pattern>
+
+	<!-- Show progress -->
+	<arg value="ps"/>
+
+	<!-- Use colors in output -->
+	<arg name="colors"/>
+
+	<!-- Check PHP files only -->
+	<arg name="extensions" value="php"/>
+
+	<!-- Use WordPress Coding Standards -->
+	<rule ref="WordPress">
+		<!-- Exclude filename rules for class files -->
+		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+	</rule>
+
+	<!-- Disable strict comment punctuation rules -->
+	<rule ref="Squiz.Commenting.InlineComment.InvalidEndChar">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment.ParamCommentFullStop">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Set minimum supported WordPress version -->
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Set text domain for i18n -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="chatprojects"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Allow short array syntax -->
+	<rule ref="Generic.Arrays.DisallowShortArraySyntax.Found">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Allow spaces for indentation (codebase uses spaces, not tabs) -->
+	<rule ref="Generic.WhiteSpace.DisallowSpaceIndent">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Universal.WhiteSpace.PrecisionAlignment">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Disable all formatting/whitespace rules - codebase has its own style -->
+	<rule ref="WordPress.WhiteSpace">
+		<severity>0</severity>
+	</rule>
+	<rule ref="WordPress.Arrays.MultipleStatementAlignment">
+		<severity>0</severity>
+	</rule>
+	<rule ref="WordPress.Arrays.ArrayDeclarationSpacing">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Generic.Formatting.MultipleStatementAlignment">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Generic.WhiteSpace.ScopeIndent">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Generic.WhiteSpace.ArbitraryParenthesesSpacing">
+		<severity>0</severity>
+	</rule>
+	<rule ref="PEAR.Functions.FunctionCallSignature">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.Functions">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.WhiteSpace">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.PHP.EmbeddedPhp">
+		<severity>0</severity>
+	</rule>
+	<rule ref="NormalizedArrays.Arrays">
+		<severity>0</severity>
+	</rule>
+</ruleset>

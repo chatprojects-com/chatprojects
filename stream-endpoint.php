@@ -2,52 +2,27 @@
 /**
  * Direct streaming endpoint for ChatProjects
  *
- * This file handles SSE streaming requests directly, bypassing admin-ajax.php
- * buffering issues on some servers. It loads WordPress itself for authentication.
+ * DEPRECATED: This file is no longer used. SSE streaming is now handled through:
+ * 1. WordPress admin-ajax.php (action: chatpr_stream_chat_message)
+ * 2. WordPress REST API endpoint (/wp-json/chatprojects/v1/stream)
  *
- * IMPORTANT: This file is intentionally designed to be accessed directly.
- * It cannot use the standard ABSPATH check because it must load WordPress itself.
- * Security is enforced via: POST-only requests, nonce verification, and user auth.
+ * This file is kept for backwards compatibility reference but will exit immediately.
+ * Use the REST API endpoint or admin-ajax handler for SSE streaming.
  *
  * @package ChatProjects
+ * @deprecated 1.0.0 Use the REST API endpoint or admin-ajax handler instead.
  */
 
-// phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase -- Standalone endpoint file
-
-// Direct access protection - combines ABSPATH check with POST validation.
-// This file loads WordPress itself for SSE streaming, so standard ABSPATH-only
-// check cannot be used. Instead, we allow access only with valid POST request.
-// Full nonce verification happens after WordPress loads (see line ~130).
-// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified after WP loads
+// Exit if accessed directly - standard WordPress security check.
 if ( ! defined( 'ABSPATH' ) ) {
-	// WordPress not loaded yet - validate this is a legitimate SSE request.
-	if (
-		! isset( $_SERVER['REQUEST_METHOD'] ) ||
-		'POST' !== $_SERVER['REQUEST_METHOD'] ||
-		! isset( $_POST['nonce'] ) ||
-		! isset( $_POST['project_id'] )
-	) {
-		http_response_code( 403 );
-		exit( 'Direct access forbidden.' );
-	}
-	// Valid POST request - continue to load WordPress below.
-} else {
-	// ABSPATH defined means WordPress already loaded (file included as module).
-	// This endpoint must be accessed directly, not included.
 	exit;
 }
 
-// Disable output buffering immediately for SSE.
-while ( ob_get_level() ) {
-	ob_end_clean();
-}
-
-// Load WordPress.
-$chatprojects_wp_load_paths = array(
-	dirname( __FILE__ ) . '/../../../../wp-load.php',
-	dirname( __FILE__ ) . '/../../../wp-load.php',
-	dirname( __FILE__ ) . '/../../wp-load.php',
-);
+// This file is deprecated and should not be used.
+// Streaming is handled through:
+// - Admin AJAX: wp_ajax_chatpr_stream_chat_message
+// - REST API: /wp-json/chatprojects/v1/stream
+exit;
 
 $chatprojects_wp_load_found = false;
 foreach ( $chatprojects_wp_load_paths as $chatprojects_wp_load_path ) {

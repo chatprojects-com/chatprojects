@@ -840,3 +840,21 @@ button:disabled {
     0%, 100% { background-position: 0% 0%; }
     50% { background-position: 0% 100%; }
 }
+
+/* ==========================================================================
+   WordPress Media Library Modal - Force light mode in dark theme
+   ========================================================================== */
+.dark .media-modal,
+.dark .media-modal * {
+    color: #3c434a !important;
+}
+.dark .media-modal h1,
+.dark .media-modal h2:not(.screen-reader-text) {
+    color: #1d2327 !important;
+}
+.dark .media-modal .media-menu-item {
+    color: #3c434a !important;
+}
+.dark .media-modal .media-menu-item.active {
+    color: #000000 !important;
+}

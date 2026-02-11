@@ -96,28 +96,47 @@ if (is_wp_error($all_categories) || !is_array($all_categories)) {
 
 // Get user's theme preference
 $theme_preference = get_user_meta($user_id, 'cp_theme_preference', true) ?: 'auto';
+$is_dark_cookie = isset($_COOKIE['chatpr_dark']) && $_COOKIE['chatpr_dark'] === '1';
+$dark_class = $is_dark_cookie || $theme_preference === 'dark' ? 'dark' : '';
+
+// Get filterable slugs for navigation
+$slugs = \ChatProjects\ChatProjects::get_slugs();
 
 // Projects count (no limit)
 $total_projects = count($all_projects);
 ?>
 <!DOCTYPE html>
-<html <?php language_attributes(); ?> class="<?php echo esc_attr($theme_preference === 'dark' ? 'dark' : ''); ?>">
-<?php
-// Apply theme from localStorage immediately
-// Using wp_print_inline_script_tag for WordPress guidelines compliance
-$theme_init_script = "(function() {
-    var theme = localStorage.getItem('cp_theme_preference') || '" . esc_js($theme_preference) . "';
-    if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-})();";
-wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme-init'));
-?>
+<html <?php language_attributes(); ?> class="<?php echo esc_attr($dark_class); ?>">
 <head>
+    <script id="chatprojects-theme-init">
+    (function() {
+        function applyTheme() {
+            var theme = localStorage.getItem('chatpr-theme') || '<?php echo esc_js($theme_preference); ?>';
+
+            // Remove first to ensure clean state
+            document.documentElement.classList.remove('dark');
+
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        // Apply immediately
+        applyTheme();
+
+        // Set cookie so PHP can render dark class on next page load
+        document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+
+        // Reapply on pageshow (handles back-forward cache)
+        window.addEventListener('pageshow', function() {
+            applyTheme();
+            document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+        });
+    })();
+    </script>
+    <style>html.dark{background:#111827;color:#f9fafb}html.dark body{background:#111827}</style>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -135,9 +154,288 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
     // Output chatprData via wp_print_inline_script_tag for WordPress guidelines compliance
     $chatpr_data_script = 'var chatprData = ' . wp_json_encode($chatpr_inline_data) . ';';
     wp_print_inline_script_tag($chatpr_data_script, array('id' => 'chatprojects-inline-data'));
+    ?>
+    <?php
+    // Define projectsApp function EARLY in head to prevent "not defined" errors
+    // when Alpine.js is loaded by other plugins (like Elementor) before our scripts
+    $projects_json = wp_json_encode($all_projects);
+    $current_user_json = wp_json_encode($current_user);
+    $home_url = esc_url(home_url());
+    $error_create = esc_js(__('Failed to create project.', 'chatprojects'));
+    $error_update = esc_js(__('Failed to update project.', 'chatprojects'));
+    $error_delete = esc_js(__('Failed to delete project.', 'chatprojects'));
+    $error_general = esc_js(__('An error occurred. Please try again.', 'chatprojects'));
+    ?>
+    <script id="chatprojects-projects-app-early">
+// Define projectsApp function before Alpine parses the page
+function projectsApp() {
+    // Helper to decode HTML entities
+    const decodeHtml = (html) => {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = html;
+        return txt.value;
+    };
 
+    const projectsData = <?php echo $projects_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() provides safe output for JS context ?>;
+    const currentUser = <?php echo $current_user_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() provides safe output for JS context ?>;
+    const homeUrl = '<?php echo $home_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() already applied ?>';
+
+    return {
+        projects: projectsData,
+        searchQuery: '',
+        filterMode: 'all',
+        sortBy: 'modified',
+        viewMode: 'grid',
+        sidebarOpen: false,
+
+        // Create Modal State
+        createModal: {
+            show: false,
+            saving: false,
+            error: '',
+            project: {
+                title: '',
+                description: '',
+                category: '',
+                instructions: ''
+            }
+        },
+
+        // Edit Modal State
+        editModal: {
+            show: false,
+            saving: false,
+            error: '',
+            project: {
+                id: null,
+                title: '',
+                description: '',
+                category: '',
+                instructions: ''
+            }
+        },
+
+        // Delete Modal State
+        deleteModal: {
+            show: false,
+            deleting: false,
+            error: '',
+            project: {
+                id: null,
+                title: ''
+            }
+        },
+
+        get filteredProjects() {
+            let filtered = this.projects.map(item => {
+                const post = item.post;
+                const owner = item.is_owner ? currentUser : null;
+
+                return {
+                    id: post.ID,
+                    title: decodeHtml(post.post_title),
+                    description: post.post_content,
+                    instructions: item.instructions || '',
+                    categories: item.categories || [],
+                    url: homeUrl + '/chatpr_project/' + post.post_name + '/',
+                    is_owner: item.is_owner,
+                    owner_name: owner ? owner.display_name : 'Unknown',
+                    message_count: item.message_count || 0,
+                    file_count: item.file_count || 0,
+                    shared_count: 0,
+                    is_active: true,
+                    created_date: new Date(post.post_date).toLocaleDateString(),
+                    modified_date: new Date(post.post_modified).toLocaleDateString(),
+                    _post_modified: post.post_modified,
+                    _post_date: post.post_date
+                };
+            });
+
+            // Apply search filter
+            if (this.searchQuery) {
+                filtered = filtered.filter(p =>
+                    p.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                    p.description.toLowerCase().includes(this.searchQuery.toLowerCase())
+                );
+            }
+
+            // Apply ownership filter
+            if (this.filterMode === 'own') {
+                filtered = filtered.filter(p => p.is_owner);
+            } else if (this.filterMode === 'shared') {
+                filtered = filtered.filter(p => !p.is_owner);
+            }
+
+            // Apply sorting
+            filtered.sort((a, b) => {
+                switch (this.sortBy) {
+                    case 'modified':
+                        return new Date(b._post_modified) - new Date(a._post_modified);
+                    case 'created':
+                        return new Date(b._post_date) - new Date(a._post_date);
+                    case 'title':
+                        return a.title.localeCompare(b.title);
+                    default:
+                        return 0;
+                }
+            });
+
+            return filtered;
+        },
+
+        openCreateModal() {
+            this.createModal.project = {
+                title: '',
+                description: '',
+                category: '',
+                instructions: ''
+            };
+            this.createModal.error = '';
+            this.createModal.show = true;
+        },
+
+        closeCreateModal() {
+            this.createModal.show = false;
+            this.createModal.error = '';
+            this.createModal.project = {
+                title: '',
+                description: '',
+                category: '',
+                instructions: ''
+            };
+        },
+
+        async createProject() {
+            this.createModal.saving = true;
+            this.createModal.error = '';
+
+            const formData = new FormData();
+            formData.append('action', 'chatpr_create_project');
+            formData.append('nonce', chatprAjax.nonce);
+            formData.append('title', this.createModal.project.title);
+            formData.append('description', this.createModal.project.description);
+            formData.append('category', this.createModal.project.category || '');
+            formData.append('instructions', this.createModal.project.instructions || '');
+
+            try {
+                const response = await fetch(chatprAjax.ajaxUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.createModal.error = data.data?.message || '<?php echo $error_create; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+                }
+            } catch (error) {
+                this.createModal.error = '<?php echo $error_general; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+            } finally {
+                this.createModal.saving = false;
+            }
+        },
+
+        openEditModal(project) {
+            const categoryId = (project.categories && project.categories.length > 0) ? project.categories[0].term_id : '';
+
+            this.editModal.project = {
+                id: project.id,
+                title: project.title,
+                description: project.description,
+                category: categoryId,
+                instructions: project.instructions || ''
+            };
+            this.editModal.error = '';
+            this.editModal.show = true;
+        },
+
+        async saveProject() {
+            this.editModal.saving = true;
+            this.editModal.error = '';
+
+            const formData = new FormData();
+            formData.append('action', 'chatpr_update_project');
+            formData.append('nonce', chatprAjax.nonce);
+            formData.append('project_id', this.editModal.project.id);
+            formData.append('title', this.editModal.project.title);
+            formData.append('description', this.editModal.project.description);
+            formData.append('category', this.editModal.project.category || '');
+            formData.append('instructions', this.editModal.project.instructions || '');
+
+            try {
+                const response = await fetch(chatprAjax.ajaxUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.editModal.error = data.data?.message || '<?php echo $error_update; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+                }
+            } catch (error) {
+                this.editModal.error = '<?php echo $error_general; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+            } finally {
+                this.editModal.saving = false;
+            }
+        },
+
+        openDeleteModal(project) {
+            this.deleteModal.project = {
+                id: project.id,
+                title: project.title
+            };
+            this.deleteModal.error = '';
+            this.deleteModal.show = true;
+        },
+
+        async confirmDelete() {
+            this.deleteModal.deleting = true;
+            this.deleteModal.error = '';
+
+            const formData = new FormData();
+            formData.append('action', 'chatpr_delete_project');
+            formData.append('nonce', chatprData.nonce);
+            formData.append('project_id', this.deleteModal.project.id);
+
+            try {
+                const response = await fetch(chatprData.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.deleteModal.error = data.data?.message || '<?php echo $error_delete; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+                }
+            } catch (error) {
+                this.deleteModal.error = '<?php echo $error_general; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied ?>';
+            } finally {
+                this.deleteModal.deleting = false;
+            }
+        }
+    };
+}
+
+// Also register with Alpine if it's already loaded (Elementor compatibility)
+if (window.Alpine && typeof window.Alpine.data === 'function') {
+    window.Alpine.data('projectsApp', projectsApp);
+    console.log('ChatProjects: Registered projectsApp with existing Alpine instance');
+}
+    </script>
+    <?php
     wp_head(); // Theme init script and styles are enqueued via class-chatprojects.php
     ?>
+    <script>/* Re-enforce theme after wp_head - other plugins may override */
+    (function(){var t=localStorage.getItem('chatpr-theme')||'<?php echo esc_js($theme_preference); ?>';document.documentElement.classList.remove('dark');if(t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');document.cookie='chatpr_dark='+(document.documentElement.classList.contains('dark')?'1':'0')+';path=/;max-age=31536000;SameSite=Lax';})();
+    </script>
 </head>
 <body class="bg-gray-100 dark:bg-dark-bg" x-data="projectsApp()">
 
@@ -148,7 +446,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
         </button>
-        <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="vp-mobile-header-logo">
+        <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="vp-mobile-header-logo">
             <span class="cp-logo-chat">Chat</span><span class="cp-logo-projects">Projects</span>
         </a>
     </header>
@@ -161,18 +459,18 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
         <aside class="vp-sidebar" :class="{ 'open': sidebarOpen }">
             <!-- Sidebar Header -->
             <div class="cp-sidebar-header">
-                <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="cp-logo">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="cp-logo">
                     <span class="cp-logo-chat">Chat</span><span class="cp-logo-projects">Projects</span>
                 </a>
                 <div class="cp-nav-icons">
                     <!-- Projects (Grid) -->
-                    <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="cp-nav-icon active" title="<?php esc_html_e('Projects', 'chatprojects'); ?>">
+                    <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" @click="sidebarOpen = false" class="cp-nav-icon active" title="<?php esc_html_e('Projects', 'chatprojects'); ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
                         </svg>
                     </a>
                     <!-- Chat -->
-                    <a href="<?php echo esc_url(home_url('/pro-chat/')); ?>" class="cp-nav-icon" title="<?php esc_html_e('Chat', 'chatprojects'); ?>">
+                    <a href="<?php echo esc_url(home_url('/' . $slugs['chat'] . '/')); ?>" @click="sidebarOpen = false" class="cp-nav-icon" title="<?php esc_html_e('Chat', 'chatprojects'); ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                         </svg>
@@ -184,7 +482,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
             <div class="vp-sidebar-content">
                 <!-- New Project Button -->
                 <button
-                    @click="openCreateModal()"
+                    @click="openCreateModal(); sidebarOpen = false"
                     class="w-full mb-6 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,7 +511,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                 <!-- Filter -->
                 <div class="vp-sidebar-section">
                     <div class="vp-sidebar-section-title"><?php esc_html_e('Filter', 'chatprojects'); ?></div>
-                    <select x-model="filterMode" class="vp-sidebar-select" aria-label="<?php esc_html_e('Filter projects', 'chatprojects'); ?>">
+                    <select x-model="filterMode" @change="sidebarOpen = false" class="vp-sidebar-select" aria-label="<?php esc_html_e('Filter projects', 'chatprojects'); ?>">
                         <option value="all"><?php esc_html_e('All Projects', 'chatprojects'); ?></option>
                     </select>
                 </div>
@@ -221,7 +519,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                 <!-- Sort -->
                 <div class="vp-sidebar-section">
                     <div class="vp-sidebar-section-title"><?php esc_html_e('Sort By', 'chatprojects'); ?></div>
-                    <select x-model="sortBy" class="vp-sidebar-select" aria-label="<?php esc_html_e('Sort projects', 'chatprojects'); ?>">
+                    <select x-model="sortBy" @change="sidebarOpen = false" class="vp-sidebar-select" aria-label="<?php esc_html_e('Sort projects', 'chatprojects'); ?>">
                         <option value="modified"><?php esc_html_e('Last Modified', 'chatprojects'); ?></option>
                         <option value="created"><?php esc_html_e('Date Created', 'chatprojects'); ?></option>
                         <option value="title"><?php esc_html_e('Title (A-Z)', 'chatprojects'); ?></option>
@@ -233,7 +531,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                     <div class="vp-sidebar-section-title"><?php esc_html_e('View', 'chatprojects'); ?></div>
                     <div class="flex border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" role="group" aria-label="<?php esc_html_e('View mode', 'chatprojects'); ?>">
                         <button
-                            @click="viewMode = 'grid'"
+                            @click="viewMode = 'grid'; sidebarOpen = false"
                             :class="viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
                             class="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors"
                             title="<?php esc_html_e('Grid View', 'chatprojects'); ?>"
@@ -244,7 +542,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                             <?php esc_html_e('Grid', 'chatprojects'); ?>
                         </button>
                         <button
-                            @click="viewMode = 'list'"
+                            @click="viewMode = 'list'; sidebarOpen = false"
                             :class="viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
                             class="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium border-l border-gray-200 dark:border-gray-600 transition-colors"
                             title="<?php esc_html_e('List View', 'chatprojects'); ?>"
@@ -273,14 +571,14 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                     </button>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <!-- Settings -->
-                        <a href="<?php echo esc_url(home_url('/settings/')); ?>" class="vp-nav-icon" title="<?php esc_html_e('Settings', 'chatprojects'); ?>">
+                        <a href="<?php echo esc_url(home_url('/' . $slugs['settings'] . '/')); ?>" @click="sidebarOpen = false" class="vp-nav-icon" title="<?php esc_html_e('Settings', 'chatprojects'); ?>">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             </svg>
                         </a>
                         <!-- Logout -->
-                        <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>" class="vp-nav-icon" title="<?php esc_html_e('Logout', 'chatprojects'); ?>">
+                        <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>" @click="sidebarOpen = false" class="vp-nav-icon" title="<?php esc_html_e('Logout', 'chatprojects'); ?>">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                             </svg>
@@ -831,275 +1129,6 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
         document.body.appendChild(script);
     })();";
     wp_print_inline_script_tag($fallback_script, array('id' => 'chatprojects-fallback-loader'));
-    ?>
-
-    <?php
-    // Projects app script - using wp_print_inline_script_tag for WordPress compliance
-    $projects_json = wp_json_encode($all_projects);
-    $current_user_json = wp_json_encode($current_user);
-    $home_url = esc_url(home_url());
-    $error_create = esc_js(__('Failed to create project.', 'chatprojects'));
-    $error_update = esc_js(__('Failed to update project.', 'chatprojects'));
-    $error_delete = esc_js(__('Failed to delete project.', 'chatprojects'));
-    $error_general = esc_js(__('An error occurred. Please try again.', 'chatprojects'));
-
-    $projects_app_script = "function projectsApp() {
-            // Helper to decode HTML entities
-            const decodeHtml = (html) => {
-                const txt = document.createElement('textarea');
-                txt.innerHTML = html;
-                return txt.value;
-            };
-
-            return {
-                projects: {$projects_json},
-                searchQuery: '',
-                filterMode: 'all',
-                sortBy: 'modified',
-                viewMode: 'grid',
-                sidebarOpen: false,
-
-                // Create Modal State
-                createModal: {
-                    show: false,
-                    saving: false,
-                    error: '',
-                    project: {
-                        title: '',
-                        description: '',
-                        category: '',
-                        instructions: ''
-                    }
-                },
-
-                // Edit Modal State
-                editModal: {
-                    show: false,
-                    saving: false,
-                    error: '',
-                    project: {
-                        id: null,
-                        title: '',
-                        description: '',
-                        category: '',
-                        instructions: ''
-                    }
-                },
-
-                // Delete Modal State
-                deleteModal: {
-                    show: false,
-                    deleting: false,
-                    error: '',
-                    project: {
-                        id: null,
-                        title: ''
-                    }
-                },
-
-                get filteredProjects() {
-                    let filtered = this.projects.map(item => {
-                        const post = item.post;
-                        const owner = item.is_owner ? {$current_user_json} : null;
-
-                        return {
-                            id: post.ID,
-                            title: decodeHtml(post.post_title),
-                            description: post.post_content,
-                            instructions: item.instructions || '',
-                            categories: item.categories || [],
-                            url: '{$home_url}/chatpr_project/' + post.post_name + '/',
-                            is_owner: item.is_owner,
-                            owner_name: owner ? owner.display_name : 'Unknown',
-                            message_count: item.message_count || 0,
-                            file_count: item.file_count || 0,
-                            shared_count: 0,
-                            is_active: true,
-                            created_date: new Date(post.post_date).toLocaleDateString(),
-                            modified_date: new Date(post.post_modified).toLocaleDateString(),
-                            _post_modified: post.post_modified,
-                            _post_date: post.post_date
-                        };
-                    });
-
-                    // Apply search filter
-                    if (this.searchQuery) {
-                        filtered = filtered.filter(p =>
-                            p.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                            p.description.toLowerCase().includes(this.searchQuery.toLowerCase())
-                        );
-                    }
-
-                    // Apply ownership filter
-                    if (this.filterMode === 'own') {
-                        filtered = filtered.filter(p => p.is_owner);
-                    } else if (this.filterMode === 'shared') {
-                        filtered = filtered.filter(p => !p.is_owner);
-                    }
-
-                    // Apply sorting
-                    filtered.sort((a, b) => {
-                        switch (this.sortBy) {
-                            case 'modified':
-                                return new Date(b._post_modified) - new Date(a._post_modified);
-                            case 'created':
-                                return new Date(b._post_date) - new Date(a._post_date);
-                            case 'title':
-                                return a.title.localeCompare(b.title);
-                            default:
-                                return 0;
-                        }
-                    });
-
-                    return filtered;
-                },
-
-                openCreateModal() {
-                    this.createModal.project = {
-                        title: '',
-                        description: '',
-                        category: '',
-                        instructions: ''
-                    };
-                    this.createModal.error = '';
-                    this.createModal.show = true;
-                },
-
-                closeCreateModal() {
-                    this.createModal.show = false;
-                    this.createModal.error = '';
-                    this.createModal.project = {
-                        title: '',
-                        description: '',
-                        category: '',
-                        instructions: ''
-                    };
-                },
-
-                async createProject() {
-                    this.createModal.saving = true;
-                    this.createModal.error = '';
-
-                    const formData = new FormData();
-                    formData.append('action', 'chatpr_create_project');
-                    formData.append('nonce', chatprAjax.nonce);
-                    formData.append('title', this.createModal.project.title);
-                    formData.append('description', this.createModal.project.description);
-                    formData.append('category', this.createModal.project.category || '');
-                    formData.append('instructions', this.createModal.project.instructions || '');
-
-                    try {
-                        const response = await fetch(chatprAjax.ajaxUrl, {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        const data = await response.json();
-
-                        if (data.success) {
-                            // Reload page to show new project
-                            window.location.reload();
-                        } else {
-                            this.createModal.error = data.data?.message || '{$error_create}';
-                        }
-                    } catch (error) {
-                        this.createModal.error = '{$error_general}';
-                    } finally {
-                        this.createModal.saving = false;
-                    }
-                },
-
-                openEditModal(project) {
-                    // Get the first category ID if available
-                    const categoryId = (project.categories && project.categories.length > 0) ? project.categories[0].term_id : '';
-
-                    this.editModal.project = {
-                        id: project.id,
-                        title: project.title,
-                        description: project.description,
-                        category: categoryId,
-                        instructions: project.instructions || ''
-                    };
-                    this.editModal.error = '';
-                    this.editModal.show = true;
-                },
-
-                async saveProject() {
-                    this.editModal.saving = true;
-                    this.editModal.error = '';
-
-                    const formData = new FormData();
-                    formData.append('action', 'chatpr_update_project');
-                    formData.append('nonce', chatprAjax.nonce);
-                    formData.append('project_id', this.editModal.project.id);
-                    formData.append('title', this.editModal.project.title);
-                    formData.append('description', this.editModal.project.description);
-                    formData.append('category', this.editModal.project.category || '');
-                    formData.append('instructions', this.editModal.project.instructions || '');
-
-                    try {
-                        const response = await fetch(chatprAjax.ajaxUrl, {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        const data = await response.json();
-
-                        if (data.success) {
-                            // Reload page to reflect changes
-                            window.location.reload();
-                        } else {
-                            this.editModal.error = data.data?.message || '{$error_update}';
-                        }
-                    } catch (error) {
-                        this.editModal.error = '{$error_general}';
-                    } finally {
-                        this.editModal.saving = false;
-                    }
-                },
-
-                openDeleteModal(project) {
-                    this.deleteModal.project = {
-                        id: project.id,
-                        title: project.title
-                    };
-                    this.deleteModal.error = '';
-                    this.deleteModal.show = true;
-                },
-
-                async confirmDelete() {
-                    this.deleteModal.deleting = true;
-                    this.deleteModal.error = '';
-
-                    const formData = new FormData();
-                    formData.append('action', 'chatpr_delete_project');
-                    formData.append('nonce', chatprData.nonce);
-                    formData.append('project_id', this.deleteModal.project.id);
-
-                    try {
-                        const response = await fetch(chatprData.ajax_url, {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        const data = await response.json();
-
-                        if (data.success) {
-                            // Remove project from list
-                            this.projects = this.projects.filter(p => p.post.ID !== this.deleteModal.project.id);
-                            this.deleteModal.show = false;
-                        } else {
-                            this.deleteModal.error = data.data.message || '{$error_delete}';
-                        }
-                    } catch (error) {
-                        this.deleteModal.error = '{$error_general}';
-                    } finally {
-                        this.deleteModal.deleting = false;
-                    }
-                }
-            }
-        }";
-    wp_print_inline_script_tag($projects_app_script, array('id' => 'chatprojects-projects-app'));
 
     // Theme toggle event listener
     $theme_toggle_script = "document.getElementById('vp-theme-toggle')?.addEventListener('click', function() { window.VPTheme?.toggle(); });";

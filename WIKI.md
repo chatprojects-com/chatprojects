@@ -62,7 +62,7 @@
 
 **Required PHP Extensions:**
 - OpenSSL (for API key encryption)
-- cURL (for API communication)
+- cURL (recommended for optimal streaming; HTTP API falls back to other transports if unavailable)
 - JSON (for data handling)
 
 ## Installation Methods

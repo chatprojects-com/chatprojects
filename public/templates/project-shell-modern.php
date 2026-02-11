@@ -36,27 +36,45 @@ call_user_func(function () {
 
     // Get theme preference
     $theme_preference = get_user_meta(get_current_user_id(), 'cp_theme_preference', true) ?: 'auto';
-    $dark_class = $theme_preference === 'dark' ? 'dark' : '';
+    $is_dark_cookie = isset($_COOKIE['chatpr_dark']) && $_COOKIE['chatpr_dark'] === '1';
+    $dark_class = $is_dark_cookie || $theme_preference === 'dark' ? 'dark' : '';
+
+    // Get filterable slugs for navigation
+    $slugs = \ChatProjects\ChatProjects::get_slugs();
     ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?> class="h-full <?php echo esc_attr($dark_class); ?>">
-<?php
-// Apply theme from localStorage immediately (handles back-button cache)
-// Using wp_print_inline_script_tag for WordPress guidelines compliance
-$theme_init_script = "(function() {
-    var storedTheme = localStorage.getItem('cp_theme_preference');
-    var theme = storedTheme || '" . esc_js($theme_preference) . "';
-    if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-})();";
-wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme-init'));
-?>
 <head>
+    <script id="chatprojects-theme-init">
+    (function() {
+        function applyTheme() {
+            var storedTheme = localStorage.getItem('chatpr-theme');
+            var theme = storedTheme || '<?php echo esc_js($theme_preference); ?>';
+
+            // Remove first to ensure clean state
+            document.documentElement.classList.remove('dark');
+
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        // Apply immediately
+        applyTheme();
+
+        // Set cookie so PHP can render dark class on next page load
+        document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+
+        // Reapply on pageshow (handles back-forward cache)
+        window.addEventListener('pageshow', function() {
+            applyTheme();
+            document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+        });
+    })();
+    </script>
+    <style>html.dark{background:#111827;color:#f9fafb}html.dark body{background:#111827}</style>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title><?php echo esc_html($project->post_title); ?> - <?php bloginfo('name'); ?></title>
@@ -267,7 +285,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                                                         self.scrollToBottom();
                                                     } else if (parsed.type === "chat_id" && parsed.chat_id) {
                                                         self.threadId = parsed.chat_id;
-                                                        window.dispatchEvent(new CustomEvent("vp:chat:updated", { detail: { threadId: self.threadId } }));
+                                                        window.dispatchEvent(new CustomEvent("chatpr:chat:updated", { detail: { threadId: self.threadId } }));
                                                     } else if (parsed.type === "sources" && parsed.sources) {
                                                         assistantMessage.sources = parsed.sources;
                                                     } else if (parsed.type === "error") {
@@ -276,7 +294,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                                                         return;
                                                     } else if (parsed.type === "title_update" && parsed.title) {
                                                         // Handle title update from SSE
-                                                        window.dispatchEvent(new CustomEvent("vp:chat:title-updated", {
+                                                        window.dispatchEvent(new CustomEvent("chatpr:chat:title-updated", {
                                                             detail: { chatId: parsed.chat_id, title: parsed.title }
                                                         }));
                                                     }
@@ -298,7 +316,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                                         self.messages = self.messages.slice();
                                     }
 
-                                    window.dispatchEvent(new CustomEvent("vp:chat:updated", { detail: { threadId: self.threadId } }));
+                                    window.dispatchEvent(new CustomEvent("chatpr:chat:updated", { detail: { threadId: self.threadId } }));
 
                                 } catch (err) {
                                     if (err.name !== "AbortError") {
@@ -328,7 +346,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
         });
 
         // Handle title updates from SSE
-        window.addEventListener("vp:chat:title-updated", function(e) {
+        window.addEventListener("chatpr:chat:title-updated", function(e) {
             if (!e.detail || !e.detail.chatId || !e.detail.title) return;
             // Find Alpine chatHistory components and update them
             document.querySelectorAll("[x-data*=\\"chatHistory\\"]").forEach(function(el) {
@@ -364,9 +382,12 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
 
     wp_head();
     ?>
+    <script>/* Re-enforce theme after wp_head - other plugins may override */
+    (function(){var t=localStorage.getItem('chatpr-theme')||'<?php echo esc_js($theme_preference); ?>';document.documentElement.classList.remove('dark');if(t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');document.cookie='chatpr_dark='+(document.documentElement.classList.contains('dark')?'1':'0')+';path=/;max-age=31536000;SameSite=Lax';})();
+    </script>
 </head>
 
-<body class="h-full overflow-hidden bg-neutral-50 dark:bg-dark-bg antialiased" x-data="{ sidebarOpen: window.innerWidth >= 768, currentTab: 'chat' }" @vp-switch-to-chat.window="currentTab = 'chat'">
+<body class="h-full overflow-hidden bg-neutral-50 dark:bg-dark-bg antialiased" x-data="{ sidebarOpen: window.innerWidth >= 768, currentTab: 'chat' }" @vp-switch-to-chat.window="currentTab = 'chat'" @close-sidebar.window="sidebarOpen = false">
 
     <div class="flex h-full" data-project-id="<?php echo esc_attr($project_id); ?>">
 
@@ -385,18 +406,18 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
         >
             <!-- ChatProjects Header with Navigation -->
             <div class="cp-sidebar-header flex-shrink-0">
-                <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="cp-logo">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="cp-logo">
                     <span class="cp-logo-chat">Chat</span><span class="cp-logo-projects">Projects</span>
                 </a>
                 <div class="cp-nav-icons">
                     <!-- Projects (Grid) - active since we're in a project -->
-                    <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="cp-nav-icon active" title="<?php esc_attr_e('Projects', 'chatprojects'); ?>">
+                    <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" @click="if (window.innerWidth < 768) sidebarOpen = false" class="cp-nav-icon active" title="<?php esc_attr_e('Projects', 'chatprojects'); ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
                         </svg>
                     </a>
                     <!-- Chat -->
-                    <a href="<?php echo esc_url(home_url('/pro-chat/')); ?>" class="cp-nav-icon" title="<?php esc_attr_e('Chat', 'chatprojects'); ?>">
+                    <a href="<?php echo esc_url(home_url('/' . $slugs['chat'] . '/')); ?>" @click="if (window.innerWidth < 768) sidebarOpen = false" class="cp-nav-icon" title="<?php esc_attr_e('Chat', 'chatprojects'); ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                         </svg>
@@ -501,7 +522,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                         </div>
 
                         <div class="p-4 border-t border-gray-200 dark:border-dark-border space-y-2">
-                            <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="btn-secondary w-full">
+                            <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="btn-secondary w-full">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
                                 </svg>
@@ -528,7 +549,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                             <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
 
                             <!-- Chat Button -->
-                            <a href="<?php echo esc_url(home_url('/pro-chat/')); ?>" class="btn-secondary w-full">
+                            <a href="<?php echo esc_url(home_url('/' . $slugs['chat'] . '/')); ?>" class="btn-secondary w-full">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                 </svg>
@@ -589,7 +610,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
             <!-- New Chat Button -->
             <div class="px-4 pb-4">
                 <button
-                    @click="$dispatch('vp-switch-to-chat'); window.dispatchEvent(new CustomEvent('vp:chat:new'))"
+                    @click="$dispatch('vp-switch-to-chat'); window.dispatchEvent(new CustomEvent('chatpr:chat:new')); if (window.innerWidth < 768) sidebarOpen = false"
                     class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -640,7 +661,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                             <!-- Chats in this group -->
                             <template x-for="chat in group.chats" :key="chat.id">
                                 <div
-                                    @click="$dispatch('vp-switch-to-chat'); switchChat(chat.id)"
+                                    @click="$dispatch('vp-switch-to-chat'); switchChat(chat.id); if (window.innerWidth < 768) $dispatch('close-sidebar')"
                                     :class="{
                                         'bg-sidebar-active dark:bg-dark-hover': activeThreadId === chat.id,
                                         'hover:bg-sidebar-hover dark:hover:bg-dark-hover': activeThreadId !== chat.id
@@ -719,7 +740,8 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <!-- Settings -->
                         <a
-                            href="<?php echo esc_url(home_url('/settings/')); ?>"
+                            href="<?php echo esc_url(home_url('/' . $slugs['settings'] . '/')); ?>"
+                            @click="if (window.innerWidth < 768) sidebarOpen = false"
                             class="vp-nav-icon"
                             title="<?php esc_html_e('Settings', 'chatprojects'); ?>"
                         >
@@ -731,6 +753,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                         <!-- Logout -->
                         <a
                             href="<?php echo esc_url(wp_logout_url(home_url())); ?>"
+                            @click="if (window.innerWidth < 768) sidebarOpen = false"
                             class="vp-nav-icon"
                             title="<?php esc_html_e('Logout', 'chatprojects'); ?>"
                         >
@@ -752,7 +775,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
                 </button>
-                <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="vp-mobile-header-logo">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="vp-mobile-header-logo">
                     <span class="cp-logo-chat">Chat</span><span class="cp-logo-projects">Projects</span>
                 </a>
             </header>

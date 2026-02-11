@@ -33,11 +33,11 @@ class Gemini_Provider extends Base_Provider {
         $this->api_base_url = self::API_BASE_URL;
         $this->models = array(
             'gemini-3-pro-preview' => 'Gemini 3 Pro (Preview)',
+            'gemini-3-flash-preview' => 'Gemini 3 Flash (Preview)',
             'gemini-2.5-pro' => 'Gemini 2.5 Pro',
-            'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+            'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommended)',
             'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite',
             'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-            'gemini-2.0-flash-lite' => 'Gemini 2.0 Flash Lite',
         );
 
         parent::__construct();
@@ -110,170 +110,113 @@ class Gemini_Provider extends Base_Provider {
     /**
      * Stream completion with callback
      *
+     * Uses WordPress HTTP API with http_api_curl hook for SSE streaming.
+     *
      * @param array    $messages Array of message objects
      * @param string   $model    Model identifier
      * @param callable $callback Callback for each chunk
      * @param array    $options  Additional options
      * @return void
      */
-    public function stream_completion($messages, $model, $callback, $options = array()) {
-        if (!$this->has_api_key()) {
-            $callback(array('type' => 'error', 'content' => __('Gemini API key is not configured.', 'chatprojects')));
+    public function stream_completion( $messages, $model, $callback, $options = array() ) {
+        if ( ! $this->has_api_key() ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Gemini API key is not configured.', 'chatprojects' ) ) );
             return;
         }
 
-        if (empty($messages)) {
-            $callback(array('type' => 'error', 'content' => __('No messages provided.', 'chatprojects')));
+        if ( empty( $messages ) ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'No messages provided.', 'chatprojects' ) ) );
             return;
         }
 
-        // Format conversation for Gemini
-        $contents = $this->format_messages_for_gemini($messages);
+        // Format conversation for Gemini.
+        $contents = $this->format_messages_for_gemini( $messages );
 
         $data = array(
-            'contents' => $contents,
+            'contents'         => $contents,
             'generationConfig' => array(
-                'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-                'maxOutputTokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 2048,
+                'temperature'     => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
+                'maxOutputTokens' => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 2048,
             ),
         );
 
-        if (!empty($options['instructions'])) {
+        if ( ! empty( $options['instructions'] ) ) {
             $data['systemInstruction'] = array(
                 'parts' => array(
-                    array('text' => $options['instructions']),
+                    array( 'text' => $options['instructions'] ),
                 ),
             );
         }
 
         $url = self::API_BASE_URL . "models/{$model}:streamGenerateContent?alt=sse&key=" . $this->api_key;
 
-        // cURL is required for Server-Sent Events (SSE) streaming.
-        // WordPress HTTP API (wp_remote_*) does not support:
-        // 1. CURLOPT_WRITEFUNCTION callbacks for real-time chunk processing
-        // 2. Streaming responses - it waits for the entire response before returning
-        // 3. Progressive data handling needed for AI chat streaming
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_init -- Required for SSE streaming; WP HTTP API lacks callback support
-        $ch = curl_init($url);
+        // Headers for WordPress HTTP API (associative array format).
+        $headers = array(
+            'Content-Type' => 'application/json',
+            'Accept'       => 'text/event-stream',
+        );
 
-        if ($ch === false) {
-            $callback(array('type' => 'error', 'content' => __('Failed to initialize streaming.', 'chatprojects')));
-            return;
-        }
+        // SSE parser for Gemini's response format.
+        // Gemini uses single newline line separation unlike other providers.
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
+            $buffer .= $chunk;
 
-        $buffer = '';
-        $content_found = false;
+            // Process complete lines - split by newlines.
+            $lines  = explode( "\n", $buffer );
+            // Keep the last potentially incomplete line in buffer.
+            $buffer = array_pop( $lines );
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt_array -- cURL required for SSE streaming
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => wp_json_encode($data),
-            CURLOPT_HTTPHEADER     => array(
-                'Content-Type: application/json',
-                'Accept: text/event-stream',
-            ),
-            CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_TIMEOUT        => 300,
-            CURLOPT_CONNECTTIMEOUT => 30,
-            CURLOPT_BUFFERSIZE     => 128,
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- cURL required for SSE streaming
-            CURLOPT_WRITEFUNCTION  => function($ch, $chunk) use ($callback, &$buffer, &$content_found) {
-                $buffer .= $chunk;
+            foreach ( $lines as $line ) {
+                $line = trim( $line );
 
-                // Process complete lines - split by newlines
-                $lines = explode("\n", $buffer);
-                // Keep the last potentially incomplete line in buffer
-                $buffer = array_pop($lines);
+                // Skip empty lines.
+                if ( empty( $line ) ) {
+                    continue;
+                }
 
-                foreach ($lines as $line) {
-                    $line = trim($line);
+                // Check for data: prefix.
+                if ( strpos( $line, 'data:' ) === 0 ) {
+                    $json_str = trim( substr( $line, 5 ) );
 
-                    // Skip empty lines
-                    if (empty($line)) {
+                    // Skip empty data or [DONE].
+                    if ( empty( $json_str ) || '[DONE]' === $json_str ) {
                         continue;
                     }
 
-                    // Check for data: prefix
-                    if (strpos($line, 'data:') === 0) {
-                        $json_str = trim(substr($line, 5));
+                    $parsed = json_decode( $json_str, true );
 
-                        // Skip empty data or [DONE]
-                        if (empty($json_str) || $json_str === '[DONE]') {
-                            continue;
-                        }
+                    if ( null === $parsed ) {
+                        continue;
+                    }
 
-                        $parsed = json_decode($json_str, true);
+                    // Check for API error response.
+                    if ( isset( $parsed['error'] ) ) {
+                        $error_msg = isset( $parsed['error']['message'] ) ? $parsed['error']['message'] : 'Unknown Gemini error';
+                        $callback( array( 'type' => 'error', 'content' => $error_msg ) );
+                        continue;
+                    }
 
-                        if ($parsed === null) {
-                            continue;
-                        }
-
-                        // Check for API error response
-                        if (isset($parsed['error'])) {
-                            $error_msg = isset($parsed['error']['message']) ? $parsed['error']['message'] : 'Unknown Gemini error';
-                            $callback(array('type' => 'error', 'content' => $error_msg));
-                            continue;
-                        }
-
-                        // Extract text from Gemini's response
-                        if (isset($parsed['candidates'][0]['content']['parts'])) {
-                            foreach ($parsed['candidates'][0]['content']['parts'] as $part) {
-                                if (isset($part['text'])) {
-                                    $content_found = true;
-                                    $callback(array('type' => 'content', 'content' => $part['text']));
-                                }
+                    // Extract text from Gemini's response.
+                    if ( isset( $parsed['candidates'][0]['content']['parts'] ) ) {
+                        foreach ( $parsed['candidates'][0]['content']['parts'] as $part ) {
+                            if ( isset( $part['text'] ) ) {
+                                $callback( array( 'type' => 'content', 'content' => $part['text'] ) );
                             }
                         }
                     }
                 }
-
-                return strlen($chunk);
-            },
-        ));
-
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_exec -- cURL required for SSE streaming
-        $result = curl_exec($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_errno -- cURL required for SSE streaming
-        $error_no = curl_errno($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_error -- cURL required for SSE streaming
-        $error_msg = curl_error($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- cURL required for SSE streaming
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_close -- cURL required for SSE streaming
-        curl_close($ch);
-
-        // Process any remaining buffer content
-        if (!empty($buffer)) {
-            // Try to parse remaining content as JSON (might be error response)
-            $line = trim($buffer);
-            if (strpos($line, 'data:') === 0) {
-                $json_str = trim(substr($line, 5));
-                $parsed = json_decode($json_str, true);
-                if ($parsed && isset($parsed['error']['message'])) {
-                    $callback(array('type' => 'error', 'content' => $parsed['error']['message']));
-                    return;
-                }
-            } elseif ($line && $line[0] === '{') {
-                // Direct JSON without data: prefix
-                $parsed = json_decode($line, true);
-                if ($parsed && isset($parsed['error']['message'])) {
-                    $callback(array('type' => 'error', 'content' => $parsed['error']['message']));
-                    return;
-                }
             }
-        }
+        };
 
-        if ($error_no !== 0) {
-            $callback(array('type' => 'error', 'content' => __('Connection error: ', 'chatprojects') . $error_msg));
+        // Execute streaming request using WordPress HTTP API.
+        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+
+        if ( true !== $result ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
             return;
         }
 
-        if ($http_code >= 400) {
-            $callback(array('type' => 'error', 'content' => __('API error (HTTP ', 'chatprojects') . $http_code . ')'));
-            return;
-        }
-
-        $callback(array('type' => 'done'));
+        $callback( array( 'type' => 'done' ) );
     }
 
     /**

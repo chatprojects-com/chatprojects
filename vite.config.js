@@ -6,8 +6,7 @@ export default defineConfig({
     outDir: 'assets/dist',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'assets/src/main.js'),
-        chat: resolve(__dirname, 'assets/src/chat.js'),
+        main: resolve(__dirname, 'assets/src/js/main.js'),
         comparison: resolve(__dirname, 'assets/src/comparison.js'),
         admin: resolve(__dirname, 'assets/src/admin.js'),
       },

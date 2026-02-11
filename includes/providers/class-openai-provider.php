@@ -34,21 +34,14 @@ class OpenAI_Provider extends Base_Provider {
         $this->identifier = 'openai';
         $this->api_base_url = self::API_BASE_URL;
         $this->models = array(
-            'gpt-5.2' => 'GPT-5.2 (Latest)',
-            'gpt-5.2-pro' => 'GPT-5.2 Pro',
-            'gpt-5.2-chat-latest' => 'GPT-5.2 Instant',
+            'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
             'gpt-5-mini' => 'GPT-5 Mini',
-            'gpt-5-nano' => 'GPT-5 Nano',
-            'gpt-5.1' => 'GPT-5.1',
-            'gpt-5.1-codex-max' => 'GPT-5.1 Codex Max',
-            'gpt-5' => 'GPT-5',
-            'o1-preview' => 'O1 Preview',
-            'o1-mini' => 'O1 Mini',
+            'gpt-4.1' => 'GPT-4.1',
+            'gpt-4.1-mini' => 'GPT-4.1 Mini',
             'gpt-4o' => 'GPT-4o',
             'gpt-4o-mini' => 'GPT-4o Mini',
-            'gpt-4-turbo' => 'GPT-4 Turbo',
-            'gpt-4' => 'GPT-4',
-            'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
+            'o4-mini' => 'o4-mini (Reasoning)',
+            'o3-mini' => 'o3-mini (Reasoning)',
         );
 
         parent::__construct();
@@ -130,130 +123,173 @@ class OpenAI_Provider extends Base_Provider {
     /**
      * Stream completion with callback using Responses API
      *
+     * Uses the OpenAI Responses API with streaming for conversation continuity.
+     * When previous_response_id is provided, maintains context from previous turn.
+     *
      * @param array    $messages Array of message objects
      * @param string   $model    Model identifier
      * @param callable $callback Callback for each chunk
-     * @param array    $options  Additional options
+     * @param array    $options  Additional options (previous_response_id, instructions, etc.)
      * @return void
      */
-    public function stream_completion($messages, $model, $callback, $options = array()) {
-        if (!$this->has_api_key()) {
-            $callback(array('type' => 'error', 'content' => __('OpenAI API key is not configured.', 'chatprojects')));
+    public function stream_completion( $messages, $model, $callback, $options = array() ) {
+        if ( ! $this->has_api_key() ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'OpenAI API key is not configured.', 'chatprojects' ) ) );
             return;
         }
 
-        if (empty($messages)) {
-            $callback(array('type' => 'error', 'content' => __('No messages provided.', 'chatprojects')));
+        if ( empty( $messages ) ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'No messages provided.', 'chatprojects' ) ) );
             return;
         }
 
-        $url = self::API_BASE_URL . 'chat/completions';
+        $url = self::API_BASE_URL . 'responses';
 
-        // Build request data for Chat Completions API
+        // Build request data for Responses API.
         $data = array(
-            'model' => $model,
-            'messages' => $this->format_messages_for_chat_api($messages),
+            'model'  => $model,
             'stream' => true,
         );
 
-        // Add system instructions if provided
-        if (!empty($options['instructions'])) {
-            array_unshift($data['messages'], array(
-                'role' => 'system',
-                'content' => $options['instructions']
-            ));
+        // If we have a previous_response_id, use it for conversation continuity
+        // and only send the latest user message.
+        if ( ! empty( $options['previous_response_id'] ) ) {
+            $data['previous_response_id'] = $options['previous_response_id'];
+            // Only send the latest user message when using previous_response_id.
+            $latest_user_message = $this->get_latest_user_message( $messages );
+            $data['input'] = $latest_user_message;
+        } else {
+            // No previous response - send full conversation history.
+            $data['input'] = $this->format_messages_for_api( $messages );
         }
 
-        // Handle model-specific options
-        $is_newer_model = $this->is_newer_model($model);
+        // Add system instructions if provided.
+        if ( ! empty( $options['instructions'] ) ) {
+            $data['instructions'] = $options['instructions'];
+        }
 
-        if (!$is_newer_model && isset($options['temperature'])) {
+        // Handle model-specific options.
+        $is_newer_model = $this->is_newer_model( $model );
+
+        if ( ! $is_newer_model && isset( $options['temperature'] ) ) {
             $data['temperature'] = $options['temperature'];
         }
 
-        if (isset($options['max_tokens'])) {
-            $data['max_tokens'] = $options['max_tokens'];
+        if ( isset( $options['max_tokens'] ) ) {
+            $data['max_output_tokens'] = $options['max_tokens'];
         }
 
-        // cURL is required for Server-Sent Events (SSE) streaming.
-        // WordPress HTTP API (wp_remote_*) does not support:
-        // 1. CURLOPT_WRITEFUNCTION callbacks for real-time chunk processing
-        // 2. Streaming responses - it waits for the entire response before returning
-        // 3. Progressive data handling needed for AI chat streaming
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_init -- Required for SSE streaming; WP HTTP API lacks callback support
-        $ch = curl_init($url);
+        // Headers for WordPress HTTP API.
+        $headers = array(
+            'Authorization' => 'Bearer ' . $this->api_key,
+            'Content-Type'  => 'application/json',
+            'Accept'        => 'text/event-stream',
+        );
 
-        if ($ch === false) {
-            $callback(array('type' => 'error', 'content' => __('Failed to initialize streaming.', 'chatprojects')));
-            return;
-        }
+        // SSE parser for OpenAI Responses API streaming format.
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
+            $buffer .= $chunk;
 
-        $buffer = '';
+            // Process complete SSE events (separated by double newlines).
+            while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
+                $event  = substr( $buffer, 0, $pos );
+                $buffer = substr( $buffer, $pos + 2 );
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt_array -- cURL required for SSE streaming
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => wp_json_encode($data),
-            CURLOPT_HTTPHEADER     => array(
-                'Authorization: Bearer ' . $this->api_key,
-                'Content-Type: application/json',
-                'Accept: text/event-stream',
-            ),
-            CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_TIMEOUT        => 300,
-            CURLOPT_CONNECTTIMEOUT => 30,
-            CURLOPT_BUFFERSIZE     => 128,
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- cURL required for SSE streaming
-            CURLOPT_WRITEFUNCTION  => function($ch, $chunk) use ($callback, &$buffer) {
-                $buffer .= $chunk;
+                // Parse event type and data lines.
+                $event_type = '';
+                $json_data  = '';
 
-                // Process complete SSE events
-                while (($pos = strpos($buffer, "\n\n")) !== false) {
-                    $event = substr($buffer, 0, $pos);
-                    $buffer = substr($buffer, $pos + 2);
-
-                    // Parse data line
-                    if (preg_match('/^data: (.+)$/m', $event, $matches)) {
-                        $json_data = trim($matches[1]);
-
-                        if ($json_data === '[DONE]') {
-                            continue;
-                        }
-
-                        $parsed = json_decode($json_data, true);
-                        if ($parsed && isset($parsed['choices'][0]['delta']['content'])) {
-                            $content = $parsed['choices'][0]['delta']['content'];
-                            $callback(array('type' => 'content', 'content' => $content));
-                        }
+                foreach ( explode( "\n", $event ) as $line ) {
+                    if ( strpos( $line, 'event: ' ) === 0 ) {
+                        $event_type = trim( substr( $line, 7 ) );
+                    } elseif ( strpos( $line, 'data: ' ) === 0 ) {
+                        $json_data = trim( substr( $line, 6 ) );
                     }
                 }
 
-                return strlen($chunk);
-            },
-        ));
+                if ( empty( $json_data ) || '[DONE]' === $json_data ) {
+                    continue;
+                }
 
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_exec -- cURL required for SSE streaming
-        $result = curl_exec($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_errno -- cURL required for SSE streaming
-        $error_no = curl_errno($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_error -- cURL required for SSE streaming
-        $error_msg = curl_error($ch);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- cURL required for SSE streaming
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_close -- cURL required for SSE streaming
-        curl_close($ch);
+                $parsed = json_decode( $json_data, true );
+                if ( ! $parsed ) {
+                    continue;
+                }
 
-        if ($error_no !== 0) {
-            $callback(array('type' => 'error', 'content' => __('Connection error: ', 'chatprojects') . $error_msg));
+                // Handle different event types from Responses API.
+                switch ( $event_type ) {
+                    case 'response.output_text.delta':
+                        // Text delta - stream content to user.
+                        if ( isset( $parsed['delta'] ) ) {
+                            $callback( array( 'type' => 'content', 'content' => $parsed['delta'] ) );
+                        }
+                        break;
+
+                    case 'response.completed':
+                        // Response completed - capture response_id for next turn.
+                        if ( isset( $parsed['response']['id'] ) ) {
+                            $callback( array( 'type' => 'response_id', 'response_id' => $parsed['response']['id'] ) );
+                        }
+                        break;
+
+                    case 'error':
+                        // API error during streaming.
+                        $error_msg = isset( $parsed['error']['message'] ) ? $parsed['error']['message'] : __( 'Unknown streaming error', 'chatprojects' );
+                        $callback( array( 'type' => 'error', 'content' => $error_msg ) );
+                        break;
+                }
+            }
+        };
+
+        // Execute streaming request using WordPress HTTP API.
+        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+
+        if ( true !== $result ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
             return;
         }
 
-        if ($http_code >= 400) {
-            $callback(array('type' => 'error', 'content' => __('API error (HTTP ', 'chatprojects') . $http_code . ')'));
-            return;
+        $callback( array( 'type' => 'done' ) );
+    }
+
+    /**
+     * Get the latest user message from messages array
+     *
+     * @param array $messages Array of message objects
+     * @return string The content of the latest user message
+     */
+    private function get_latest_user_message( $messages ) {
+        // Iterate backwards to find the last user message.
+        for ( $i = count( $messages ) - 1; $i >= 0; $i-- ) {
+            if ( isset( $messages[ $i ]['role'] ) && 'user' === $messages[ $i ]['role'] ) {
+                $content = isset( $messages[ $i ]['content'] ) ? $messages[ $i ]['content'] : '';
+
+                // Handle vision/image content for Responses API format.
+                if ( ! empty( $messages[ $i ]['images'] ) && is_array( $messages[ $i ]['images'] ) ) {
+                    $content_parts = array();
+
+                    if ( ! empty( $content ) ) {
+                        $content_parts[] = array(
+                            'type' => 'input_text',
+                            'text' => $content,
+                        );
+                    }
+
+                    foreach ( $messages[ $i ]['images'] as $image_url ) {
+                        $content_parts[] = array(
+                            'type'      => 'input_image',
+                            'image_url' => $image_url,
+                        );
+                    }
+
+                    return $content_parts;
+                }
+
+                return $content;
+            }
         }
 
-        $callback(array('type' => 'done'));
+        return '';
     }
 
     /**

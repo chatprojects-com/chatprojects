@@ -23,6 +23,11 @@ if (!is_user_logged_in()) {
 $current_user = wp_get_current_user();
 $user_id = get_current_user_id();
 $theme_preference = get_user_meta($user_id, 'cp_theme_preference', true) ?: 'auto';
+$is_dark_cookie = isset($_COOKIE['chatpr_dark']) && $_COOKIE['chatpr_dark'] === '1';
+$dark_class = $is_dark_cookie || $theme_preference === 'dark' ? 'dark' : '';
+
+// Get filterable slugs for navigation
+$slugs = \ChatProjects\ChatProjects::get_slugs();
 
 // API key status
 $openai_configured = !empty(get_option('chatprojects_openai_key', ''));
@@ -32,24 +37,38 @@ $chutes_configured = !empty(get_option('chatprojects_chutes_key', ''));
 $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
 ?>
 <!DOCTYPE html>
-<html <?php language_attributes(); ?> class="<?php echo $theme_preference === 'dark' ? 'dark' : ''; ?>">
-<?php
-// Apply theme from localStorage immediately (handles back-button cache)
-// Using wp_print_inline_script_tag for WordPress guidelines compliance
-$theme_init_script = "(function() {
-    var storedTheme = localStorage.getItem('cp_theme_preference');
-    var theme = storedTheme || '" . esc_js($theme_preference) . "';
-    if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-})();";
-wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme-init'));
-?>
+<html <?php language_attributes(); ?> class="<?php echo esc_attr($dark_class); ?>">
 <head>
+    <script id="chatprojects-theme-init">
+    (function() {
+        function applyTheme() {
+            var storedTheme = localStorage.getItem('chatpr-theme');
+            var theme = storedTheme || '<?php echo esc_js($theme_preference); ?>';
+
+            // Remove first to ensure clean state
+            document.documentElement.classList.remove('dark');
+
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        // Apply immediately
+        applyTheme();
+
+        // Set cookie so PHP can render dark class on next page load
+        document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+
+        // Reapply on pageshow (handles back-forward cache)
+        window.addEventListener('pageshow', function() {
+            applyTheme();
+            document.cookie = 'chatpr_dark=' + (document.documentElement.classList.contains('dark') ? '1' : '0') + ';path=/;max-age=31536000;SameSite=Lax';
+        });
+    })();
+    </script>
+    <style>html.dark{background:#111827;color:#f9fafb}html.dark body{background:#111827}</style>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php esc_html_e('Settings', 'chatprojects'); ?> - <?php bloginfo('name'); ?></title>
@@ -66,13 +85,16 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
 
     wp_head();
     ?>
+    <script>/* Re-enforce theme after wp_head - other plugins may override */
+    (function(){var t=localStorage.getItem('chatpr-theme')||'<?php echo esc_js($theme_preference); ?>';document.documentElement.classList.remove('dark');if(t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');document.cookie='chatpr_dark='+(document.documentElement.classList.contains('dark')?'1':'0')+';path=/;max-age=31536000;SameSite=Lax';})();
+    </script>
 </head>
 <body class="bg-gray-100 dark:bg-dark-bg" data-theme="<?php echo esc_attr($theme_preference); ?>">
     <!-- Header -->
     <header class="bg-white dark:bg-dark-surface shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-4">
-                <a href="<?php echo esc_url(home_url('/projects/')); ?>" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                <a href="<?php echo esc_url(home_url('/' . $slugs['projects'] . '/')); ?>" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>
@@ -89,6 +111,28 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
     </header>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <?php
+        // Display error messages from URL parameters
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only parameter, no data modification
+        if (isset($_GET['error']) && sanitize_key(wp_unslash($_GET['error'])) === 'openai_key_required') :
+        ?>
+        <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg">
+            <div class="flex items-start">
+                <svg class="w-6 h-6 text-amber-600 dark:text-amber-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <div>
+                    <h3 class="text-lg font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                        <?php esc_html_e('OpenAI API Key Required', 'chatprojects'); ?>
+                    </h3>
+                    <p class="text-amber-700 dark:text-amber-400">
+                        <?php esc_html_e('Please configure your OpenAI API key below to use Projects. The API key is required for vector stores and document chat features.', 'chatprojects'); ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="grid grid-cols-12 gap-8">
             <!-- Sidebar Navigation -->
             <div class="col-span-12 md:col-span-3">
@@ -161,7 +205,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                             </label>
                             <!-- Hidden input outside Alpine scope for reliable form submission -->
                             <input type="hidden" name="theme_preference" id="theme_preference_input" value="<?php echo esc_attr($theme_preference); ?>">
-                            <div class="flex gap-3" x-data="{ theme: localStorage.getItem('cp_theme_preference') || '<?php echo esc_js($theme_preference); ?>' }" x-init="document.getElementById('theme_preference_input').value = theme">
+                            <div class="flex gap-3" x-data="{ theme: localStorage.getItem('chatpr-theme') || '<?php echo esc_js($theme_preference); ?>' }" x-init="document.getElementById('theme_preference_input').value = theme">
                                 <div
                                     @click="theme = 'light'; document.getElementById('theme_preference_input').value = 'light'; $dispatch('theme-changed', 'light')"
                                     class="flex-1 flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-colors"
@@ -281,7 +325,7 @@ wp_print_inline_script_tag($theme_init_script, array('id' => 'chatprojects-theme
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                         </svg>
                         <span class="text-sm text-gray-700 dark:text-gray-300">
-                            <?php esc_html_e('Unlock teams, spreadsheet import, image studio and more with Pro', 'chatprojects'); ?>
+                            <?php esc_html_e('Unlock teams, prompt library, spreadsheet upload, image studio and more with Pro', 'chatprojects'); ?>
                         </span>
                     </div>
                     <a href="<?php echo esc_url(apply_filters('chatprojects_upgrade_url', 'https://chatprojects.com/')); ?>"

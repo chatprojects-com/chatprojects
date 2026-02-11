@@ -30,49 +30,20 @@ class Access {
             $user_id = get_current_user_id();
         }
 
+        // Must be logged in
         if (!$user_id) {
             return false;
         }
 
-        // Administrators can access all projects
-        if (user_can($user_id, 'manage_options')) {
-            return true;
-        }
-
         $project = get_post($project_id);
-        
+
         if (!$project || $project->post_type !== 'chatpr_project') {
             return false;
         }
 
-        // Check if user is the author
-        if ((int) $project->post_author === (int) $user_id) {
-            return true;
-        }
-
-        // Check sharing settings
-        $sharing_mode = get_post_meta($project_id, '_cp_sharing_mode', true);
-        
-        switch ($sharing_mode) {
-            case 'public':
-                // Anyone can access
-                return true;
-                
-            case 'shared':
-                // Check if user is in shared users list
-                $shared_users = get_post_meta($project_id, '_cp_shared_users', true);
-                if (is_array($shared_users) && in_array($user_id, $shared_users, true)) {
-                    return true;
-                }
-                break;
-                
-            case 'private':
-            default:
-                // Only author can access
-                return false;
-        }
-
-        return false;
+        // Free version: All logged-in users can access all projects
+        // (Private/sharing controls are a Pro feature)
+        return true;
     }
 
     /**
@@ -359,7 +330,7 @@ class Access {
     /**
      * Get user's accessible projects
      *
-     * @param int $user_id User ID (optional, defaults to current user)
+     * @param int   $user_id User ID (optional, defaults to current user)
      * @param array $args Additional query arguments
      * @return array Array of project IDs
      */
@@ -368,6 +339,7 @@ class Access {
             $user_id = get_current_user_id();
         }
 
+        // Must be logged in
         if (!$user_id) {
             return array();
         }
@@ -381,55 +353,15 @@ class Access {
 
         $args = wp_parse_args($args, $defaults);
 
-        // Administrators can access all projects
-        if (user_can($user_id, 'manage_options')) {
-            $projects = get_posts($args);
-            return $projects;
-        }
-
-        // Get user's own projects
-        $own_args = array_merge($args, array('author' => $user_id));
-        $own_projects = get_posts($own_args);
-
-        // Get public projects
-        $public_args = array_merge($args, array(
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Required for sharing functionality
-            'meta_query' => array(
-                array(
-                    'key' => '_cp_sharing_mode',
-                    'value' => 'public',
-                ),
-            ),
-        ));
-        $public_projects = get_posts($public_args);
-
-        // Get shared projects
-        $shared_args = array_merge($args, array(
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Required for sharing functionality
-            'meta_query' => array(
-                array(
-                    'key' => '_cp_sharing_mode',
-                    'value' => 'shared',
-                ),
-                array(
-                    'key' => '_cp_shared_users',
-                    'value' => serialize(strval($user_id)),
-                    'compare' => 'LIKE',
-                ),
-            ),
-        ));
-        $shared_projects = get_posts($shared_args);
-
-        // Merge and remove duplicates
-        $all_projects = array_unique(array_merge($own_projects, $public_projects, $shared_projects));
-
-        return $all_projects;
+        // Free version: Return all projects for any logged-in user
+        // (Private/sharing controls are a Pro feature)
+        return get_posts($args);
     }
 
     /**
      * Get user's accessible prompts
      *
-     * @param int $user_id User ID (optional, defaults to current user)
+     * @param int   $user_id User ID (optional, defaults to current user)
      * @param array $args Additional query arguments
      * @return array Array of prompt IDs
      */

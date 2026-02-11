@@ -11,6 +11,7 @@
 namespace ChatProjects\Providers;
 
 use ChatProjects\Security;
+use ChatProjects\SSE_Stream_Manager;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -172,6 +173,39 @@ abstract class Base_Provider implements AI_Provider_Interface {
     }
 
     /**
+     * Execute a streaming request using WordPress HTTP API.
+     *
+     * Uses the SSE_Stream_Manager to handle streaming via the http_api_curl hook.
+     * This is compliant with WordPress plugin directory requirements.
+     *
+     * @param string   $url      API URL.
+     * @param array    $data     Request body data (will be JSON encoded).
+     * @param array    $headers  HTTP headers (associative array format for WordPress).
+     * @param callable $callback Callback for each parsed event: function(array $event).
+     * @param callable $parser   Provider-specific SSE parser: function($chunk, $callback, &$buffer, &$state).
+     * @param array    $state    Optional state to pass to parser.
+     * @return bool|string True on success, error message on failure.
+     */
+    protected function make_streaming_request( $url, $data, $headers, $callback, $parser, $state = array() ) {
+        $manager  = SSE_Stream_Manager::get_instance();
+        $response = $manager->stream_request( $url, $data, $headers, $callback, $parser, $state );
+
+        if ( is_wp_error( $response ) ) {
+            return $response->get_error_message();
+        }
+
+        // Note: With streaming, the response body will be empty since we processed chunks.
+        // We check for connection/HTTP errors here.
+        $status_code = wp_remote_retrieve_response_code( $response );
+        if ( $status_code >= 400 ) {
+            /* translators: %d: HTTP status code */
+            return sprintf( __( 'HTTP error: %d', 'chatprojects' ), $status_code );
+        }
+
+        return true;
+    }
+
+    /**
      * Extract error message from API response
      *
      * @param array $response Decoded response
@@ -179,19 +213,10 @@ abstract class Base_Provider implements AI_Provider_Interface {
      * @return string Error message
      */
     protected function extract_error_message($response, $status) {
-        // OpenAI format
+        // All providers use the same error format
         if (isset($response['error']['message'])) {
             return $response['error']['message'];
         }
-        // Anthropic format
-        if (isset($response['error']['message'])) {
-            return $response['error']['message'];
-        }
-        // Gemini format
-        if (isset($response['error']['message'])) {
-            return $response['error']['message'];
-        }
-        // Generic fallback
         /* translators: %d: HTTP status code */
         return sprintf(__('API request failed with status %d', 'chatprojects'), $status);
     }

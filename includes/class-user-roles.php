@@ -83,7 +83,7 @@ class User_Roles {
      * Add full capabilities to a role
      *
      * @param WP_Role $role WordPress role object
-     * @param bool $manage_settings Whether role can manage settings
+     * @param bool    $manage_settings Whether role can manage settings
      */
     private static function add_role_capabilities($role, $manage_settings = true) {
         // Project capabilities

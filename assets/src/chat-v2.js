@@ -63,10 +63,10 @@ document.addEventListener('alpine:init', () => {
       await this.loadAvailableProviders();
     }
 
-    // Listen for new chat event
-    window.addEventListener('chatpr:chat:new', () => {
-      this.startNewChat();
-    });
+    // Listen for new chat event - DISABLED to fix cache issue causing infinite loop
+    // window.addEventListener('chatpr:chat:new', () => {
+    //   this.startNewChat();
+    // });
 
     // Listen for chat switch event
     window.addEventListener('chatpr:chat:switch', (e) => {
@@ -296,6 +296,13 @@ document.addEventListener('alpine:init', () => {
                 // Append content chunk
                 assistantMessage.content += parsed.content;
                 this.scrollToBottom();
+              } else if (parsed.type === 'chat_id' && parsed.chat_id) {
+                // Update threadId for new chats
+                console.log('[ChatProjects] chat_id handler - VERSION 2.0 LOADED');
+                if (!this.threadId) {
+                  this.threadId = parsed.chat_id;
+                  console.log('[ChatProjects] Received chat_id:', this.threadId);
+                }
               } else if (parsed.type === 'sources' && parsed.sources) {
                 // Add sources to message
                 assistantMessage.sources = parsed.sources;
@@ -403,6 +410,9 @@ document.addEventListener('alpine:init', () => {
       this.currentChatModel = null;
       // Keep selectedProvider and selectedModel as is (user's current selection)
     }
+
+    // Event is already dispatched by the button, no need to dispatch again here
+    // (Dispatching here would cause infinite loop with the event listener)
   },
 
   async switchChat(threadId) {

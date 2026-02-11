@@ -109,15 +109,110 @@ class OpenRouter_Provider extends Base_Provider {
                 'content' => $content,
                 'model' => $model,
             );
-        } elseif (isset($response['response'])) {
-            // Alternative response structure
-            return array(
-                'content' => $response['response'],
-                'model' => $model,
-            );
         }
 
         return $this->error('no_response', __('No response from OpenRouter.', 'chatprojects'));
+    }
+
+    /**
+     * Stream completion with callback
+     *
+     * Uses WordPress HTTP API with http_api_curl hook for SSE streaming.
+     *
+     * @param array    $messages Array of message objects
+     * @param string   $model    Model identifier
+     * @param callable $callback Callback for each chunk
+     * @param array    $options  Additional options
+     * @return void
+     */
+    public function stream_completion( $messages, $model, $callback, $options = array() ) {
+        if ( ! $this->has_api_key() ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'OpenRouter API key is not configured.', 'chatprojects' ) ) );
+            return;
+        }
+
+        if ( empty( $messages ) ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'No messages provided.', 'chatprojects' ) ) );
+            return;
+        }
+
+        // Format messages
+        $formatted_messages = array();
+        foreach ( $messages as $msg ) {
+            $role    = isset( $msg['role'] ) ? $msg['role'] : 'user';
+            $content = isset( $msg['content'] ) ? $msg['content'] : '';
+            $formatted_messages[] = array(
+                'role'    => $role,
+                'content' => $content,
+            );
+        }
+
+        // Prepare request data (OpenAI-compatible format)
+        $data = array(
+            'model'       => $model,
+            'messages'    => $formatted_messages,
+            'temperature' => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
+            'max_tokens'  => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 2000,
+            'stream'      => true,
+        );
+
+        // Add system message if provided
+        if ( ! empty( $options['instructions'] ) ) {
+            array_unshift(
+                $data['messages'],
+                array(
+                    'role'    => 'system',
+                    'content' => $options['instructions'],
+                )
+            );
+        }
+
+        $url = self::API_BASE_URL . 'chat/completions';
+
+        // Headers for WordPress HTTP API (associative array format)
+        $headers = array(
+            'Authorization' => 'Bearer ' . $this->api_key,
+            'Content-Type'  => 'application/json',
+            'Accept'        => 'text/event-stream',
+            'HTTP-Referer'  => home_url(),
+            'X-Title'       => get_bloginfo( 'name' ),
+        );
+
+        // SSE parser for OpenAI-compatible format (same as OpenRouter uses)
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
+            $buffer .= $chunk;
+
+            // Process complete SSE events (separated by double newlines)
+            while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
+                $event  = substr( $buffer, 0, $pos );
+                $buffer = substr( $buffer, $pos + 2 );
+
+                // Parse data line using regex
+                if ( preg_match( '/^data: (.+)$/m', $event, $matches ) ) {
+                    $json_data = trim( $matches[1] );
+
+                    if ( '[DONE]' === $json_data ) {
+                        continue;
+                    }
+
+                    $parsed = json_decode( $json_data, true );
+                    if ( $parsed && isset( $parsed['choices'][0]['delta']['content'] ) ) {
+                        $content = $parsed['choices'][0]['delta']['content'];
+                        $callback( array( 'type' => 'content', 'content' => $content ) );
+                    }
+                }
+            }
+        };
+
+        // Execute streaming request using WordPress HTTP API
+        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+
+        if ( true !== $result ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
+            return;
+        }
+
+        $callback( array( 'type' => 'done' ) );
     }
 
     /**
@@ -191,7 +286,7 @@ class OpenRouter_Provider extends Base_Provider {
                 $id = $model['id'] ?? $model['name'] ?? '';
                 $name = $model['name'] ?? $model['id'] ?? '';
                 if ($id && $name) {
-                    $models[$id] = $name;
+                    $models[ $id ] = $name;
                 }
             }
             if (!empty($models)) {

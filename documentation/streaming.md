@@ -9,7 +9,7 @@ ChatProjects uses Server-Sent Events (SSE) to stream AI responses to the browser
 ## Architecture
 
 ```
-┌─────────────┐     SSE Stream      ┌──────────────┐     cURL Stream     ┌─────────────┐
+┌─────────────┐     SSE Stream      ┌──────────────┐   HTTP API Stream   ┌─────────────┐
 │   Browser   │ ◄────────────────── │  WordPress   │ ◄────────────────── │  OpenAI API │
 │  (Alpine.js)│                     │  (PHP/AJAX)  │                     │             │
 └─────────────┘                     └──────────────┘                     └─────────────┘
@@ -104,62 +104,35 @@ if (function_exists('litespeed_flush')) {
 
 ### Provider Streaming Implementations
 
-All providers use cURL with `CURLOPT_WRITEFUNCTION` for true streaming. Each has a different SSE format:
+All providers use the WordPress HTTP API (`wp_remote_post`) with the `http_api_curl` action hook for true streaming. The hook is only used to attach a `CURLOPT_WRITEFUNCTION` when the HTTP API selects the cURL transport, keeping WordPress compatibility while enabling low-latency SSE parsing. Each provider has a different SSE format:
 
 #### OpenAI Provider
 
-The OpenAI provider (`includes/providers/class-openai-provider.php`):
+The OpenAI provider (`includes/providers/class-openai-provider.php`) uses a provider-specific SSE parser and the shared streaming helper:
 
 ```php
-public function stream_completion($messages, $model, $callback, $options = array()) {
-    $url = self::API_BASE_URL . 'chat/completions';
+// Provider-specific parser for OpenAI Chat Completions SSE.
+$parser = function ( $chunk, $callback, &$buffer, &$state ) {
+    $buffer .= $chunk;
+    while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
+        $event  = substr( $buffer, 0, $pos );
+        $buffer = substr( $buffer, $pos + 2 );
 
-    $data = [
-        'model' => $model,
-        'messages' => $this->format_messages_for_chat_api($messages),
-        'stream' => true,
-    ];
-
-    $ch = curl_init($url);
-    $buffer = '';
-
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => wp_json_encode($data),
-        CURLOPT_HTTPHEADER     => [
-            'Authorization: Bearer ' . $this->api_key,
-            'Content-Type: application/json',
-            'Accept: text/event-stream',
-        ],
-        CURLOPT_RETURNTRANSFER => false,
-        CURLOPT_TIMEOUT        => 300,
-        CURLOPT_BUFFERSIZE     => 128,
-        CURLOPT_WRITEFUNCTION  => function($ch, $chunk) use ($callback, &$buffer) {
-            $buffer .= $chunk;
-
-            // Process complete SSE events
-            while (($pos = strpos($buffer, "\n\n")) !== false) {
-                $event = substr($buffer, 0, $pos);
-                $buffer = substr($buffer, $pos + 2);
-
-                if (preg_match('/^data: (.+)$/m', $event, $matches)) {
-                    $json_data = trim($matches[1]);
-                    if ($json_data === '[DONE]') continue;
-
-                    $parsed = json_decode($json_data, true);
-                    if ($parsed && isset($parsed['choices'][0]['delta']['content'])) {
-                        $callback(['type' => 'content', 'content' => $parsed['choices'][0]['delta']['content']]);
-                    }
-                }
+        if ( preg_match( '/^data: (.+)$/m', $event, $matches ) ) {
+            $json_data = trim( $matches[1] );
+            if ( '[DONE]' === $json_data ) {
+                continue;
             }
-            return strlen($chunk);
-        },
-    ]);
+            $parsed = json_decode( $json_data, true );
+            if ( $parsed && isset( $parsed['choices'][0]['delta']['content'] ) ) {
+                $callback( array( 'type' => 'content', 'content' => $parsed['choices'][0]['delta']['content'] ) );
+            }
+        }
+    }
+};
 
-    curl_exec($ch);
-    curl_close($ch);
-    $callback(['type' => 'done']);
-}
+// WordPress HTTP API request with SSE streaming via http_api_curl hook.
+$result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
 ```
 
 **SSE Format:** `data: {"choices":[{"delta":{"content":"text"}}]}`
@@ -171,10 +144,13 @@ The Gemini provider (`includes/providers/class-gemini-provider.php`):
 ```php
 $url = self::API_BASE_URL . "models/{$model}:streamGenerateContent?alt=sse&key=" . $this->api_key;
 
-// In CURLOPT_WRITEFUNCTION callback:
-if ($parsed && isset($parsed['candidates'][0]['content']['parts'][0]['text'])) {
-    $content = $parsed['candidates'][0]['content']['parts'][0]['text'];
-    $callback(['type' => 'content', 'content' => $content]);
+// In the SSE parser:
+if ( $parsed && isset( $parsed['candidates'][0]['content']['parts'] ) ) {
+    foreach ( $parsed['candidates'][0]['content']['parts'] as $part ) {
+        if ( isset( $part['text'] ) ) {
+            $callback( array( 'type' => 'content', 'content' => $part['text'] ) );
+        }
+    }
 }
 ```
 
@@ -188,10 +164,10 @@ The Anthropic provider (`includes/providers/class-anthropic-provider.php`):
 $url = self::API_BASE_URL . 'messages';
 // Headers must include: x-api-key, anthropic-version
 
-// In CURLOPT_WRITEFUNCTION callback:
+// In the SSE parser:
 // Anthropic uses event types - look for 'content_block_delta'
-if ($event_type === 'content_block_delta' && isset($parsed['delta']['text'])) {
-    $callback(['type' => 'content', 'content' => $parsed['delta']['text']]);
+if ( 'content_block_delta' === $event_type && isset( $parsed['delta']['text'] ) ) {
+    $callback( array( 'type' => 'content', 'content' => $parsed['delta']['text'] ) );
 }
 ```
 
@@ -378,7 +354,7 @@ Add rules for admin-ajax.php streaming:
 2. Verify 8KB padding is sent before content
 3. Ensure `@ob_flush()` and `@flush()` after each chunk
 4. Check server buffering (.htaccess rules)
-5. Verify provider's `stream_completion()` uses cURL streaming
+5. Verify provider's `stream_completion()` uses WordPress HTTP API streaming
 
 ### "Failed to get response" after navigation
 

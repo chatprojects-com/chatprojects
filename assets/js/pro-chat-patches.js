@@ -260,7 +260,7 @@
                                                     self.scrollToBottom();
                                                 } else if (parsed.type === 'chat_id' && parsed.chat_id) {
                                                     self.threadId = parsed.chat_id;
-                                                    window.dispatchEvent(new CustomEvent('vp:chat:updated', { detail: { threadId: self.threadId } }));
+                                                    window.dispatchEvent(new CustomEvent('chatpr:chat:updated', { detail: { threadId: self.threadId } }));
                                                 } else if (parsed.type === 'sources' && parsed.sources) {
                                                     assistantMessage.sources = parsed.sources;
                                                 } else if (parsed.type === 'error') {
@@ -270,7 +270,7 @@
                                                 } else if (parsed.type === 'title_update') {
                                                     if (parsed.title) {
                                                         // Optimistic UI update: pass title directly in event
-                                                        window.dispatchEvent(new CustomEvent('vp:chat:title-updated', {
+                                                        window.dispatchEvent(new CustomEvent('chatpr:chat:title-updated', {
                                                             detail: {
                                                                 chatId: parsed.chat_id,
                                                                 title: parsed.title
@@ -296,7 +296,7 @@
                                     self.messages = self.messages.slice();
                                 }
 
-                                window.dispatchEvent(new CustomEvent('vp:chat:updated', { detail: { threadId: self.threadId } }));
+                                window.dispatchEvent(new CustomEvent('chatpr:chat:updated', { detail: { threadId: self.threadId } }));
 
                             } catch (err) {
                                 if (err.name !== 'AbortError') {
@@ -326,7 +326,7 @@
     });
 
     // Handle direct title updates from SSE (optimistic UI update)
-    window.addEventListener('vp:chat:title-updated', function(e) {
+    window.addEventListener('chatpr:chat:title-updated', function(e) {
         if (!e.detail || !e.detail.chatId || !e.detail.title) return;
 
         var found = false;
@@ -351,7 +351,7 @@
 
         // Fallback: if we couldn't find the chat, trigger a full refresh
         if (!found) {
-            window.dispatchEvent(new CustomEvent('vp:chat:updated', {
+            window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
                 detail: { threadId: e.detail.chatId }
             }));
         }

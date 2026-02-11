@@ -93,7 +93,7 @@ ChatProjects is a WordPress plugin that enables AI-powered conversations directl
 ## Server Requirements
 
 - **OpenSSL Extension** - Required for API key encryption
-- **cURL Extension** - Required for API communication
+- **cURL Extension** - Recommended for optimal streaming (HTTP API falls back to other transports if unavailable)
 - **Memory Limit** - 128MB minimum (256MB recommended)
 - **Max Upload Size** - Should match your desired file upload limit
 

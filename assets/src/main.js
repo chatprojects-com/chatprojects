@@ -14,8 +14,14 @@ import { initToast } from './utils/toast.js';
 import { initTheme } from './utils/theme.js';
 import { initKeyboardShortcuts } from './utils/shortcuts.js';
 
-// Make Alpine available globally BEFORE importing components
-window.Alpine = Alpine;
+// Check if Alpine is already loaded (e.g., by Elementor or other plugins)
+if (window.Alpine && window.Alpine.version) {
+    console.log('ChatProjects: Using existing Alpine.js instance (version ' + window.Alpine.version + ')');
+} else {
+    // Make Alpine available globally BEFORE importing components
+    window.Alpine = Alpine;
+    console.log('ChatProjects: Loaded bundled Alpine.js');
+}
 
 // Import Alpine components (they will register using alpine:init event)
 import './components/sidebar.js';
@@ -33,18 +39,24 @@ initToast();
 initTheme();
 initKeyboardShortcuts();
 
-// Check if we're on a page that will load additional Alpine components via modules
-// If so, delay Alpine.start() to let those modules register first
-const hasComparisonPage = document.querySelector('[data-pro-comparison]');
+// Prevent Alpine from auto-starting if we're managing it
+if (!window._alpineStarted && window.Alpine === Alpine) {
+    window._alpineStarted = false;
 
-if (!hasComparisonPage) {
-  // Start Alpine immediately for regular pages
-  Alpine.start();
-  console.log('ChatProjects initialized with Alpine.js');
+    // Start Alpine after all event listeners are registered
+    // Use queueMicrotask to ensure all synchronous imports have registered their listeners
+    queueMicrotask(() => {
+        if (!window._alpineStarted) {
+            window._alpineStarted = true;
+            Alpine.start();
+            console.log('ChatProjects initialized with Alpine.js');
+        }
+    });
 } else {
-  // On comparison page, Alpine will be started by comparison.js after components register
-  console.log('ChatProjects loaded, waiting for comparison components...');
+    // Alpine already started by another plugin, just log
+    console.log('ChatProjects components registered (Alpine already running)');
 }
+
 
 // Export for global access
 export { Alpine };

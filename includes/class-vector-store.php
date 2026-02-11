@@ -35,7 +35,7 @@ class Vector_Store {
     /**
      * Upload file to vector store
      *
-     * @param int $project_id Project ID
+     * @param int    $project_id Project ID
      * @param string $file_path Local file path (typically tmp_name from $_FILES)
      * @param string $original_filename Original filename (optional)
      * @return array|WP_Error File data or error
@@ -119,7 +119,7 @@ class Vector_Store {
     /**
      * Delete file from vector store
      *
-     * @param int $project_id Project ID
+     * @param int    $project_id Project ID
      * @param string $file_id File ID
      * @return bool|WP_Error True on success, error on failure
      */
@@ -278,7 +278,7 @@ class Vector_Store {
     /**
      * Handle WordPress file upload
      *
-     * @param int $project_id Project ID
+     * @param int   $project_id Project ID
      * @param array $file_data $_FILES array data
      * @return array|WP_Error Upload result or error
      */
@@ -400,13 +400,13 @@ class Vector_Store {
             $bytes /= 1024;
         }
 
-        return round($bytes, 2) . ' ' . $units[$i];
+        return round($bytes, 2) . ' ' . $units[ $i ];
     }
 
     /**
      * Search files by filename
      *
-     * @param int $project_id Project ID
+     * @param int    $project_id Project ID
      * @param string $search Search term
      * @return array Matching files
      */
@@ -429,7 +429,7 @@ class Vector_Store {
     /**
      * Import files from WordPress Media Library
      *
-     * @param int $project_id Project ID
+     * @param int   $project_id Project ID
      * @param array $attachment_ids Array of WordPress attachment IDs
      * @return array Results array with success/error for each file
      */

@@ -37,7 +37,7 @@ class ThemeManager {
      * @returns {string|null} Theme preference or null
      */
     getStoredTheme() {
-        return localStorage.getItem('cp_theme_preference');
+        return localStorage.getItem('chatpr-theme');
     }
 
     /**
@@ -62,10 +62,10 @@ class ThemeManager {
         }
 
         this.theme = theme;
-        localStorage.setItem('cp_theme_preference', theme);
+        localStorage.setItem('chatpr-theme', theme);
 
         // Dispatch custom event for other components
-        window.dispatchEvent(new CustomEvent('vp:theme:changed', {
+        window.dispatchEvent(new CustomEvent('chatpr:theme:changed', {
             detail: { theme: theme }
         }));
     }
@@ -139,7 +139,7 @@ class KeyboardShortcuts {
         }, 'Open command palette');
 
         this.register('mod+n', () => {
-            window.dispatchEvent(new CustomEvent('vp:chat:new'));
+            window.dispatchEvent(new CustomEvent('chatpr:chat:new'));
         }, 'Start new chat');
 
         this.register('mod+shift+l', () => {
@@ -156,7 +156,7 @@ class KeyboardShortcuts {
         }, 'Show keyboard shortcuts');
 
         this.register('escape', () => {
-            window.dispatchEvent(new CustomEvent('vp:modal:close'));
+            window.dispatchEvent(new CustomEvent('chatpr:modal:close'));
         }, 'Close modal/dialog');
     }
 
@@ -246,7 +246,7 @@ class KeyboardShortcuts {
      * Open command palette
      */
     openCommandPalette() {
-        window.dispatchEvent(new CustomEvent('vp:command-palette:open'));
+        window.dispatchEvent(new CustomEvent('chatpr:command-palette:open'));
     }
 
     /**
@@ -258,7 +258,7 @@ class KeyboardShortcuts {
             description: shortcut.description
         }));
 
-        window.dispatchEvent(new CustomEvent('vp:shortcuts:show', {
+        window.dispatchEvent(new CustomEvent('chatpr:shortcuts:show', {
             detail: { shortcuts: shortcuts }
         }));
     }
@@ -427,14 +427,14 @@ document.addEventListener('alpine:init', () => {
 
         init() {
             // Listen for modal open events
-            window.addEventListener('vp:modal:open', (e) => {
+            window.addEventListener('chatpr:modal:open', (e) => {
                 if (e.detail?.id === this.$el.id) {
                     this.open();
                 }
             });
 
             // Listen for modal close events
-            window.addEventListener('vp:modal:close', () => {
+            window.addEventListener('chatpr:modal:close', () => {
                 this.close();
             });
 
@@ -529,7 +529,7 @@ document.addEventListener('alpine:init', () => {
             this.loadChatList();
 
             // Listen for chat updates
-            window.addEventListener('vp:chat:updated', (e) => {
+            window.addEventListener('chatpr:chat:updated', (e) => {
                 this.loadChatList();
                 if (e.detail && e.detail.threadId) {
                     this.activeThreadId = e.detail.threadId;
@@ -537,12 +537,12 @@ document.addEventListener('alpine:init', () => {
             });
 
             // Listen for new chat
-            window.addEventListener('vp:chat:new', () => {
+            window.addEventListener('chatpr:chat:new', () => {
                 this.activeThreadId = null;
             });
 
             // Listen for chat switch
-            window.addEventListener('vp:chat:switch', (e) => {
+            window.addEventListener('chatpr:chat:switch', (e) => {
                 if (e.detail && e.detail.threadId) {
                     this.activeThreadId = e.detail.threadId;
                 }
@@ -588,7 +588,7 @@ document.addEventListener('alpine:init', () => {
 
         switchChat(chatId) {
             this.activeThreadId = chatId;
-            window.dispatchEvent(new CustomEvent('vp:chat:switch', {
+            window.dispatchEvent(new CustomEvent('chatpr:chat:switch', {
                 detail: { threadId: chatId }
             }));
         },
@@ -667,7 +667,7 @@ document.addEventListener('alpine:init', () => {
 
                     if (this.activeThreadId === chatId) {
                         this.activeThreadId = null;
-                        window.dispatchEvent(new CustomEvent('vp:chat:new'));
+                        window.dispatchEvent(new CustomEvent('chatpr:chat:new'));
                     }
 
                     this.loadChatList();

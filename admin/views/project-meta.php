@@ -28,13 +28,12 @@ if (!defined('ABSPATH')) {
             </th>
             <td>
                 <select name="cp_model" id="cp_model" class="regular-text">
-                    <option value="gpt-5.2" <?php selected($model, 'gpt-5.2'); ?>>GPT-5.2 (Recommended)</option>
-                    <option value="gpt-5.2-pro" <?php selected($model, 'gpt-5.2-pro'); ?>>GPT-5.2 Pro</option>
-                    <option value="gpt-5.1" <?php selected($model, 'gpt-5.1'); ?>>GPT-5.1</option>
+                    <option value="gpt-5.2-chat-latest" <?php selected($model, 'gpt-5.2-chat-latest'); ?>>GPT-5.2 Instant (Recommended)</option>
+                    <option value="gpt-5-mini" <?php selected($model, 'gpt-5-mini'); ?>>GPT-5 Mini</option>
+                    <option value="gpt-4.1" <?php selected($model, 'gpt-4.1'); ?>>GPT-4.1</option>
+                    <option value="gpt-4.1-mini" <?php selected($model, 'gpt-4.1-mini'); ?>>GPT-4.1 Mini</option>
                     <option value="gpt-4o" <?php selected($model, 'gpt-4o'); ?>>GPT-4o</option>
                     <option value="gpt-4o-mini" <?php selected($model, 'gpt-4o-mini'); ?>>GPT-4o Mini</option>
-                    <option value="gpt-4-turbo" <?php selected($model, 'gpt-4-turbo'); ?>>GPT-4 Turbo</option>
-                    <option value="gpt-3.5-turbo" <?php selected($model, 'gpt-3.5-turbo'); ?>>GPT-3.5 Turbo</option>
                 </select>
                 <p class="description">
                     <?php esc_html_e('AI model to use for this project.', 'chatprojects'); ?>
