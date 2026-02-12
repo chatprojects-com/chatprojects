@@ -55,6 +55,9 @@ class Installer {
         // Run slug migration for existing installations
         self::maybe_run_slug_migration();
 
+        // Remove dangerous generic slugs from old slug redirects
+        self::maybe_cleanup_old_slugs();
+
         // Check for URL slug conflicts with existing pages
         self::check_slug_conflicts();
 
@@ -80,9 +83,8 @@ class Installer {
         $slugs = \ChatProjects\ChatProjects::get_slugs();
 
         // Store old slugs for redirect mapping
+        // Only include slugs that were actually renamed (not generic ones like 'settings' or 'projects')
         $old_slugs = array(
-            'projects'   => 'projects',
-            'settings'   => 'settings',
             'chat'       => 'pro-chat',
             'comparison' => 'pro-chat/compare',
         );
@@ -98,6 +100,25 @@ class Installer {
 
         // Set admin notice for users
         set_transient('chatprojects_slug_migration_notice', true, DAY_IN_SECONDS);
+    }
+
+    /**
+     * Remove generic slugs (settings, projects) from old slug redirects.
+     * These are too common and can hijack unrelated pages on other sites.
+     */
+    private static function maybe_cleanup_old_slugs() {
+        $cleanup_version = '1.1.4';
+        $cleaned = get_option('chatprojects_slug_cleanup_version', false);
+
+        if ($cleaned === $cleanup_version) {
+            return;
+        }
+
+        $old_slugs = get_option('chatprojects_old_slugs', array());
+        unset($old_slugs['settings']);
+        unset($old_slugs['projects']);
+        update_option('chatprojects_old_slugs', $old_slugs);
+        update_option('chatprojects_slug_cleanup_version', $cleanup_version);
     }
 
     /**

@@ -245,6 +245,15 @@ class Frontend {
      * Ensures backwards compatibility for bookmarks and external links
      */
     public function redirect_old_slugs() {
+        // One-time cleanup: remove generic slugs that hijack other sites' pages
+        if (get_option('chatprojects_slug_cleanup_version', '') !== '1.1.4') {
+            $old_slugs = get_option('chatprojects_old_slugs', array());
+            unset($old_slugs['settings']);
+            unset($old_slugs['projects']);
+            update_option('chatprojects_old_slugs', $old_slugs);
+            update_option('chatprojects_slug_cleanup_version', '1.1.4');
+        }
+
         $old_slugs = get_option('chatprojects_old_slugs', array());
         $new_slugs = get_option('chatprojects_new_slugs', array());
 
@@ -253,16 +262,13 @@ class Frontend {
         }
 
         $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+        $request_path = parse_url($request_uri, PHP_URL_PATH);
+        $request_path = rtrim($request_path, '/');
 
         foreach ($old_slugs as $key => $old_slug) {
-            if (strpos($request_uri, '/' . $old_slug . '/') !== false && isset($new_slugs[$key])) {
-                $new_url = str_replace('/' . $old_slug . '/', '/' . $new_slugs[$key] . '/', $request_uri);
-                wp_safe_redirect(home_url($new_url), 301);
-                exit;
-            } elseif (strpos($request_uri, '/' . $old_slug) !== false && isset($new_slugs[$key])) {
-                // Handle URLs without trailing slash
-                $new_url = str_replace('/' . $old_slug, '/' . $new_slugs[$key], $request_uri);
-                wp_safe_redirect(home_url($new_url), 301);
+            // Only match exact root-level paths to avoid hijacking other pages
+            if ($request_path === '/' . $old_slug && isset($new_slugs[$key])) {
+                wp_safe_redirect(home_url('/' . $new_slugs[$key] . '/'), 301);
                 exit;
             }
         }

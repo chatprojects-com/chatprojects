@@ -5,7 +5,7 @@ Tags: ai, chatgpt, openai, chatbot, project management, vector store, responses 
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -122,6 +122,10 @@ Use the WordPress.org support forum or email support@chatprojects.com
 6. Chat administration settings and adding API keys
 
 == Changelog ==
+
+= 1.1.5 =
+* Fixed /settings URL redirect hijacking other pages on sites
+* Improved old slug redirect to use exact path matching only
 
 = 1.1.4 =
 * Fixed WordPress media library modal text invisible in dark mode
