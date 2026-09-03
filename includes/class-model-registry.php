@@ -119,6 +119,10 @@ final class Model_Registry {
 	/**
 	 * Raw (unfiltered) catalogue definition.
 	 *
+	 * Labels are stored untranslated and run through __() in translate_label()
+	 * at read time: the catalogue is built during plugins_loaded (upgrade
+	 * routine, API_Handler defaults), which is too early to load a textdomain.
+	 *
 	 * Model IDs verified against provider documentation on 2026-09-03.
 	 * Keep this list to models that are currently served; retired IDs belong
 	 * in the legacy map, not here.
@@ -131,7 +135,7 @@ final class Model_Registry {
 		return array(
 			'openai'     => array(
 				'gpt-5.6-sol'   => array(
-					'label'                => __( 'GPT-5.6 Sol (Recommended)', 'chatprojects' ),
+					'label'                => 'GPT-5.6 Sol (Recommended)',
 					'default'              => true,
 					'supports_temperature' => false,
 					'reasoning'            => true,
@@ -141,7 +145,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'gpt-5.6-terra' => array(
-					'label'                => __( 'GPT-5.6 Terra (Balanced)', 'chatprojects' ),
+					'label'                => 'GPT-5.6 Terra (Balanced)',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -150,7 +154,7 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'gpt-5.6-luna'  => array(
-					'label'                => __( 'GPT-5.6 Luna (Fast & Low Cost)', 'chatprojects' ),
+					'label'                => 'GPT-5.6 Luna (Fast & Low Cost)',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -159,7 +163,7 @@ final class Model_Registry {
 					'tier'                 => 'fast',
 				),
 				'gpt-5.5'       => array(
-					'label'                => __( 'GPT-5.5', 'chatprojects' ),
+					'label'                => 'GPT-5.5',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -168,7 +172,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'gpt-5.4'       => array(
-					'label'                => __( 'GPT-5.4', 'chatprojects' ),
+					'label'                => 'GPT-5.4',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -177,7 +181,7 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'gpt-5.4-mini'  => array(
-					'label'                => __( 'GPT-5.4 Mini', 'chatprojects' ),
+					'label'                => 'GPT-5.4 Mini',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -186,7 +190,7 @@ final class Model_Registry {
 					'tier'                 => 'fast',
 				),
 				'gpt-5.4-nano'  => array(
-					'label'                => __( 'GPT-5.4 Nano (Cheapest)', 'chatprojects' ),
+					'label'                => 'GPT-5.4 Nano (Cheapest)',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -197,7 +201,7 @@ final class Model_Registry {
 			),
 			'anthropic'  => array(
 				'claude-opus-5'     => array(
-					'label'                => __( 'Claude Opus 5 (Recommended)', 'chatprojects' ),
+					'label'                => 'Claude Opus 5 (Recommended)',
 					'default'              => true,
 					'supports_temperature' => false,
 					'reasoning'            => true,
@@ -206,7 +210,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'claude-fable-5-1'  => array(
-					'label'                => __( 'Claude Fable 5.1 (Most Capable)', 'chatprojects' ),
+					'label'                => 'Claude Fable 5.1 (Most Capable)',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
@@ -214,7 +218,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'claude-opus-4-8'   => array(
-					'label'                => __( 'Claude Opus 4.8', 'chatprojects' ),
+					'label'                => 'Claude Opus 4.8',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
@@ -222,7 +226,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'claude-sonnet-5'   => array(
-					'label'                => __( 'Claude Sonnet 5 (Balanced)', 'chatprojects' ),
+					'label'                => 'Claude Sonnet 5 (Balanced)',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
@@ -230,7 +234,7 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'claude-sonnet-4-6' => array(
-					'label'                => __( 'Claude Sonnet 4.6', 'chatprojects' ),
+					'label'                => 'Claude Sonnet 4.6',
 					'supports_temperature' => true,
 					'reasoning'            => true,
 					'max_output'           => 128000,
@@ -238,7 +242,7 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'claude-haiku-4-5'  => array(
-					'label'                => __( 'Claude Haiku 4.5 (Fast)', 'chatprojects' ),
+					'label'                => 'Claude Haiku 4.5 (Fast)',
 					'supports_temperature' => true,
 					'reasoning'            => false,
 					'max_output'           => 64000,
@@ -248,32 +252,32 @@ final class Model_Registry {
 			),
 			'gemini'     => array(
 				'gemini-3.8-flash'      => array(
-					'label'      => __( 'Gemini 3.8 Flash (Recommended)', 'chatprojects' ),
+					'label'      => 'Gemini 3.8 Flash (Recommended)',
 					'default'    => true,
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'balanced',
 				),
 				'gemini-3.7-flash'      => array(
-					'label'      => __( 'Gemini 3.7 Flash', 'chatprojects' ),
+					'label'      => 'Gemini 3.7 Flash',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'balanced',
 				),
 				'gemini-3.5-flash'      => array(
-					'label'      => __( 'Gemini 3.5 Flash', 'chatprojects' ),
+					'label'      => 'Gemini 3.5 Flash',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'balanced',
 				),
 				'gemini-3.5-flash-lite' => array(
-					'label'      => __( 'Gemini 3.5 Flash Lite (Fast)', 'chatprojects' ),
+					'label'      => 'Gemini 3.5 Flash Lite (Fast)',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'fast',
 				),
 				'gemini-3.1-pro-preview' => array(
-					'label'      => __( 'Gemini 3.1 Pro (Preview)', 'chatprojects' ),
+					'label'      => 'Gemini 3.1 Pro (Preview)',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'flagship',
@@ -281,14 +285,14 @@ final class Model_Registry {
 			),
 			'chutes'     => array(
 				'deepseek-v4-flash' => array(
-					'label'      => __( 'DeepSeek V4 Flash (Recommended)', 'chatprojects' ),
+					'label'      => 'DeepSeek V4 Flash (Recommended)',
 					'default'    => true,
 					'max_output' => 65536,
 					'context'    => 1000000,
 					'tier'       => 'balanced',
 				),
 				'deepseek-v4-pro'   => array(
-					'label'      => __( 'DeepSeek V4 Pro', 'chatprojects' ),
+					'label'      => 'DeepSeek V4 Pro',
 					'max_output' => 65536,
 					'context'    => 1000000,
 					'tier'       => 'flagship',
@@ -433,7 +437,21 @@ final class Model_Registry {
 	}
 
 	/**
-	 * A single model entry.
+	 * Translate a catalogue label. Only safe after the init hook.
+	 *
+	 * @param string $label Untranslated label.
+	 * @return string
+	 */
+	private static function translate_label( $label ) {
+		if ( did_action( 'init' ) ) {
+			// phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- Catalogue labels are literal strings in definition().
+			return __( $label, 'chatprojects' );
+		}
+		return $label;
+	}
+
+	/**
+	 * A single model entry (label translated).
 	 *
 	 * @param string $provider Provider id.
 	 * @param string $model    Model id.
@@ -441,7 +459,12 @@ final class Model_Registry {
 	 */
 	public static function get_model( $provider, $model ) {
 		$models = self::get_models( $provider );
-		return isset( $models[ $model ] ) ? $models[ $model ] : null;
+		if ( ! isset( $models[ $model ] ) ) {
+			return null;
+		}
+		$entry          = $models[ $model ];
+		$entry['label'] = self::translate_label( $entry['label'] );
+		return $entry;
 	}
 
 	/**
@@ -465,7 +488,7 @@ final class Model_Registry {
 		if ( null !== $provider ) {
 			$labels = array();
 			foreach ( self::get_models( $provider ) as $id => $entry ) {
-				$labels[ $id ] = $entry['label'];
+				$labels[ $id ] = self::translate_label( $entry['label'] );
 			}
 			return $labels;
 		}

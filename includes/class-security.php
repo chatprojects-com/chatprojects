@@ -292,7 +292,6 @@ class Security {
         if (function_exists('finfo_open') && file_exists($file_path)) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $detected_mime = finfo_file($finfo, $file_path);
-            finfo_close($finfo);
 
             // Map extensions to expected MIME types.
             $mime_map = array(
@@ -601,7 +600,6 @@ class Security {
         // Validate MIME type using finfo (more secure than trusting $_FILES['type'])
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
 
         if (!in_array($mime_type, self::ALLOWED_IMAGE_TYPES, true)) {
             return new \WP_Error(
@@ -677,7 +675,6 @@ class Security {
         if ($mime_type === null) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime_type = finfo_file($finfo, $file_path);
-            finfo_close($finfo);
         }
 
         $contents = file_get_contents($file_path);
