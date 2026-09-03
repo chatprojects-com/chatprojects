@@ -10,6 +10,8 @@
 
 namespace ChatProjects\Providers;
 
+use ChatProjects\Model_Registry;
+
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
@@ -31,16 +33,50 @@ class Gemini_Provider extends Base_Provider {
         $this->name = 'Google Gemini';
         $this->identifier = 'gemini';
         $this->api_base_url = self::API_BASE_URL;
-        $this->models = array(
-            'gemini-3-pro-preview' => 'Gemini 3 Pro (Preview)',
-            'gemini-3-flash-preview' => 'Gemini 3 Flash (Preview)',
-            'gemini-2.5-pro' => 'Gemini 2.5 Pro',
-            'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommended)',
-            'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite',
-            'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-        );
+        $this->models = Model_Registry::get_labels( 'gemini' );
 
         parent::__construct();
+    }
+
+    /**
+     * Build generationConfig for a model.
+     *
+     * @param string $model   Model id.
+     * @param array  $options Caller options.
+     * @return array
+     */
+    private function build_generation_config( $model, $options ) {
+        $entry      = Model_Registry::get_model( 'gemini', $model );
+        $max_output = $entry ? (int) $entry['max_output'] : 8192;
+        $max_tokens = isset( $options['max_tokens'] ) ? absint( $options['max_tokens'] ) : $max_output;
+
+        $config = array(
+            'maxOutputTokens' => max( 1, min( $max_tokens, $max_output ) ),
+        );
+
+        if ( isset( $options['temperature'] ) && ( ! $entry || ! empty( $entry['supports_temperature'] ) ) ) {
+            $config['temperature'] = (float) $options['temperature'];
+        }
+
+        return $config;
+    }
+
+    /**
+     * Request headers. The API key travels in a header, never in the URL.
+     *
+     * @param string|null $api_key Key override (validation), defaults to the stored key.
+     * @param bool        $stream  Whether to request an event stream.
+     * @return array
+     */
+    private function request_headers( $api_key = null, $stream = false ) {
+        $headers = array(
+            'Content-Type'   => 'application/json',
+            'x-goog-api-key' => null === $api_key ? $this->api_key : $api_key,
+        );
+        if ( $stream ) {
+            $headers['Accept'] = 'text/event-stream';
+        }
+        return $headers;
     }
 
     /**
@@ -66,10 +102,7 @@ class Gemini_Provider extends Base_Provider {
         // Prepare request data
         $data = array(
             'contents' => $contents,
-            'generationConfig' => array(
-                'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-                'maxOutputTokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 2048,
-            ),
+            'generationConfig' => $this->build_generation_config( $model, $options ),
         );
 
         // Add system instruction if provided
@@ -82,11 +115,9 @@ class Gemini_Provider extends Base_Provider {
         }
 
         // Make API request
-        $url = self::API_BASE_URL . "models/{$model}:generateContent?key=" . $this->api_key;
+        $url = self::API_BASE_URL . 'models/' . rawurlencode( $model ) . ':generateContent';
 
-        $headers = array(
-            'Content-Type' => 'application/json',
-        );
+        $headers = $this->request_headers();
 
         $response = $this->make_request($url, $data, 'POST', $headers);
 
@@ -134,10 +165,7 @@ class Gemini_Provider extends Base_Provider {
 
         $data = array(
             'contents'         => $contents,
-            'generationConfig' => array(
-                'temperature'     => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
-                'maxOutputTokens' => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 2048,
-            ),
+            'generationConfig' => $this->build_generation_config( $model, $options ),
         );
 
         if ( ! empty( $options['instructions'] ) ) {
@@ -148,13 +176,10 @@ class Gemini_Provider extends Base_Provider {
             );
         }
 
-        $url = self::API_BASE_URL . "models/{$model}:streamGenerateContent?alt=sse&key=" . $this->api_key;
+        $url = self::API_BASE_URL . 'models/' . rawurlencode( $model ) . ':streamGenerateContent?alt=sse';
 
         // Headers for WordPress HTTP API (associative array format).
-        $headers = array(
-            'Content-Type' => 'application/json',
-            'Accept'       => 'text/event-stream',
-        );
+        $headers = $this->request_headers( null, true );
 
         // SSE parser for Gemini's response format.
         // Gemini uses single newline line separation unlike other providers.
@@ -226,9 +251,15 @@ class Gemini_Provider extends Base_Provider {
      * @return bool|WP_Error True if valid, error otherwise
      */
     public function validate_api_key($api_key) {
-        $url = self::API_BASE_URL . 'models?key=' . $api_key;
+        $url = self::API_BASE_URL . 'models';
 
-        $response = wp_remote_get($url, array('timeout' => 10));
+        $response = wp_remote_get(
+            $url,
+            array(
+                'timeout' => 10,
+                'headers' => $this->request_headers( $api_key ),
+            )
+        );
 
         if (is_wp_error($response)) {
             return $response;

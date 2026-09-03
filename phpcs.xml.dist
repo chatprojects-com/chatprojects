@@ -37,7 +37,7 @@
 	</rule>
 
 	<!-- Set minimum supported WordPress version -->
-	<config name="minimum_wp_version" value="6.0"/>
+	<config name="minimum_wp_version" value="6.6"/>
 
 	<!-- Set text domain for i18n -->
 	<rule ref="WordPress.WP.I18n">

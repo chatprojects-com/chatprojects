@@ -41,9 +41,23 @@ class Access {
             return false;
         }
 
-        // Free version: All logged-in users can access all projects
-        // (Private/sharing controls are a Pro feature)
-        return true;
+        // Administrators can access every project.
+        if (user_can($user_id, 'manage_options')) {
+            return true;
+        }
+
+        // Everyone else: only their own projects (sharing controls are a Pro feature).
+        $can_access = (int) $project->post_author === (int) $user_id;
+
+        /**
+         * Filter whether a user may access (read/chat with) a project.
+         *
+         * @param bool     $can_access Default decision.
+         * @param int      $project_id Project ID.
+         * @param int      $user_id    User ID.
+         * @param \WP_Post $project    Project post.
+         */
+        return (bool) apply_filters('chatprojects_can_access_project', $can_access, (int) $project_id, (int) $user_id, $project);
     }
 
     /**

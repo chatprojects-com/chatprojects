@@ -29,7 +29,7 @@
 
 ## Key Features
 
-- **Multi-Provider Chat** - Switch between GPT, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter
+- **Multi-Provider Chat** - Switch between GPT-5.6, Claude Opus 5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
 - **Project Management** - Create projects with OpenAI's vector store for intelligent file search
 - **File Upload** - Upload documents (PDF, DOC, TXT, etc.) for AI-powered analysis
 - **Custom Instructions** - Set custom assistant personas for each project
@@ -175,39 +175,45 @@ You need at least one API key to use ChatProjects. Each provider offers differen
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| GPT-5.2 | Latest flagship model | 128K |
-| GPT-5.2 Codex | Optimized for code | 128K |
-| GPT-4o | Multimodal (text + vision) | 128K |
-| GPT-4o-mini | Fast and affordable | 128K |
-| GPT-4 Turbo | High capability | 128K |
-| o1 Preview | Advanced reasoning | 128K |
-| o1 Mini | Fast reasoning | 128K |
+| GPT-5.6 Sol | Flagship for complex work (default) | 1M |
+| GPT-5.6 Terra | Balanced intelligence and cost | 1M |
+| GPT-5.6 Luna | Cost-sensitive workloads | 1M |
+| GPT-5.5 | Coding and professional work | 1M |
+| GPT-5.4 | Affordable general model | 400K |
+| GPT-5.4 Mini | Fast, strong for sub-tasks | 400K |
+| GPT-5.4 Nano | Cheapest, high volume | 400K |
+
+All OpenAI models are reasoning models; the effort level defaults to `medium` (filter `chatprojects_reasoning_effort`).
 
 ## Anthropic (Claude)
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| Claude Sonnet 4 | Latest balanced model | 200K |
-| Claude 3.5 Sonnet | Previous generation | 200K |
-| Claude 3.5 Haiku | Fast responses | 200K |
-| Claude 3 Opus | Most capable | 200K |
+| Claude Opus 5 | Recommended for complex work (default) | 1M |
+| Claude Fable 5.1 | Most capable | 1M |
+| Claude Opus 4.8 | Previous Opus | 1M |
+| Claude Sonnet 5 | Balanced speed and intelligence | 1M |
+| Claude Sonnet 4.6 | Previous Sonnet | 1M |
+| Claude Haiku 4.5 | Fastest, lowest cost | 200K |
 
 ## Google Gemini
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| Gemini 3 Pro Preview | Latest flagship | 1M |
-| Gemini 2.5 Pro | Previous flagship | 1M |
-| Gemini 2.0 Flash | Fast responses | 1M |
-| Gemini 1.5 Pro | Previous generation | 1M |
-| Gemini 1.5 Flash | Budget option | 1M |
+| Gemini 3.8 Flash | Newest Flash (default) | 1M |
+| Gemini 3.7 Flash | Previous Flash | 1M |
+| Gemini 3.5 Flash | Stable Flash | 1M |
+| Gemini 3.5 Flash Lite | Fastest, cheapest | 1M |
+| Gemini 3.1 Pro (Preview) | Most capable Gemini | 1M |
 
 ## Chutes (DeepSeek)
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| DeepSeek V3 | Latest general model | 64K |
-| DeepSeek R1 | Reasoning model | 64K |
+| DeepSeek V4 Flash | Fast general model with thinking mode (default) | 1M |
+| DeepSeek V4 Pro | Most capable DeepSeek | 1M |
+
+The full Chutes model list is fetched live from the Chutes API.
 
 ## OpenRouter
 
@@ -270,7 +276,7 @@ Switch providers mid-conversation:
 
 ### Image Upload (Vision Models)
 
-For models that support vision (GPT-4o, Claude 3, Gemini):
+For models that support vision (GPT-5.6, Claude, Gemini):
 1. Click the attachment icon
 2. Select an image
 3. Add your question about the image

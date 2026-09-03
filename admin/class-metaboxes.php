@@ -10,6 +10,7 @@
 namespace ChatProjects\Admin;
 
 use ChatProjects\Access;
+use ChatProjects\Model_Registry;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -88,7 +89,7 @@ class Metaboxes {
 
         // Vector store ID (no assistant needed with Responses API)
         $vector_store_id = get_post_meta($post->ID, '_cp_vector_store_id', true);
-        $model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+        $model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
         $instructions = get_post_meta($post->ID, '_cp_instructions', true);
 
         include CHATPROJECTS_PLUGIN_DIR . 'admin/views/project-meta.php';
@@ -243,10 +244,28 @@ class Metaboxes {
         $vector_store_id = get_post_meta( $post->ID, '_cp_vector_store_id', true );
         $post_id         = absint( $post->ID );
         $settings_url    = admin_url( 'admin.php?page=chatprojects-settings&tab=widget' );
-
+        $widget_enabled  = '1' === (string) get_post_meta( $post->ID, '_cp_widget_enabled', true );
+        ?>
+        <p style="margin:0 0 10px;">
+            <label for="cp_widget_enabled">
+                <input type="checkbox" name="cp_widget_enabled" id="cp_widget_enabled" value="1" <?php checked( $widget_enabled ); ?> />
+                <strong><?php esc_html_e( 'Allow public chat widget', 'chatprojects' ); ?></strong>
+            </label>
+            <span class="description" style="display:block;margin-top:4px;">
+                <?php esc_html_e( 'Lets logged-out visitors chat with this project\'s indexed content through the embedded widget. Leave off for private projects.', 'chatprojects' ); ?>
+            </span>
+        </p>
+        <?php
         if ( empty( $vector_store_id ) ) {
             echo '<p class="description" style="margin:0;">';
             esc_html_e( 'Index content first using Content Index (Auto-RAG), then come back here to get your embed shortcode.', 'chatprojects' );
+            echo '</p>';
+            return;
+        }
+
+        if ( ! $widget_enabled ) {
+            echo '<p class="description" style="margin:0;">';
+            esc_html_e( 'Tick "Allow public chat widget" and save to get the embed shortcode.', 'chatprojects' );
             echo '</p>';
             return;
         }
@@ -568,7 +587,7 @@ JS;
 
         // Save model
         if (isset($_POST['cp_model'])) {
-            $model = sanitize_text_field(wp_unslash($_POST['cp_model']));
+            $model = Model_Registry::resolve('openai', sanitize_text_field(wp_unslash($_POST['cp_model'])), get_option('chatprojects_default_model'));
             update_post_meta($post_id, '_cp_model', $model);
         }
 
@@ -577,6 +596,9 @@ JS;
             $instructions = sanitize_textarea_field(wp_unslash($_POST['cp_instructions']));
             update_post_meta($post_id, '_cp_instructions', $instructions);
         }
+
+        // Public widget opt-in (unchecked checkbox is absent from POST).
+        update_post_meta($post_id, '_cp_widget_enabled', !empty($_POST['cp_widget_enabled']) ? '1' : '0');
 
         // Save sharing settings
         $this->save_sharing_meta($post_id);

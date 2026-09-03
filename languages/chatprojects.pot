@@ -1,234 +1,2494 @@
-# Copyright (C) 2024 GPTAdviser
-# This file is distributed under the GPLv2 or later.
+# Copyright (C) 2026 ChatProjects 1.2.0
+# This file is distributed under the same license as the ChatProjects 1.2.0 package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ChatProjects 1.0.0\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/chatprojects\n"
-"POT-Creation-Date: 2024-11-29T00:00:00+00:00\n"
+"Project-Id-Version: ChatProjects 1.2.0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2026-09-03 09:57+0000\n"
+"Report-Msgid-Bugs-To: https://chatprojects.com/\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-KeywordsList: __;_e;_ex:1,2c;_n:1,2;_n_noop:1,2;_nx:1,2,4c;_nx_noop:1,2,3c;_x:1,2c;esc_attr__;esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.js\n"
+"X-Poedit-SourceCharset: UTF-8\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: WP-CLI 2.8.1\n"
-"X-Domain: chatprojects\n"
 
-#: chatprojects.php
-msgid "ChatProjects requires PHP version 7.4 or higher."
+#: ../admin/class-metaboxes.php:40
+msgid "Project Settings"
 msgstr ""
 
-#: chatprojects.php
-msgid "ChatProjects requires WordPress version 5.8 or higher."
+#: ../admin/class-metaboxes.php:50
+msgid "Content Index (Auto-RAG)"
 msgstr ""
 
-#: includes/class-chatprojects.php
-msgid "ChatProjects"
+#: ../admin/class-metaboxes.php:62
+msgid "Embed as Chatbot"
 msgstr ""
 
-#: includes/class-chatprojects.php
-msgid "Settings"
+#: ../admin/class-metaboxes.php:72
+msgid "Prompt Variables"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "API Settings"
+#: ../admin/class-metaboxes.php:120
+msgid "Private"
 msgstr ""
 
-#: admin/views/settings-page.php
+#: ../admin/class-metaboxes.php:121
+msgid "Only you can access"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:128, ../public/templates/partials/projects-panel.php:114
+msgid "Shared"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:129
+msgid "Share with specific users"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:142
+msgid "Hold Ctrl/Cmd to select multiple users"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:148
+msgid "Public"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:149
+msgid "All users can access"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:179
+msgid "Use {{variable_name}} in your prompt. Define variables below:"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:203, ../admin/class-metaboxes.php:191, ../admin/class-metaboxes.php:218
+msgid "variable_name"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:205, ../admin/class-metaboxes.php:193, ../admin/class-metaboxes.php:219
+msgid "Remove"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:213
+msgid "Add Variable"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:252
+msgid "Allow public chat widget"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:255
+msgid "Lets logged-out visitors chat with this project's indexed content through the embedded widget. Leave off for private projects."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:261
+msgid "Index content first using Content Index (Auto-RAG), then come back here to get your embed shortcode."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:268
+msgid "Tick \"Allow public chat widget\" and save to get the embed shortcode."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:289
+msgid "Inline (embedded in page)"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:292, ../admin/class-metaboxes.php:302
+msgid "Copy"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:299
+msgid "Floating (chat bubble)"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:309
+msgid "Paste into any page or post."
+msgstr ""
+
+#. translators: %s: link to widget settings
+#: ../admin/class-metaboxes.php:313
+msgid "Customize with color, title, height — see %s."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:314
+msgid "full attribute reference"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:347
+msgid "Publish this project first to enable content indexing."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:360
+msgid "Index Status:"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:363
+msgid "posts indexed"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:366
+msgid "failed"
+msgstr ""
+
+#. translators: %s: comma-separated list of post types
+#: ../admin/class-metaboxes.php:373
+msgid "Indexable post types: %s"
+msgstr ""
+
+#. translators: %d: maximum posts allowed in free version
+#: ../admin/class-metaboxes.php:379
+msgid "Free version limit: %d posts per project."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:394
+msgid "Indexing Errors:"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:401
+msgid "Index My Site"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:404, ../public/templates/project-shell-modern.php:1162, ../public/templates/projects-list.php:896, ../public/templates/projects-list.php:1013, ../public/templates/projects-list.php:1094, ../public/templates/partials/projects-panel.php:205
+msgid "Cancel"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:407
+msgid "Clear Index"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:428
+msgid "Are you sure you want to clear all indexed content? This will remove files from the vector store."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:429
+msgid "Indexing..."
+msgstr ""
+
+#: ../admin/class-metaboxes.php:430
+msgid "Indexing complete!"
+msgstr ""
+
+#: ../admin/class-metaboxes.php:431
+msgid "Indexing cancelled."
+msgstr ""
+
+#: ../admin/class-settings.php:350
+msgid "AI Provider API Keys"
+msgstr ""
+
+#: ../admin/class-settings.php:358
 msgid "OpenAI API Key"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "Enter your OpenAI API key"
-msgstr ""
-
-#: admin/views/settings-page.php
-msgid "Anthropic API Key"
-msgstr ""
-
-#: admin/views/settings-page.php
-msgid "Enter your Anthropic API key"
-msgstr ""
-
-#: admin/views/settings-page.php
+#: ../admin/class-settings.php:367
 msgid "Google Gemini API Key"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "Enter your Gemini API key"
+#: ../admin/class-settings.php:367, ../admin/class-settings.php:376, ../admin/class-settings.php:385, ../admin/class-settings.php:394
+msgid "Optional"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "Chutes API Key"
+#: ../admin/class-settings.php:376
+msgid "Anthropic API Key"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "Enter your Chutes API key"
+#: ../admin/class-settings.php:385
+msgid "Chutes.ai API Key"
 msgstr ""
 
-#: admin/views/settings-page.php
-msgid "Save Settings"
+#: ../admin/class-settings.php:394
+msgid "OpenRouter API Key"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "You must be logged in"
+#: ../admin/class-settings.php:403
+msgid "General Chat"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Message is required"
+#: ../admin/class-settings.php:411
+msgid "Default Provider"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Project ID is required"
+#: ../admin/class-settings.php:420, ../admin/class-settings.php:446
+msgid "Default Model"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Access denied"
+#: ../admin/class-settings.php:429
+msgid "Assistant Instructions"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Free version limit reached (5 projects). Upgrade to Pro for unlimited projects."
+#: ../admin/class-settings.php:438, ../public/templates/project-shell-modern.php:568
+msgid "Project Assistant"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Project created successfully"
+#: ../admin/class-settings.php:455
+msgid "File Upload"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "Project deleted successfully"
+#: ../admin/class-settings.php:463
+msgid "Keep Data on Uninstall"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "File uploaded successfully"
+#: ../admin/class-settings.php:472
+msgid "Max File Size (MB)"
 msgstr ""
 
-#: public/ajax-handlers.php
-msgid "File deleted successfully"
+#: ../admin/class-settings.php:481
+msgid "Allowed File Types"
 msgstr ""
 
-#: public/templates/chat-interface.php
-msgid "Send"
+#: ../admin/class-settings.php:591
+msgid "General"
 msgstr ""
 
-#: public/templates/chat-interface.php
+#: ../admin/class-settings.php:598
+msgid "Enable Widget"
+msgstr ""
+
+#: ../admin/class-settings.php:606, ../includes/class-chatprojects.php:428, ../includes/class-installer.php:165, ../public/templates/projects-list.php:730
+msgid "Project"
+msgstr ""
+
+#: ../admin/class-settings.php:614
+msgid "Auto-inject on All Pages"
+msgstr ""
+
+#: ../admin/class-settings.php:623, ../public/templates/user-settings.php:204, ../public/templates/partials/settings-panel.php:122
+msgid "Appearance"
+msgstr ""
+
+#: ../admin/class-settings.php:630
+msgid "Position"
+msgstr ""
+
+#: ../admin/class-settings.php:638
+msgid "Primary Color"
+msgstr ""
+
+#: ../admin/class-settings.php:646
+msgid "Welcome Message"
+msgstr ""
+
+#: ../admin/class-settings.php:654
+msgid "Input Placeholder"
+msgstr ""
+
+#: ../admin/class-settings.php:662
+msgid "Show Branding"
+msgstr ""
+
+#: ../admin/class-settings.php:671
+msgid "Rate Limiting"
+msgstr ""
+
+#: ../admin/class-settings.php:678
+msgid "Message Limit"
+msgstr ""
+
+#: ../admin/class-settings.php:686
+msgid "Session Limit"
+msgstr ""
+
+#: ../admin/class-settings.php:697
+msgid "Configure API keys for AI providers. OpenAI API key is required for core functionality (Projects, Vector Stores, Transcription). Other provider keys are optional."
+msgstr ""
+
+#: ../admin/class-settings.php:704
+msgid "Configure default settings for the Chat mode."
+msgstr ""
+
+#: ../admin/class-settings.php:711
+msgid "Configure settings for the Project Assistant mode (uses OpenAI with vector stores)."
+msgstr ""
+
+#: ../admin/class-settings.php:718
+msgid "Configure file upload settings."
+msgstr ""
+
+#: ../admin/class-settings.php:737, ../admin/class-settings.php:773, ../admin/class-settings.php:808, ../admin/class-settings.php:843, ../admin/class-settings.php:878
+msgid "Current key:"
+msgstr ""
+
+#: ../admin/class-settings.php:741, ../admin/class-settings.php:777, ../admin/class-settings.php:812, ../admin/class-settings.php:847, ../admin/class-settings.php:882
+msgid "Remove this key"
+msgstr ""
+
+#: ../admin/class-settings.php:744
+msgid "Required."
+msgstr ""
+
+#: ../admin/class-settings.php:745
+msgid "Needed for Projects, Vector Stores, and Transcription features."
+msgstr ""
+
+#. translators: %s: Link to provider API keys page
+#: ../admin/class-settings.php:749, ../admin/class-settings.php:784, ../admin/class-settings.php:819, ../admin/class-settings.php:854, ../admin/class-settings.php:889
+msgid "Get your API key from %s"
+msgstr ""
+
+#: ../admin/class-settings.php:780, ../admin/class-settings.php:815, ../admin/class-settings.php:850
+msgid "Optional. For Chat mode only."
+msgstr ""
+
+#: ../admin/class-settings.php:885
+msgid "Optional. For Chat mode only. Access 100+ models from various providers."
+msgstr ""
+
+#: ../admin/class-settings.php:912
+msgid "Default AI provider for general chat mode."
+msgstr ""
+
+#: ../admin/class-settings.php:944, ../admin/class-settings.php:1011, ../admin/views/project-meta.php:33
+msgid "(unlisted)"
+msgstr ""
+
+#: ../admin/class-settings.php:958
+msgid "Default model for general chat mode. Users can change this per conversation."
+msgstr ""
+
+#: ../admin/class-settings.php:1022
+msgid "Default model for new projects."
+msgstr ""
+
+#: ../admin/class-settings.php:1035
+msgid "Keep projects, chats, settings and API keys when the plugin is deleted."
+msgstr ""
+
+#: ../admin/class-settings.php:1038
+msgid "When unchecked, deleting the plugin removes all ChatProjects data from this site."
+msgstr ""
+
+#: ../admin/class-settings.php:1057
+msgid "Maximum file size in megabytes (1-512 MB)."
+msgstr ""
+
+#: ../admin/class-settings.php:1075
+msgid "Comma-separated list of allowed file extensions (e.g., pdf, doc, txt)."
+msgstr ""
+
+#: ../admin/class-settings.php:1092
+msgid "Default instructions for the AI assistant. These will be included in every chat session unless overridden by project-specific instructions."
+msgstr ""
+
+#: ../admin/class-settings.php:1101
+msgid "Configure the default chat widget. These settings apply to the global floating widget and serve as defaults for shortcode-based chatbots. Use shortcodes to embed project-specific chatbots on any page — see the reference below."
+msgstr ""
+
+#: ../admin/class-settings.php:1116
+msgid "Enable the chat widget on the frontend"
+msgstr ""
+
+#: ../admin/class-settings.php:1137
+msgid "— Select a project —"
+msgstr ""
+
+#: ../admin/class-settings.php:1145
+msgid "Select the project whose indexed content the widget will use. The project must have a vector store with indexed content."
+msgstr ""
+
+#: ../admin/class-settings.php:1158
+msgid "Bottom Right"
+msgstr ""
+
+#: ../admin/class-settings.php:1161
+msgid "Bottom Left"
+msgstr ""
+
+#: ../admin/class-settings.php:1165
+msgid "Position of the chat bubble on the page."
+msgstr ""
+
+#: ../admin/class-settings.php:1183
+msgid "Primary color for the widget (hex format, e.g. #2563eb)."
+msgstr ""
+
+#: ../admin/class-settings.php:1198
+msgid "Hello! How can I help you today?"
+msgstr ""
+
+#: ../admin/class-settings.php:1200
+msgid "Message displayed when a visitor first opens the chat widget. Leave blank for default."
+msgstr ""
+
+#: ../admin/class-settings.php:1216, ../includes/class-widget-handler.php:634, ../public/class-frontend.php:1075, ../public/class-frontend.php:1206, ../public/templates/chat-interface-modern.php:448
 msgid "Type your message..."
 msgstr ""
 
-#: public/templates/chat-interface.php
-msgid "New Chat"
+#: ../admin/class-settings.php:1218
+msgid "Placeholder text in the message input field. Leave blank for default."
 msgstr ""
 
-#: public/templates/projects-list.php
+#: ../admin/class-settings.php:1235
+msgid "Automatically display the widget on all frontend pages"
+msgstr ""
+
+#: ../admin/class-settings.php:1238
+msgid "When disabled, use the [chatprojects_widget] shortcode to place the widget on specific pages."
+msgstr ""
+
+#: ../admin/class-settings.php:1256
+msgid "messages per session per hour"
+msgstr ""
+
+#: ../admin/class-settings.php:1258
+msgid "Maximum number of messages a visitor can send per hour."
+msgstr ""
+
+#: ../admin/class-settings.php:1276
+msgid "new sessions per IP per hour"
+msgstr ""
+
+#: ../admin/class-settings.php:1278
+msgid "Maximum number of new chat sessions a single IP address can create per hour."
+msgstr ""
+
+#: ../admin/class-settings.php:1297
+msgid "Display \"Powered by ChatProjects\" in the widget"
+msgstr ""
+
+#: ../admin/class-settings.php:1301
+msgid "Branding is always shown in the free version. Upgrade to Pro to remove it."
+msgstr ""
+
+#: ../admin/class-settings.php:1320
+msgid "Please configure your OpenAI API key to use ChatProjects."
+msgstr ""
+
+#: ../admin/class-settings.php:1332, ../public/ajax-handlers.php:1402
+msgid "Settings saved successfully."
+msgstr ""
+
+#: ../admin/views/main-page.php:19
+msgid "ChatProjects Dashboard"
+msgstr ""
+
+#: ../admin/views/main-page.php:24, ../public/templates/user-settings.php:126
+msgid "OpenAI API Key Required"
+msgstr ""
+
+#. translators: %s: Settings URL
+#: ../admin/views/main-page.php:28
+msgid "Please configure your OpenAI API key in <a href=\"%s\">Settings</a> to start using ChatProjects."
+msgstr ""
+
+#: ../admin/views/main-page.php:46, ../includes/class-chatprojects.php:336, ../includes/class-chatprojects.php:337, ../includes/class-chatprojects.php:681, ../public/class-frontend.php:901, ../public/templates/main-app-shell.php:50, ../public/templates/pro-chat.php:293, ../public/templates/project-shell-modern.php:740, ../public/templates/projects-list.php:574, ../public/templates/user-settings.php:74, ../public/templates/user-settings.php:102, ../public/templates/user-settings.php:297, ../public/templates/partials/settings-panel.php:80
+msgid "Settings"
+msgstr ""
+
+#: ../admin/views/main-page.php:47
+msgid "Configure plugin"
+msgstr ""
+
+#: ../admin/views/main-page.php:51
+msgid "Configure Settings"
+msgstr ""
+
+#: ../admin/views/main-page.php:63, ../includes/class-chatprojects.php:327, ../includes/class-chatprojects.php:328, ../includes/class-chatprojects.php:427, ../includes/class-installer.php:164, ../public/class-frontend.php:874, ../public/templates/main-app-shell.php:40, ../public/templates/pro-chat.php:147, ../public/templates/project-shell-modern.php:408, ../public/templates/projects-list.php:467, ../public/templates/projects-list.php:603, ../public/templates/partials/projects-panel.php:44
 msgid "Projects"
 msgstr ""
 
-#: public/templates/projects-list.php
-msgid "Create Project"
+#: ../admin/views/main-page.php:67, ../public/templates/project-shell-modern.php:523
+msgid "View All Projects"
 msgstr ""
 
-#: public/templates/projects-list.php
-msgid "Delete"
+#: ../admin/views/main-page.php:75, ../admin/views/settings-page.php:312
+msgid "Quick Start Guide"
 msgstr ""
 
-#: public/templates/file-manager-ui.php
-msgid "Files"
+#: ../admin/views/main-page.php:81
+msgid "Configure OpenAI API Key"
 msgstr ""
 
-#: public/templates/file-manager-ui.php
-msgid "Upload File"
+#: ../admin/views/main-page.php:83
+msgid "Go to Settings and enter your OpenAI API key to enable AI features."
 msgstr ""
 
-#: public/templates/file-manager-ui.php
-msgid "No files uploaded yet"
+#: ../admin/views/main-page.php:89
+msgid "Completed"
 msgstr ""
 
-#: public/templates/user-settings.php
-msgid "User Settings"
+#: ../admin/views/main-page.php:86
+msgid "Configure Now"
 msgstr ""
 
-#: public/templates/user-settings.php
-msgid "Display Name"
+#: ../admin/views/main-page.php:98
+msgid "Visit the Projects Page"
 msgstr ""
 
-#: public/templates/user-settings.php
-msgid "Email"
+#: ../admin/views/main-page.php:100
+msgid "Go to https://yourdomain.com/projects/ - if you see a 404 page not found, go to Settings > Permalinks and click Save Changes."
 msgstr ""
 
-#: public/templates/user-settings.php
-msgid "Upgrade to Pro"
+#: ../admin/views/main-page.php:108, ../public/templates/projects-list.php:792, ../public/templates/partials/projects-panel.php:81
+msgid "Create Your First Project"
 msgstr ""
 
-#: includes/class-security.php
+#: ../admin/views/main-page.php:110
+msgid "Projects are created from the frontend chat interface. Visit the frontend to create projects."
+msgstr ""
+
+#: ../admin/views/main-page.php:118
+msgid "Start Using Features"
+msgstr ""
+
+#: ../admin/views/main-page.php:120
+msgid "Chat with AI and upload files to Vector Stores."
+msgstr ""
+
+#: ../admin/views/main-page.php:128
+msgid "User Roles & Permissions"
+msgstr ""
+
+#: ../admin/views/main-page.php:130
+msgid "The following roles can access ChatProjects:"
+msgstr ""
+
+#: ../admin/views/main-page.php:133, ../public/class-frontend.php:987
+msgid "Administrator"
+msgstr ""
+
+#: ../admin/views/main-page.php:133
+msgid "Full access + settings management"
+msgstr ""
+
+#: ../admin/views/main-page.php:134, ../public/class-frontend.php:988
+msgid "Editor"
+msgstr ""
+
+#: ../admin/views/main-page.php:134
+msgid "Full access (no settings)"
+msgstr ""
+
+#: ../admin/views/main-page.php:135, ../public/class-frontend.php:989
+msgid "Author"
+msgstr ""
+
+#: ../admin/views/main-page.php:135, ../public/class-frontend.php:989, ../public/class-frontend.php:990
+msgid "Own projects only"
+msgstr ""
+
+#: ../admin/views/main-page.php:136, ../includes/class-user-roles.php:51, ../public/class-frontend.php:990
+msgid "Projects User"
+msgstr ""
+
+#: ../admin/views/main-page.php:136
+msgid "Frontend-only, own projects only"
+msgstr ""
+
+#. translators: %s: URL to Users → Add New page
+#: ../admin/views/main-page.php:142
+msgid "Create new users with the \"Projects User\" role via <a href=\"%s\">Users → Add New</a>."
+msgstr ""
+
+#: ../admin/views/project-meta.php:18
+msgid "Vector Store:"
+msgstr ""
+
+#: ../admin/views/project-meta.php:27, ../public/templates/chat-interface-modern.php:128
+msgid "Model"
+msgstr ""
+
+#: ../admin/views/project-meta.php:42
+msgid "AI model to use for this project."
+msgstr ""
+
+#: ../admin/views/project-meta.php:49
+msgid "Instructions"
+msgstr ""
+
+#: ../admin/views/project-meta.php:56
+msgid "Enter assistant instructions..."
+msgstr ""
+
+#: ../admin/views/project-meta.php:58
+msgid "System instructions for the AI assistant. This defines the assistant's behavior and capabilities."
+msgstr ""
+
+#: ../admin/views/project-meta.php:67
+msgid "Vector Store will be created automatically when you publish this project."
+msgstr ""
+
+#: ../admin/views/settings-page.php:18
+msgid "You do not have sufficient permissions to access this page."
+msgstr ""
+
+#: ../admin/views/settings-page.php:24
+msgid "API Keys"
+msgstr ""
+
+#: ../admin/views/settings-page.php:28, ../public/templates/main-app-shell.php:45, ../public/templates/pro-chat.php:69, ../public/templates/pro-chat.php:153, ../public/templates/project-shell-modern.php:414, ../public/templates/project-shell-modern.php:550, ../public/templates/projects-list.php:473
+msgid "Chat"
+msgstr ""
+
+#: ../admin/views/settings-page.php:32
+msgid "Chat Widget"
+msgstr ""
+
+#: ../admin/views/settings-page.php:279
+msgid "Settings tabs"
+msgstr ""
+
+#: ../admin/views/settings-page.php:314
+msgid "Enter your OpenAI API key above and save settings."
+msgstr ""
+
+#. translators: %s: projects URL path
+#: ../admin/views/settings-page.php:319
+msgid "Visit %s — if you see a 404, go to Settings > Permalinks and click Save."
+msgstr ""
+
+#: ../admin/views/settings-page.php:324
+msgid "Create a new project from the Projects menu."
+msgstr ""
+
+#: ../admin/views/settings-page.php:325
+msgid "Upload files to the project's Vector Store."
+msgstr ""
+
+#: ../admin/views/settings-page.php:326
+msgid "Start chatting with your AI assistant!"
+msgstr ""
+
+#. translators: %s: Documentation link
+#: ../admin/views/settings-page.php:332
+msgid "Need help? Visit our %s for guides and tutorials."
+msgstr ""
+
+#: ../admin/views/settings-page.php:333
+msgid "documentation"
+msgstr ""
+
+#: ../admin/views/settings-page.php:340
+msgid "Available Features"
+msgstr ""
+
+#: ../admin/views/settings-page.php:373
+msgid "Upgrade to Pro at"
+msgstr ""
+
+#: ../admin/views/settings-page.php:381
+msgid "Two Ways to Display"
+msgstr ""
+
+#: ../admin/views/settings-page.php:386
+msgid "Global Widget (this page)"
+msgstr ""
+
+#: ../admin/views/settings-page.php:387
+msgid "Enable above and turn on \"Auto-inject\" to show a floating chat bubble on every page. Uses the project and appearance settings configured above."
+msgstr ""
+
+#: ../admin/views/settings-page.php:393
+msgid "Shortcodes (per-project)"
+msgstr ""
+
+#: ../admin/views/settings-page.php:395
+msgid "Embed chatbots for any project on any page. You can place multiple chatbots on the same page, each connected to a different project."
+msgstr ""
+
+#. translators: %s: link to projects list
+#: ../admin/views/settings-page.php:399
+msgid "Copy-ready shortcodes are shown on each %s."
+msgstr ""
+
+#: ../admin/views/settings-page.php:400
+msgid "project's edit screen"
+msgstr ""
+
+#: ../admin/views/settings-page.php:410
+msgid "Shortcode Reference"
+msgstr ""
+
+#: ../admin/views/settings-page.php:414
+msgid "Example"
+msgstr ""
+
+#: ../admin/views/settings-page.php:415
+msgid "Result"
+msgstr ""
+
+#: ../admin/views/settings-page.php:421
+msgid "Inline chat panel for project 123"
+msgstr ""
+
+#: ../admin/views/settings-page.php:425
+msgid "Floating bubble for project 123"
+msgstr ""
+
+#: ../admin/views/settings-page.php:429
+msgid "Floating bubble using global settings above"
+msgstr ""
+
+#: ../admin/views/settings-page.php:434
+msgid "Available Attributes"
+msgstr ""
+
+#: ../admin/views/settings-page.php:438
+msgid "Attribute"
+msgstr ""
+
+#: ../admin/views/settings-page.php:439, ../public/templates/projects-list.php:855, ../public/templates/projects-list.php:972, ../public/templates/partials/projects-panel.php:190
+msgid "Description"
+msgstr ""
+
+#: ../admin/views/settings-page.php:440
+msgid "Default"
+msgstr ""
+
+#: ../admin/views/settings-page.php:446
+msgid "Project ID (find it in the Projects list)"
+msgstr ""
+
+#: ../admin/views/settings-page.php:447
+msgid "Global setting"
+msgstr ""
+
+#: ../admin/views/settings-page.php:451
+msgid "or"
+msgstr ""
+
+#: ../admin/views/settings-page.php:452
+msgid "inline when project is set"
+msgstr ""
+
+#: ../admin/views/settings-page.php:456
+msgid "Hex color for the theme"
+msgstr ""
+
+#: ../admin/views/settings-page.php:461
+msgid "Header title text"
+msgstr ""
+
+#: ../admin/views/settings-page.php:466
+msgid "First message shown to visitors"
+msgstr ""
+
+#: ../admin/views/settings-page.php:467
+msgid "Welcome Message setting"
+msgstr ""
+
+#: ../admin/views/settings-page.php:471
+msgid "Input field placeholder text"
+msgstr ""
+
+#: ../admin/views/settings-page.php:472
+msgid "Input Placeholder setting"
+msgstr ""
+
+#: ../admin/views/settings-page.php:476
+msgid "Panel height in pixels (inline mode)"
+msgstr ""
+
+#: ../admin/views/settings-page.php:483
+msgid "Full example:"
+msgstr ""
+
+#: ../admin/views/settings-page.php:488
+msgid "The project must have indexed content (files uploaded to its Vector Store). You can find the project ID in the Projects list or on the project edit screen URL."
+msgstr ""
+
+#: ../chatprojects.php:57
+msgid "ChatProjects Pro is active"
+msgstr ""
+
+#: ../chatprojects.php:60
+msgid "The Pro version includes all Free features plus more. You can safely deactivate the Free version."
+msgstr ""
+
+#. translators: %1$s: Required PHP version, %2$s: Current PHP version
+#: ../chatprojects.php:100
+msgid "ChatProjects requires PHP version %1$s or higher. You are running version %2$s."
+msgstr ""
+
+#. translators: %1$s: Required WordPress version, %2$s: Current WordPress version
+#: ../chatprojects.php:121
+msgid "ChatProjects requires WordPress version %1$s or higher. You are running version %2$s."
+msgstr ""
+
+#: ../chatprojects.php:272
+msgid "ChatProjects could not be activated due to unmet requirements."
+msgstr ""
+
+#: ../chatprojects.php:273
+msgid "Plugin Activation Error"
+msgstr ""
+
+#: ../includes/class-api-handler.php:75, ../includes/providers/class-openai-provider.php:53, ../includes/providers/class-openai-provider.php:118
+msgid "OpenAI API key is not configured."
+msgstr ""
+
+#: ../includes/class-api-handler.php:112, ../includes/class-api-handler.php:218, ../includes/class-api-handler.php:353
+msgid "Unknown API error"
+msgstr ""
+
+#: ../includes/class-api-handler.php:168, ../includes/class-vector-store.php:51
+msgid "File not found."
+msgstr ""
+
+#: ../includes/class-api-handler.php:298
+msgid "Audio file not found."
+msgstr ""
+
+#: ../includes/class-api-handler.php:482
+msgid "Invalid API response."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:95
+msgid "Invalid AI provider."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:101
+msgid "Provider class not found."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:128
+msgid "You must be logged in to create a chat."
+msgstr ""
+
+#. translators: %s: Date and time in Y-m-d H:i:s format
+#: ../includes/class-chat-interface.php:134
+msgid "General Chat %s"
+msgstr ""
+
+#: ../includes/class-chat-interface.php:155, ../includes/class-chat-interface.php:386
+msgid "Failed to create chat record."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:183, ../includes/class-chat-interface.php:270, ../includes/class-chat-interface.php:326, ../includes/class-general-chat-ajax.php:658, ../includes/class-general-chat-ajax.php:732, ../includes/class-general-chat-ajax.php:837, ../includes/class-message-store.php:58
+msgid "Invalid chat ID."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:187, ../includes/class-chat-interface.php:274
+msgid "This is not a general chat."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:230
+msgid "No response from provider."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:337, ../includes/class-chat-interface.php:605
+msgid "Failed to delete chat record."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:355
+msgid "You do not have permission to create chats for this project."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:362, ../includes/class-chat-interface.php:424
+msgid "Project does not have a vector store configured."
+msgstr ""
+
+#. translators: %s: Date and time in Y-m-d H:i:s format
+#: ../includes/class-chat-interface.php:368
+msgid "Chat %s"
+msgstr ""
+
+#: ../includes/class-chat-interface.php:404, ../includes/class-chat-interface.php:542, ../includes/class-chat-interface.php:705
+msgid "You do not have permission to access this chat."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:417, ../includes/class-chat-interface.php:594, ../includes/class-chat-interface.php:717
+msgid "Invalid chat ID or access denied."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:462
+msgid "No response from assistant."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:581
+msgid "You do not have permission to delete this chat."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:627, ../includes/class-project-manager.php:205, ../includes/class-vector-store.php:251, ../public/templates/project-shell-modern.php:31
+msgid "You do not have permission to access this project."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:676
+msgid "You do not have permission to update this chat."
+msgstr ""
+
+#: ../includes/class-chat-interface.php:688
+msgid "Failed to update chat title."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:201
+msgid "Files imported successfully."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:202
+msgid "Failed to import files."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:203
+msgid "Could not process that image."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:204
+msgid "Image is too large."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:205
+msgid "Import selected files"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:206
+msgid "Unsupported image type."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:207, ../public/class-frontend.php:509, ../public/templates/pro-chat.php:93
+msgid "Maximum number of images reached."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:208
+msgid "Select files to add to this project"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:209, ../public/class-frontend.php:386, ../public/class-frontend.php:499, ../public/class-frontend.php:582, ../public/templates/pro-chat.php:83
+msgid "Sending..."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:210, ../public/class-frontend.php:387, ../public/class-frontend.php:500, ../public/class-frontend.php:583, ../public/templates/pro-chat.php:84, ../public/templates/projects-list.php:167
+msgid "An error occurred. Please try again."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:211, ../includes/class-general-chat-ajax.php:912, ../includes/class-general-chat-ajax.php:940, ../public/templates/pro-chat.php:170, ../public/templates/project-shell-modern.php:613
+msgid "New Chat"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:315, ../includes/class-chatprojects.php:316, ../public/class-frontend.php:839, ../public/templates/main-app-shell.php:85, ../public/templates/projects-list.php:145
+msgid "ChatProjects"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:429
+msgid "Add New"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:430
+msgid "Add New Project"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:431, ../public/templates/projects-list.php:950
+msgid "Edit Project"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:432, ../public/templates/project-shell-modern.php:529, ../public/templates/projects-list.php:491, ../public/templates/partials/projects-panel.php:61
+msgid "New Project"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:433
+msgid "View Project"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:434
+msgid "Search Projects"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:435, ../public/templates/project-shell-modern.php:485, ../public/templates/projects-list.php:786
+msgid "No projects found"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:436
+msgid "No projects found in trash"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:682
+msgid "Go Pro"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:739
+msgid "ChatProjects:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:740
+msgid "The following pages have URLs that conflict with plugin pages:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:749
+msgid "Edit page"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:755
+msgid "Please change these page slugs to avoid conflicts. The original pages are currently inaccessible at their URLs."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:774
+msgid "ChatProjects URLs Updated"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:775
+msgid "ChatProjects has updated its URL structure to avoid conflicts with existing pages:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:777
+msgid "Projects:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:778
+msgid "Chat:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:779
+msgid "Settings:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:781
+msgid "Old URLs will automatically redirect to the new locations. Please update your bookmarks."
+msgstr ""
+
+#: ../includes/class-chatprojects.php:804
+msgid "ChatProjects AI models updated"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:805
+msgid "Some AI models you were using have been retired by their providers. Your settings, projects and chats were moved to the closest current model:"
+msgstr ""
+
+#: ../includes/class-chatprojects.php:814
+msgid "Review model settings"
+msgstr ""
+
+#: ../includes/class-content-indexer.php:109
+msgid "Post not found or not published."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:115
+msgid "Post is not publicly viewable."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:282
+msgid "Post is not indexed in this project."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:361, ../includes/class-vector-store.php:82, ../includes/class-vector-store.php:134
+msgid "Project does not have a vector store."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:367
+msgid "An indexing job is already running for this project."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:379
+msgid "No valid post types selected for indexing."
+msgstr ""
+
+#: ../includes/class-content-indexer.php:391
+msgid "No published posts found for the selected post types."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:80
+msgid "Not logged in"
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:88
+msgid "Invalid request origin"
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:104, ../includes/class-general-chat-ajax.php:141, ../includes/class-general-chat-ajax.php:254, ../includes/class-general-chat-ajax.php:613, ../includes/class-general-chat-ajax.php:651, ../includes/class-general-chat-ajax.php:688, ../includes/class-general-chat-ajax.php:726, ../includes/class-general-chat-ajax.php:761, ../includes/class-general-chat-ajax.php:827, ../includes/class-general-chat-ajax.php:950, ../includes/class-rest-stream-endpoint.php:81, ../public/ajax-handlers.php:510, ../public/ajax-handlers.php:1362, ../public/ajax-handlers.php:1414, ../public/ajax-handlers.php:1483
+msgid "You must be logged in."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:110, ../includes/class-general-chat-ajax.php:147, ../includes/class-general-chat-ajax.php:257, ../includes/class-general-chat-ajax.php:617, ../includes/class-general-chat-ajax.php:765, ../includes/class-general-chat-ajax.php:831, ../includes/class-general-chat-ajax.php:955, ../public/ajax-handlers.php:271, ../public/ajax-handlers.php:1368, ../public/ajax-handlers.php:1566, ../public/ajax-handlers.php:1594, ../public/ajax-handlers.php:1622, ../public/ajax-handlers.php:1645
+msgid "Permission denied."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:130
+msgid "General chat created successfully."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:193, ../includes/class-general-chat-ajax.php:324
+msgid "Message or image is required."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:199, ../includes/class-general-chat-ajax.php:330
+msgid "What is in this image?"
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:240
+msgid "Message sent successfully."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:251, ../includes/class-rest-stream-endpoint.php:98, ../public/ajax-handlers.php:507
+msgid "Invalid security token. Please refresh the page."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:260, ../public/ajax-handlers.php:513
+msgid "Too many requests. Please wait a moment and try again."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:351
+msgid "Provider not available."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:356
+msgid "API key not configured for this provider."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:497, ../public/ajax-handlers.php:496
+msgid "Server error: "
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:635
+msgid "Failed to load chat list."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:664, ../includes/class-general-chat-ajax.php:702, ../includes/class-general-chat-ajax.php:738, ../includes/class-rest-stream-endpoint.php:109
+msgid "Access denied."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:677
+msgid "Chat deleted successfully."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:696
+msgid "Invalid chat ID or title."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:715
+msgid "Chat renamed successfully."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:851
+msgid "Chat not found."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:961
+msgid "Chutes provider not found."
+msgstr ""
+
+#: ../includes/class-general-chat-ajax.php:965
+msgid "Chutes.ai API key not configured."
+msgstr ""
+
+#: ../includes/class-message-store.php:63
+msgid "Invalid message role."
+msgstr ""
+
+#: ../includes/class-message-store.php:67
+msgid "Message content cannot be empty."
+msgstr ""
+
+#: ../includes/class-message-store.php:84
+msgid "Failed to save message."
+msgstr ""
+
+#: ../includes/class-model-registry.php:134
+msgid "GPT-5.6 Sol (Recommended)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:144
+msgid "GPT-5.6 Terra (Balanced)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:153
+msgid "GPT-5.6 Luna (Fast & Low Cost)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:162
+msgid "GPT-5.5"
+msgstr ""
+
+#: ../includes/class-model-registry.php:171
+msgid "GPT-5.4"
+msgstr ""
+
+#: ../includes/class-model-registry.php:180
+msgid "GPT-5.4 Mini"
+msgstr ""
+
+#: ../includes/class-model-registry.php:189
+msgid "GPT-5.4 Nano (Cheapest)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:200
+msgid "Claude Opus 5 (Recommended)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:209
+msgid "Claude Fable 5.1 (Most Capable)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:217
+msgid "Claude Opus 4.8"
+msgstr ""
+
+#: ../includes/class-model-registry.php:225
+msgid "Claude Sonnet 5 (Balanced)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:233
+msgid "Claude Sonnet 4.6"
+msgstr ""
+
+#: ../includes/class-model-registry.php:241
+msgid "Claude Haiku 4.5 (Fast)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:251
+msgid "Gemini 3.8 Flash (Recommended)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:258
+msgid "Gemini 3.7 Flash"
+msgstr ""
+
+#: ../includes/class-model-registry.php:264
+msgid "Gemini 3.5 Flash"
+msgstr ""
+
+#: ../includes/class-model-registry.php:270
+msgid "Gemini 3.5 Flash Lite (Fast)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:276
+msgid "Gemini 3.1 Pro (Preview)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:284
+msgid "DeepSeek V4 Flash (Recommended)"
+msgstr ""
+
+#: ../includes/class-model-registry.php:291
+msgid "DeepSeek V4 Pro"
+msgstr ""
+
+#: ../includes/class-project-manager.php:120, ../includes/class-vector-store.php:518, ../public/ajax-handlers.php:1427, ../public/ajax-handlers.php:1504
+msgid "You do not have permission to edit this project."
+msgstr ""
+
+#: ../includes/class-project-manager.php:126, ../includes/class-project-manager.php:183, ../includes/class-project-manager.php:211, ../includes/class-project-manager.php:299, ../public/ajax-handlers.php:1421, ../public/ajax-handlers.php:1491
+msgid "Invalid project ID."
+msgstr ""
+
+#: ../includes/class-project-manager.php:177, ../public/ajax-handlers.php:329
+msgid "You do not have permission to delete this project."
+msgstr ""
+
+#: ../includes/class-project-manager.php:190, ../public/templates/projects-list.php:166
+msgid "Failed to delete project."
+msgstr ""
+
+#: ../includes/class-project-manager.php:385
+msgid "Vector Store"
+msgstr ""
+
+#: ../includes/class-project-manager.php:386
+msgid "Widget Shortcode"
+msgstr ""
+
+#: ../includes/class-project-manager.php:417
+msgid "Copy shortcode"
+msgstr ""
+
+#: ../includes/class-rate-limiter.php:87
+msgid "You have reached the message limit. Please try again later."
+msgstr ""
+
+#: ../includes/class-rate-limiter.php:95
+msgid "Too many requests from your location. Please try again later."
+msgstr ""
+
+#: ../includes/class-rate-limiter.php:114
+msgid "Too many chat sessions created. Please try again later."
+msgstr ""
+
+#: ../includes/class-rest-stream-endpoint.php:134, ../includes/class-widget-handler.php:166
+msgid "Message is required."
+msgstr ""
+
+#: ../includes/class-rest-stream-endpoint.php:151
+msgid "No vector store configured for this project. Please upload files first."
+msgstr ""
+
+#: ../includes/class-security.php:562
 msgid "Image exceeds server upload limit."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:563
 msgid "Image exceeds form upload limit."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:564
 msgid "Image was only partially uploaded."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:565
 msgid "No image file was uploaded."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:566
 msgid "Server missing temporary folder."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:567
 msgid "Failed to write image to disk."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:568
 msgid "Image upload stopped by extension."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:573
 msgid "Unknown upload error."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:579
 msgid "Image file not found."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:584
 msgid "Invalid image upload."
 msgstr ""
 
-#: includes/class-security.php
-#, php-format
+#. translators: %s: maximum file size in MB
+#: ../includes/class-security.php:595, ../includes/class-security.php:655
 msgid "Image exceeds maximum size of %s MB."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:609, ../includes/class-security.php:638, ../public/class-frontend.php:508, ../public/templates/pro-chat.php:92
 msgid "Invalid image type. Allowed: JPEG, PNG, GIF, WebP."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:628
 msgid "Invalid image data format."
 msgstr ""
 
-#: includes/class-security.php
+#: ../includes/class-security.php:645
 msgid "Failed to decode image data."
 msgstr ""
 
-#: includes/providers/class-chutes-provider.php
-msgid "API key not configured."
+#: ../includes/class-vector-store.php:46, ../includes/class-vector-store.php:364
+msgid "You do not have permission to upload files to this project."
 msgstr ""
 
-#: includes/providers/class-chutes-provider.php
-msgid "No messages in thread."
+#. translators: %s: Maximum file size in megabytes
+#: ../includes/class-vector-store.php:59
+msgid "File size exceeds the maximum allowed size of %s MB."
 msgstr ""
 
-#: includes/providers/class-chutes-provider.php
+#: ../includes/class-vector-store.php:68
+msgid "File type is not allowed."
+msgstr ""
+
+#: ../includes/class-vector-store.php:140, ../includes/class-vector-store.php:587
+msgid "Failed to create temporary file."
+msgstr ""
+
+#: ../includes/class-vector-store.php:147
+msgid "Failed to write content to temporary file."
+msgstr ""
+
+#: ../includes/class-vector-store.php:206, ../public/ajax-handlers.php:1286
+msgid "You do not have permission to delete files from this project."
+msgstr ""
+
+#: ../includes/class-vector-store.php:300
+msgid "PhpSpreadsheet library is not installed."
+msgstr ""
+
+#: ../includes/class-vector-store.php:319
+msgid "Excel file is empty."
+msgstr ""
+
+#. translators: %s: Error message from Excel conversion
+#: ../includes/class-vector-store.php:346
+msgid "Failed to convert Excel file: %s"
+msgstr ""
+
+#: ../includes/class-vector-store.php:369
+msgid "Invalid file upload."
+msgstr ""
+
+#: ../includes/class-vector-store.php:374
+msgid "File upload error."
+msgstr ""
+
+#: ../includes/class-vector-store.php:534
+msgid "You do not have permission to access this file."
+msgstr ""
+
+#: ../includes/class-vector-store.php:542
+msgid "Invalid attachment."
+msgstr ""
+
+#: ../includes/class-vector-store.php:553
+msgid "File not found on server."
+msgstr ""
+
+#. translators: %s: File extension
+#: ../includes/class-vector-store.php:562
+msgid "File type .%s is not allowed for vector stores."
+msgstr ""
+
+#. translators: %s: Maximum file size in MB
+#: ../includes/class-vector-store.php:572
+msgid "File exceeds maximum size of %s MB."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:86, ../includes/class-widget-handler.php:157
+msgid "Invalid request origin."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:99
+msgid "Chat widget is not enabled."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:105, ../includes/class-widget-handler.php:182
+msgid "This project is not available for public chat."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:162
+msgid "Invalid or expired session. Please refresh the page."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:170
+msgid "Message is too long."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:187
+msgid "Project vector store not found."
+msgstr ""
+
+#. translators: %s: Website name
+#: ../includes/class-widget-handler.php:227
+msgid "You are a helpful assistant for %s. Answer questions based only on the provided content. If a question is unrelated to the content available, politely let the user know you can only help with questions about this website."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:310
+msgid "Invalid or expired session."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:416
+msgid "Failed to create chat session."
+msgstr ""
+
+#: ../includes/class-widget-handler.php:633, ../public/class-frontend.php:1074, ../public/class-frontend.php:1205
+msgid "Hi! How can I help you today?"
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:102, ../includes/providers/class-anthropic-provider.php:172
+msgid "Anthropic API key is not configured."
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:106, ../includes/providers/class-anthropic-provider.php:177, ../includes/providers/class-chutes-provider.php:56, ../includes/providers/class-gemini-provider.php:96, ../includes/providers/class-gemini-provider.php:159, ../includes/providers/class-openai-provider.php:57, ../includes/providers/class-openai-provider.php:123, ../includes/providers/class-openrouter-provider.php:54, ../includes/providers/class-openrouter-provider.php:135
+msgid "No messages provided."
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:145, ../includes/providers/class-anthropic-provider.php:240
+msgid "Claude declined to answer this request."
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:156
+msgid "No response from Claude."
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:255, ../includes/providers/class-gemini-provider.php:240, ../includes/providers/class-openai-provider.php:221, ../includes/providers/class-openrouter-provider.php:211
+msgid "Connection error: "
+msgstr ""
+
+#: ../includes/providers/class-anthropic-provider.php:306
+msgid "Invalid Anthropic API key."
+msgstr ""
+
+#. translators: %s: Provider name (e.g., OpenAI, Anthropic)
+#: ../includes/providers/class-base-provider.php:129
+msgid "%s API key is not configured."
+msgstr ""
+
+#. translators: %d: HTTP status code
+#: ../includes/providers/class-base-provider.php:202
+msgid "HTTP error: %d"
+msgstr ""
+
+#. translators: %d: HTTP status code
+#: ../includes/providers/class-base-provider.php:221
+msgid "API request failed with status %d"
+msgstr ""
+
+#: ../includes/providers/class-chutes-provider.php:52
+msgid "Chutes.ai API key is not configured."
+msgstr ""
+
+#: ../includes/providers/class-chutes-provider.php:116
 msgid "No response from Chutes.ai."
 msgstr ""
 
-#: includes/providers/class-chutes-provider.php
+#: ../includes/providers/class-chutes-provider.php:149
 msgid "Invalid Chutes.ai API key."
+msgstr ""
+
+#: ../includes/providers/class-chutes-provider.php:159, ../includes/providers/class-openrouter-provider.php:258
+msgid "API key not configured."
+msgstr ""
+
+#: ../includes/providers/class-gemini-provider.php:92, ../includes/providers/class-gemini-provider.php:154
+msgid "Gemini API key is not configured."
+msgstr ""
+
+#: ../includes/providers/class-gemini-provider.php:138
+msgid "No response from Gemini."
+msgstr ""
+
+#: ../includes/providers/class-gemini-provider.php:274
+msgid "Invalid Gemini API key."
+msgstr ""
+
+#: ../includes/providers/class-openai-provider.php:94
+msgid "No response from OpenAI."
+msgstr ""
+
+#: ../includes/providers/class-openai-provider.php:210
+msgid "Unknown streaming error"
+msgstr ""
+
+#: ../includes/providers/class-openai-provider.php:346
+msgid "Invalid OpenAI API key."
+msgstr ""
+
+#: ../includes/providers/class-openrouter-provider.php:50, ../includes/providers/class-openrouter-provider.php:130
+msgid "OpenRouter API key is not configured."
+msgstr ""
+
+#: ../includes/providers/class-openrouter-provider.php:114
+msgid "No response from OpenRouter."
+msgstr ""
+
+#: ../includes/providers/class-openrouter-provider.php:248
+msgid "Invalid OpenRouter API key."
+msgstr ""
+
+#: ../public/ajax-handlers.php:182
+msgid "You must be logged in to create projects"
+msgstr ""
+
+#: ../public/ajax-handlers.php:189
+msgid "You do not have permission to create projects."
+msgstr ""
+
+#: ../public/ajax-handlers.php:200
+msgid "Project title is required"
+msgstr ""
+
+#: ../public/ajax-handlers.php:214
+msgid "Failed to create project. Please try again."
+msgstr ""
+
+#: ../public/ajax-handlers.php:234
+msgid "Failed to create vector store: "
+msgstr ""
+
+#: ../public/ajax-handlers.php:241
+msgid "Failed to create vector store: no ID returned"
+msgstr ""
+
+#: ../public/ajax-handlers.php:249
+msgid "Failed to create OpenAI resources: "
+msgstr ""
+
+#: ../public/ajax-handlers.php:253
+msgid "Project created successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:266, ../public/ajax-handlers.php:314, ../public/ajax-handlers.php:364, ../public/ajax-handlers.php:878, ../public/ajax-handlers.php:917, ../public/ajax-handlers.php:948, ../public/ajax-handlers.php:995, ../public/ajax-handlers.php:1054, ../public/ajax-handlers.php:1108, ../public/ajax-handlers.php:1179, ../public/ajax-handlers.php:1240, ../public/ajax-handlers.php:1277, ../public/ajax-handlers.php:1312
+msgid "You must be logged in"
+msgstr ""
+
+#: ../public/ajax-handlers.php:323
+msgid "Project not found."
+msgstr ""
+
+#: ../public/ajax-handlers.php:350
+msgid "Failed to delete project"
+msgstr ""
+
+#: ../public/ajax-handlers.php:348
+msgid "Project deleted successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:373
+msgid "Message is required"
+msgstr ""
+
+#: ../public/ajax-handlers.php:378, ../public/ajax-handlers.php:1247, ../public/ajax-handlers.php:1319
+msgid "Project ID is required"
+msgstr ""
+
+#: ../public/ajax-handlers.php:384, ../public/ajax-handlers.php:884, ../public/ajax-handlers.php:923, ../public/ajax-handlers.php:957, ../public/ajax-handlers.php:1031, ../public/ajax-handlers.php:1116, ../public/ajax-handlers.php:1187, ../public/ajax-handlers.php:1252, ../public/ajax-handlers.php:1323
+msgid "Access denied"
+msgstr ""
+
+#: ../public/ajax-handlers.php:432
+msgid "Failed to retrieve chat after creation"
+msgstr ""
+
+#: ../public/ajax-handlers.php:935
+msgid "New chat created"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1004
+msgid "Title is required"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1027, ../public/ajax-handlers.php:1081
+msgid "Chat not found"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1041
+msgid "Chat renamed successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1085
+msgid "Access denied. You can only delete your own chats."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1095
+msgid "Chat deleted successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1162
+msgid "Title generated successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1192
+msgid "Too many uploads. Please wait a moment and try again."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1198
+msgid "No file uploaded"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1203
+msgid "File type not allowed"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1208
+msgid "File size exceeds 50MB limit"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1221
+msgid "File uploaded successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1235
+msgid "Security check failed"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1293
+msgid "File deleted successfully"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1328
+msgid "No files selected"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1333
+msgid "Maximum 10 files can be imported at once"
+msgstr ""
+
+#: ../public/ajax-handlers.php:1469
+msgid "Project updated successfully."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1514
+msgid "Instructions updated successfully."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1529
+msgid "You do not have permission to manage content indexing."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1535, ../public/ajax-handlers.php:1572, ../public/ajax-handlers.php:1600, ../public/ajax-handlers.php:1628, ../public/ajax-handlers.php:1651
+msgid "Project ID is required."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1580
+msgid "No indexing job found for this project."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1608
+msgid "No running indexing job to cancel."
+msgstr ""
+
+#: ../public/ajax-handlers.php:1612
+msgid "Indexing job cancelled."
+msgstr ""
+
+#. translators: %d: Number of indexed items removed
+#: ../public/ajax-handlers.php:1660
+msgid "Cleared %d indexed items."
+msgstr ""
+
+#: ../public/class-frontend.php:501, ../public/templates/pro-chat.php:85
+msgid "Transcribing..."
+msgstr ""
+
+#: ../public/class-frontend.php:502, ../public/templates/pro-chat.php:86
+msgid "Uploading..."
+msgstr ""
+
+#: ../public/class-frontend.php:503, ../public/templates/pro-chat.php:87
+msgid "Copied to clipboard"
+msgstr ""
+
+#: ../public/class-frontend.php:504, ../public/templates/pro-chat.php:88
+msgid "Failed to copy"
+msgstr ""
+
+#: ../public/class-frontend.php:505, ../public/templates/pro-chat.php:89
+msgid "Switching providers will create a new conversation. Continue?"
+msgstr ""
+
+#. translators: %s: Maximum image file size in megabytes
+#. translators: %s: maximum file size in megabytes
+#: ../public/class-frontend.php:507, ../public/templates/pro-chat.php:91
+msgid "Image is too large. Maximum size is %s MB."
+msgstr ""
+
+#: ../public/class-frontend.php:584
+msgid "Creating comparison..."
+msgstr ""
+
+#: ../public/class-frontend.php:585
+msgid "Please select providers and models for both sides."
+msgstr ""
+
+#: ../public/class-frontend.php:586
+msgid "Comparison created successfully."
+msgstr ""
+
+#: ../public/class-frontend.php:587
+msgid "Are you sure you want to delete this comparison?"
+msgstr ""
+
+#: ../public/class-frontend.php:662
+msgid "Please log in to access the workspace."
+msgstr ""
+
+#: ../public/class-frontend.php:842
+msgid "AI-powered project management"
+msgstr ""
+
+#: ../public/class-frontend.php:877
+msgid "Manage your AI projects"
+msgstr ""
+
+#: ../public/class-frontend.php:887, ../public/templates/chat-interface-modern.php:199
+msgid "AI Chat"
+msgstr ""
+
+#: ../public/class-frontend.php:890
+msgid "Chat with AI assistants"
+msgstr ""
+
+#: ../public/class-frontend.php:904
+msgid "Configure your preferences"
+msgstr ""
+
+#: ../public/class-frontend.php:928
+msgid "Login Required"
+msgstr ""
+
+#: ../public/class-frontend.php:931
+msgid "Please log in to access ChatProjects."
+msgstr ""
+
+#: ../public/class-frontend.php:935
+msgid "Log In"
+msgstr ""
+
+#: ../public/class-frontend.php:972, ../public/class-frontend.php:980
+msgid "Access Denied"
+msgstr ""
+
+#: ../public/class-frontend.php:982
+msgid "Your user account does not have permission to access ChatProjects. Please contact an administrator to request access."
+msgstr ""
+
+#: ../public/class-frontend.php:985
+msgid "Required Roles:"
+msgstr ""
+
+#: ../public/class-frontend.php:987, ../public/class-frontend.php:988
+msgid "Full access"
+msgstr ""
+
+#: ../public/class-frontend.php:994
+msgid "Return to Homepage"
+msgstr ""
+
+#: ../public/class-frontend.php:1051
+msgid "ChatProjects: enable \"Allow public chat widget\" on this project to embed it."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:88
+msgid "Toggle model selector"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:94, ../public/templates/project-shell-modern.php:479, ../public/templates/project-shell-modern.php:891
+msgid "Loading..."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:112
+msgid "AI Provider"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:138
+msgid "Search models..."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:160
+msgid "No models found"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:201
+msgid "Ask me anything about your project"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:210
+msgid "I can help you understand your files and answer questions. Get started by uploading project documents (PDF or Office) in the Files page."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:208
+msgid "Load provider API keys in the backend, and chat with them here!"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:226
+msgid "No custom instructions set for this project."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:218
+msgid "Current Instructions"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:235
+msgid "Edit Instructions"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:250
+msgid "Loading messages..."
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:311
+msgid "Sources:"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:335
+msgid "Copy message"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:347
+msgid "Regenerate response"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:374
+msgid "Stop generating"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:396
+msgid "Remove image"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:415
+msgid "Attach image"
+msgstr ""
+
+#: ../public/templates/chat-interface-modern.php:470
+msgid "Do not enter passwords, API keys, or sensitive business information."
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:22
+msgid "Vector Store Files"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:52
+msgid "Upload Files"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:53
+msgid "Drag and drop files here, or click to select"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:56
+msgid "Browse Files"
+msgstr ""
+
+#. translators: %s: Maximum file size in megabytes
+#: ../public/templates/file-manager-ui.php:64
+msgid "Maximum file size: %s MB"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:70
+msgid "Supported: PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:73
+msgid "Spreadsheets (XLS, XLSX) available in Pro"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:89
+msgid "Select from Media Library"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:90
+msgid "Importing..."
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:149
+msgid "Select All"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:157
+msgid "Delete Selected"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:165
+msgid "Uploaded Files"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:183
+msgid "No files uploaded yet"
+msgstr ""
+
+#: ../public/templates/file-manager-ui.php:221
+msgid "Delete file"
+msgstr ""
+
+#: ../public/templates/login-page.php:44, ../public/templates/login-page.php:194
+msgid "Sign In"
+msgstr ""
+
+#: ../public/templates/login-page.php:64
+msgid "Welcome to ChatProjects"
+msgstr ""
+
+#: ../public/templates/login-page.php:67
+msgid "AI-powered project management and collaboration"
+msgstr ""
+
+#: ../public/templates/login-page.php:83
+msgid "Invalid username or password. Please try again."
+msgstr ""
+
+#: ../public/templates/login-page.php:98
+msgid "You have been logged out successfully."
+msgstr ""
+
+#: ../public/templates/login-page.php:108
+msgid "Username or Email"
+msgstr ""
+
+#: ../public/templates/login-page.php:123
+msgid "Enter your username or email"
+msgstr ""
+
+#: ../public/templates/login-page.php:130
+msgid "Password"
+msgstr ""
+
+#: ../public/templates/login-page.php:145
+msgid "Enter your password"
+msgstr ""
+
+#: ../public/templates/login-page.php:173
+msgid "Remember me"
+msgstr ""
+
+#: ../public/templates/login-page.php:179
+msgid "Forgot password?"
+msgstr ""
+
+#: ../public/templates/login-page.php:207
+msgid "New to ChatProjects?"
+msgstr ""
+
+#: ../public/templates/login-page.php:220
+msgid "Create Account"
+msgstr ""
+
+#: ../public/templates/login-page.php:230
+msgid "By signing in, you agree to our"
+msgstr ""
+
+#: ../public/templates/login-page.php:232
+msgid "Privacy Policy"
+msgstr ""
+
+#: ../public/templates/login-page.php:249
+msgid "AI-Powered"
+msgstr ""
+
+#: ../public/templates/login-page.php:250
+msgid "Leverage multiple AI providers for intelligent assistance"
+msgstr ""
+
+#: ../public/templates/login-page.php:261
+msgid "Project Management"
+msgstr ""
+
+#: ../public/templates/login-page.php:262
+msgid "Organize your work with intelligent project structures"
+msgstr ""
+
+#: ../public/templates/login-page.php:273
+msgid "Secure & Private"
+msgstr ""
+
+#: ../public/templates/login-page.php:274
+msgid "Your data is encrypted and protected with enterprise-grade security"
+msgstr ""
+
+#: ../public/templates/main-app-shell.php:59
+msgid "Compare"
+msgstr ""
+
+#: ../public/templates/main-app-shell.php:118, ../public/templates/pro-chat.php:285, ../public/templates/project-shell-modern.php:728, ../public/templates/projects-list.php:566
+msgid "Toggle theme"
+msgstr ""
+
+#: ../public/templates/main-app-shell.php:131, ../public/templates/pro-chat.php:300, ../public/templates/project-shell-modern.php:752, ../public/templates/projects-list.php:581, ../public/templates/user-settings.php:107
+msgid "Logout"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:178
+msgid "Chat History"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:189, ../public/templates/project-shell-modern.php:632
+msgid "Loading chats..."
+msgstr ""
+
+#: ../public/templates/pro-chat.php:199, ../public/templates/project-shell-modern.php:642
+msgid "No chats yet"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:200
+msgid "Start a new Chat"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:253, ../public/templates/project-shell-modern.php:696
+msgid "Rename chat"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:264, ../public/templates/project-shell-modern.php:707
+msgid "Delete chat"
+msgstr ""
+
+#: ../public/templates/pro-chat.php:314, ../public/templates/project-shell-modern.php:767, ../public/templates/projects-list.php:444
+msgid "Toggle menu"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:467, ../public/templates/projects-list.php:503
+msgid "Search projects..."
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:538, ../public/templates/project-shell-modern.php:839
+msgid "Share Project"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:578, ../public/templates/projects-list.php:733
+msgid "Files"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:589
+msgid "Transcriber"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:599
+msgid "Prompts"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:621
+msgid "Chats"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:643
+msgid "Start a conversation to begin"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:854
+msgid "Search Users"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:862
+msgid "Type to search users..."
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:897
+msgid "Currently Shared With"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:929
+msgid "Not shared with anyone yet"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:930
+msgid "Search for users above to share this project"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:956
+msgid "Close"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1119
+msgid "Edit Assistant Instructions"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1133
+msgid "Instructions:"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1139
+msgid "Enter instructions for the AI assistant..."
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1143
+msgid "characters"
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1149
+msgid "These instructions guide how the AI responds in this project."
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1151
+msgid "Note: Only project owners and admins can edit instructions."
+msgstr ""
+
+#: ../public/templates/project-shell-modern.php:1169
+msgid "Save Instructions"
+msgstr ""
+
+#: ../public/templates/projects-list.php:164
+msgid "Failed to create project."
+msgstr ""
+
+#: ../public/templates/projects-list.php:165
+msgid "Failed to update project."
+msgstr ""
+
+#: ../public/templates/projects-list.php:506
+msgid "Search projects"
+msgstr ""
+
+#: ../public/templates/projects-list.php:513
+msgid "Filter"
+msgstr ""
+
+#: ../public/templates/projects-list.php:514
+msgid "Filter projects"
+msgstr ""
+
+#: ../public/templates/projects-list.php:515
+msgid "All Projects"
+msgstr ""
+
+#: ../public/templates/projects-list.php:521
+msgid "Sort By"
+msgstr ""
+
+#: ../public/templates/projects-list.php:522
+msgid "Sort projects"
+msgstr ""
+
+#: ../public/templates/projects-list.php:523, ../public/templates/projects-list.php:734
+msgid "Last Modified"
+msgstr ""
+
+#: ../public/templates/projects-list.php:524
+msgid "Date Created"
+msgstr ""
+
+#: ../public/templates/projects-list.php:525
+msgid "Title (A-Z)"
+msgstr ""
+
+#: ../public/templates/projects-list.php:531
+msgid "View"
+msgstr ""
+
+#: ../public/templates/projects-list.php:532
+msgid "View mode"
+msgstr ""
+
+#: ../public/templates/projects-list.php:537
+msgid "Grid View"
+msgstr ""
+
+#: ../public/templates/projects-list.php:542
+msgid "Grid"
+msgstr ""
+
+#: ../public/templates/projects-list.php:548
+msgid "List View"
+msgstr ""
+
+#: ../public/templates/projects-list.php:553
+msgid "List"
+msgstr ""
+
+#: ../public/templates/projects-list.php:605
+msgid "projects in your workspace"
+msgstr ""
+
+#: ../public/templates/projects-list.php:633
+msgid "Project actions"
+msgstr ""
+
+#: ../public/templates/projects-list.php:659, ../public/templates/projects-list.php:769
+msgid "Edit"
+msgstr ""
+
+#: ../public/templates/projects-list.php:671, ../public/templates/projects-list.php:770
+msgid "Delete"
+msgstr ""
+
+#: ../public/templates/projects-list.php:679, ../public/templates/projects-list.php:758
+msgid "No description provided"
+msgstr ""
+
+#: ../public/templates/projects-list.php:687, ../public/templates/partials/projects-panel.php:126
+msgid "message"
+msgid_plural "messages"
+msgstr[0] ""
+msgstr[1] ""
+
+#: ../public/templates/projects-list.php:687
+msgid "messages"
+msgstr ""
+
+#: ../public/templates/projects-list.php:693
+msgid "file"
+msgstr ""
+
+#: ../public/templates/projects-list.php:693
+msgid "files"
+msgstr ""
+
+#: ../public/templates/projects-list.php:703
+msgid "Last updated:"
+msgstr ""
+
+#: ../public/templates/projects-list.php:707
+msgid "Active"
+msgstr ""
+
+#: ../public/templates/projects-list.php:715
+msgid "Open Project"
+msgstr ""
+
+#: ../public/templates/projects-list.php:731
+msgid "Owner"
+msgstr ""
+
+#: ../public/templates/projects-list.php:732
+msgid "Messages"
+msgstr ""
+
+#: ../public/templates/projects-list.php:735
+msgid "Actions"
+msgstr ""
+
+#: ../public/templates/projects-list.php:763
+msgid "You"
+msgstr ""
+
+#: ../public/templates/projects-list.php:786, ../public/templates/partials/projects-panel.php:72
+msgid "No Projects Yet"
+msgstr ""
+
+#: ../public/templates/projects-list.php:787
+msgid "Try adjusting your search or filters"
+msgstr ""
+
+#: ../public/templates/projects-list.php:787
+msgid "Create your first project to get started with AI-powered project assistants"
+msgstr ""
+
+#: ../public/templates/projects-list.php:833, ../public/templates/partials/projects-panel.php:152
+msgid "Create New Project"
+msgstr ""
+
+#: ../public/templates/projects-list.php:840, ../public/templates/projects-list.php:957, ../public/templates/partials/projects-panel.php:178
+msgid "Project Title"
+msgstr ""
+
+#: ../public/templates/projects-list.php:848, ../public/templates/projects-list.php:965, ../public/templates/partials/projects-panel.php:185
+msgid "Enter project title"
+msgstr ""
+
+#: ../public/templates/projects-list.php:862, ../public/templates/projects-list.php:979, ../public/templates/partials/projects-panel.php:196
+msgid "Enter project description"
+msgstr ""
+
+#: ../public/templates/projects-list.php:869, ../public/templates/projects-list.php:986
+msgid "Assistant Instructions (Optional)"
+msgstr ""
+
+#: ../public/templates/projects-list.php:876, ../public/templates/projects-list.php:993
+msgid "You are a helpful AI assistant..."
+msgstr ""
+
+#: ../public/templates/projects-list.php:879, ../public/templates/projects-list.php:996
+msgid "Custom instructions for this project. Leave empty to use global default."
+msgstr ""
+
+#: ../public/templates/projects-list.php:908
+msgid "Creating..."
+msgstr ""
+
+#: ../public/templates/projects-list.php:908, ../public/templates/partials/projects-panel.php:211
+msgid "Create Project"
+msgstr ""
+
+#: ../public/templates/projects-list.php:1025, ../public/templates/user-settings.php:367
+msgid "Saving..."
+msgstr ""
+
+#: ../public/templates/projects-list.php:1025, ../public/templates/user-settings.php:254
+msgid "Save Changes"
+msgstr ""
+
+#: ../public/templates/projects-list.php:1073
+msgid "Delete Project?"
+msgstr ""
+
+#: ../public/templates/projects-list.php:1078
+msgid "Are you sure you want to delete"
+msgstr ""
+
+#: ../public/templates/projects-list.php:1078
+msgid "This action cannot be undone."
+msgstr ""
+
+#: ../public/templates/projects-list.php:1106
+msgid "Deleting..."
+msgstr ""
+
+#: ../public/templates/projects-list.php:1106
+msgid "Delete Project"
+msgstr ""
+
+#: ../public/templates/user-settings.php:129
+msgid "Please configure your OpenAI API key below to use Projects. The API key is required for vector stores and document chat features."
+msgstr ""
+
+#: ../public/templates/user-settings.php:155, ../public/templates/partials/settings-panel.php:101
+msgid "Profile"
+msgstr ""
+
+#: ../public/templates/user-settings.php:166
+msgid "Profile Information"
+msgstr ""
+
+#: ../public/templates/user-settings.php:167
+msgid "Update your account profile information."
+msgstr ""
+
+#: ../public/templates/user-settings.php:173
+msgid "Display Name"
+msgstr ""
+
+#: ../public/templates/user-settings.php:187
+msgid "Email Address"
+msgstr ""
+
+#: ../public/templates/user-settings.php:197
+msgid "Your email address for notifications and account recovery."
+msgstr ""
+
+#: ../public/templates/user-settings.php:217, ../public/templates/partials/settings-panel.php:138
+msgid "Light"
+msgstr ""
+
+#: ../public/templates/user-settings.php:228, ../public/templates/partials/settings-panel.php:149
+msgid "Dark"
+msgstr ""
+
+#: ../public/templates/user-settings.php:239, ../public/templates/partials/settings-panel.php:160
+msgid "System"
+msgstr ""
+
+#: ../public/templates/user-settings.php:264, ../public/templates/partials/settings-panel.php:169
+msgid "AI Provider Status"
+msgstr ""
+
+#: ../public/templates/user-settings.php:295
+msgid "API keys can be configured in"
+msgstr ""
+
+#: ../public/templates/user-settings.php:306, ../public/templates/partials/settings-panel.php:218
+msgid "About"
+msgstr ""
+
+#: ../public/templates/user-settings.php:313
+msgid "Version"
+msgstr ""
+
+#: ../public/templates/user-settings.php:316
+msgid "AI-powered chat and project management with multi-provider support."
+msgstr ""
+
+#: ../public/templates/user-settings.php:328
+msgid "Unlock teams, prompt library, spreadsheet upload, image studio and more with Pro"
+msgstr ""
+
+#: ../public/templates/user-settings.php:335
+msgid "Learn More"
+msgstr ""
+
+#: ../public/templates/user-settings.php:348
+msgid "Settings saved successfully!"
+msgstr ""
+
+#: ../public/templates/user-settings.php:359
+msgid "Failed to save settings."
+msgstr ""
+
+#: ../public/templates/partials/projects-panel.php:50
+msgid "No projects yet"
+msgstr ""
+
+#: ../public/templates/partials/projects-panel.php:48
+msgid "project"
+msgid_plural "projects"
+msgstr[0] ""
+msgstr[1] ""
+
+#: ../public/templates/partials/projects-panel.php:129
+msgid "ago"
+msgstr ""
+
+#: ../public/templates/partials/projects-panel.php:75
+msgid "Create your first project to get started with AI-powered assistance."
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:62
+msgid "Settings saved successfully"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:127
+msgid "Theme"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:198
+msgid "Not configured"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:193
+msgid "Configured"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:207
+msgid "API keys can be configured in the WordPress admin settings."
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:209
+msgid "Go to Settings"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:229
+msgid "Version:"
+msgstr ""
+
+#: ../public/templates/partials/settings-panel.php:233
+msgid "AI-powered project management with multi-provider support."
 msgstr ""

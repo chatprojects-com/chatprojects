@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import hljs from 'highlight.js';
+import hljs from 'highlight.js/lib/common';
 
 // Re-export highlight.js for other modules
 export { hljs as H };

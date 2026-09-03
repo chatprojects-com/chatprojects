@@ -9,6 +9,7 @@
 
 namespace ChatProjects\Admin;
 
+use ChatProjects\Model_Registry;
 use ChatProjects\Security;
 
 // Exit if accessed directly
@@ -132,11 +133,18 @@ class Settings {
 
             $value = sanitize_text_field(wp_unslash($_POST[ $field ]));
 
-            // If empty, save empty and remove from POST
-            if (empty($value)) {
+            // Explicit "remove key" checkbox clears the stored key.
+            if (!empty($_POST[ $field . '_clear' ])) {
                 $this->intentional_save = $field;
                 update_option($field, '');
                 $this->intentional_save = null;
+                unset($_POST[ $field ]);
+                continue;
+            }
+
+            // The field is rendered empty (the key is never sent to the browser), so an
+            // empty submission means "unchanged".
+            if (empty($value)) {
                 unset($_POST[ $field ]);
                 continue;
             }
@@ -278,8 +286,8 @@ class Settings {
             'chatprojects_general_chat_model',
             array(
                 'type' => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-                'default' => 'gpt-5.2-chat-latest',
+                'sanitize_callback' => array(Model_Registry::class, 'sanitize_any_model'),
+                'default' => Model_Registry::get_default('openai'),
             )
         );
 
@@ -299,8 +307,19 @@ class Settings {
             'chatprojects_default_model',
             array(
                 'type' => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-                'default' => 'gpt-5.2-chat-latest',
+                'sanitize_callback' => array(Model_Registry::class, 'sanitize_openai_model'),
+                'default' => Model_Registry::get_default('openai'),
+            )
+        );
+
+        // Data retention on uninstall
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_keep_data_on_uninstall',
+            array(
+                'type' => 'boolean',
+                'sanitize_callback' => 'rest_sanitize_boolean',
+                'default' => false,
             )
         );
 
@@ -436,6 +455,15 @@ class Settings {
             __('File Upload', 'chatprojects'),
             array($this, 'render_file_settings_section'),
             'chatprojects-tab-chat'
+        );
+
+        // Keep data on uninstall
+        add_settings_field(
+            'chatprojects_keep_data_on_uninstall',
+            __('Keep Data on Uninstall', 'chatprojects'),
+            array($this, 'render_keep_data_field'),
+            'chatprojects-tab-chat',
+            'chatprojects_file_settings'
         );
 
         // Max File Size
@@ -701,13 +729,17 @@ class Settings {
         <input type="password"
                id="chatprojects_openai_key"
                name="chatprojects_openai_key"
-               value="<?php echo esc_attr($decrypted); ?>"
+               value="" autocomplete="new-password"
                class="regular-text"
                placeholder="sk-..." />
         <p class="description">
             <?php if (!empty($api_key)) : ?>
                 <?php esc_html_e('Current key:', 'chatprojects'); ?>
                 <code><?php echo esc_html($masked_key); ?></code><br>
+                <label style="margin-left:2px;">
+                    <input type="checkbox" name="chatprojects_openai_key_clear" value="1" />
+                    <?php esc_html_e('Remove this key', 'chatprojects'); ?>
+                </label><br>
             <?php endif; ?>
             <strong style="color: #dc2626;"><?php esc_html_e('Required.', 'chatprojects'); ?></strong>
             <?php esc_html_e('Needed for Projects, Vector Stores, and Transcription features.', 'chatprojects'); ?>
@@ -733,13 +765,17 @@ class Settings {
         <input type="password"
                id="chatprojects_gemini_key"
                name="chatprojects_gemini_key"
-               value="<?php echo esc_attr($decrypted); ?>"
+               value="" autocomplete="new-password"
                class="regular-text"
                placeholder="AIza..." />
         <p class="description">
             <?php if (!empty($api_key)) : ?>
                 <?php esc_html_e('Current key:', 'chatprojects'); ?>
                 <code><?php echo esc_html($masked_key); ?></code><br>
+                <label style="margin-left:2px;">
+                    <input type="checkbox" name="chatprojects_gemini_key_clear" value="1" />
+                    <?php esc_html_e('Remove this key', 'chatprojects'); ?>
+                </label><br>
             <?php endif; ?>
             <?php esc_html_e('Optional. For Chat mode only.', 'chatprojects'); ?>
             <?php
@@ -764,13 +800,17 @@ class Settings {
         <input type="password"
                id="chatprojects_anthropic_key"
                name="chatprojects_anthropic_key"
-               value="<?php echo esc_attr($decrypted); ?>"
+               value="" autocomplete="new-password"
                class="regular-text"
                placeholder="sk-ant-..." />
         <p class="description">
             <?php if (!empty($api_key)) : ?>
                 <?php esc_html_e('Current key:', 'chatprojects'); ?>
                 <code><?php echo esc_html($masked_key); ?></code><br>
+                <label style="margin-left:2px;">
+                    <input type="checkbox" name="chatprojects_anthropic_key_clear" value="1" />
+                    <?php esc_html_e('Remove this key', 'chatprojects'); ?>
+                </label><br>
             <?php endif; ?>
             <?php esc_html_e('Optional. For Chat mode only.', 'chatprojects'); ?>
             <?php
@@ -795,13 +835,17 @@ class Settings {
         <input type="password"
                id="chatprojects_chutes_key"
                name="chatprojects_chutes_key"
-               value="<?php echo esc_attr($decrypted); ?>"
+               value="" autocomplete="new-password"
                class="regular-text"
                placeholder="" />
         <p class="description">
             <?php if (!empty($api_key)) : ?>
                 <?php esc_html_e('Current key:', 'chatprojects'); ?>
                 <code><?php echo esc_html($masked_key); ?></code><br>
+                <label style="margin-left:2px;">
+                    <input type="checkbox" name="chatprojects_chutes_key_clear" value="1" />
+                    <?php esc_html_e('Remove this key', 'chatprojects'); ?>
+                </label><br>
             <?php endif; ?>
             <?php esc_html_e('Optional. For Chat mode only.', 'chatprojects'); ?>
             <?php
@@ -826,13 +870,17 @@ class Settings {
         <input type="password"
                id="chatprojects_openrouter_key"
                name="chatprojects_openrouter_key"
-               value="<?php echo esc_attr($decrypted); ?>"
+               value="" autocomplete="new-password"
                class="regular-text"
                placeholder="sk-or-..." />
         <p class="description">
             <?php if (!empty($api_key)) : ?>
                 <?php esc_html_e('Current key:', 'chatprojects'); ?>
                 <code><?php echo esc_html($masked_key); ?></code><br>
+                <label style="margin-left:2px;">
+                    <input type="checkbox" name="chatprojects_openrouter_key_clear" value="1" />
+                    <?php esc_html_e('Remove this key', 'chatprojects'); ?>
+                </label><br>
             <?php endif; ?>
             <?php esc_html_e('Optional. For Chat mode only. Access 100+ models from various providers.', 'chatprojects'); ?>
             <?php
@@ -851,13 +899,7 @@ class Settings {
      */
     public function render_general_chat_provider_field() {
         $provider = get_option('chatprojects_general_chat_provider', 'openai');
-        $providers = array(
-            'openai' => 'OpenAI',
-            'gemini' => 'Google Gemini',
-            'anthropic' => 'Anthropic Claude',
-            'chutes' => 'Chutes.ai',
-            'openrouter' => 'OpenRouter',
-        );
+        $providers = Model_Registry::get_provider_names();
         ?>
         <select id="chatprojects_general_chat_provider" name="chatprojects_general_chat_provider">
             <?php foreach ($providers as $value => $label) : ?>
@@ -876,41 +918,11 @@ class Settings {
      * Render general chat model field
      */
     public function render_general_chat_model_field() {
-        $model = get_option('chatprojects_general_chat_model', 'gpt-5.2-chat-latest');
         $provider = get_option('chatprojects_general_chat_provider', 'openai');
+        $model = get_option('chatprojects_general_chat_model', Model_Registry::get_default($provider));
 
-        // Get all available models for each provider
-        $all_models = array(
-            'openai' => array(
-                'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
-                'gpt-5-mini' => 'GPT-5 Mini',
-                'gpt-4.1' => 'GPT-4.1',
-                'gpt-4.1-mini' => 'GPT-4.1 Mini',
-                'gpt-4o' => 'GPT-4o',
-                'gpt-4o-mini' => 'GPT-4o Mini',
-                'o4-mini' => 'o4-mini (Reasoning)',
-                'o3-mini' => 'o3-mini (Reasoning)',
-            ),
-            'anthropic' => array(
-                'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
-                'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (Fast)',
-                'claude-opus-4-5-20251101' => 'Claude Opus 4.5 (Most Capable)',
-            ),
-            'gemini' => array(
-                'gemini-3-pro-preview' => 'Gemini 3 Pro (Preview)',
-                'gemini-3-flash-preview' => 'Gemini 3 Flash (Preview)',
-                'gemini-2.5-pro' => 'Gemini 2.5 Pro',
-                'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommended)',
-                'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite',
-                'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-            ),
-            'chutes' => array(
-                'default' => 'Chutes Default Model',
-            ),
-            'openrouter' => array(
-                'default' => 'OpenRouter Default Model',
-            ),
-        );
+        // All static models per provider (single source of truth).
+        $all_models = Model_Registry::get_labels();
 
         // Dynamically fetch Chutes models if API key is configured
         $chutes_models = $this->get_chutes_models_cached();
@@ -926,6 +938,11 @@ class Settings {
 
         // Get models for current provider
         $current_models = isset($all_models[ $provider ]) ? $all_models[ $provider ] : $all_models['openai'];
+
+        // Keep a stored value that is not in the list selectable rather than silently switching it.
+        if ('' !== $model && !isset($current_models[ $model ])) {
+            $current_models = array($model => $model . ' ' . __('(unlisted)', 'chatprojects')) + $current_models;
+        }
 
         // Encode models as JSON for JavaScript
         $models_json = wp_json_encode($all_models);
@@ -988,15 +1005,11 @@ class Settings {
      * Render model field
      */
     public function render_model_field() {
-        $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
-        $models = array(
-            'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
-            'gpt-5-mini' => 'GPT-5 Mini',
-            'gpt-4.1' => 'GPT-4.1',
-            'gpt-4.1-mini' => 'GPT-4.1 Mini',
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-        );
+        $model = get_option('chatprojects_default_model', Model_Registry::get_default('openai'));
+        $models = Model_Registry::get_labels('openai');
+        if ('' !== $model && !isset($models[ $model ])) {
+            $models = array($model => $model . ' ' . __('(unlisted)', 'chatprojects')) + $models;
+        }
         ?>
         <select id="chatprojects_default_model" name="chatprojects_default_model">
             <?php foreach ($models as $value => $label) : ?>
@@ -1007,6 +1020,22 @@ class Settings {
         </select>
         <p class="description">
             <?php esc_html_e('Default model for new projects.', 'chatprojects'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render keep-data-on-uninstall field
+     */
+    public function render_keep_data_field() {
+        $keep = (bool) get_option('chatprojects_keep_data_on_uninstall', false);
+        ?>
+        <label for="chatprojects_keep_data_on_uninstall">
+            <input type="checkbox" id="chatprojects_keep_data_on_uninstall" name="chatprojects_keep_data_on_uninstall" value="1" <?php checked($keep); ?> />
+            <?php esc_html_e('Keep projects, chats, settings and API keys when the plugin is deleted.', 'chatprojects'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When unchecked, deleting the plugin removes all ChatProjects data from this site.', 'chatprojects'); ?>
         </p>
         <?php
     }

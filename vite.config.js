@@ -24,7 +24,7 @@ export default defineConfig({
           // Alpine.js core (used across all pages)
           'alpine-core': ['alpinejs'],
           // Markdown rendering (only for chat)
-          'vendor-markdown': ['marked'],
+          'vendor-markdown': ['marked', 'dompurify'],
           // Code highlighting (only for chat with code blocks)
           'vendor-highlight': ['highlight.js/lib/core'],
         },
@@ -39,7 +39,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // Keep console.logs for debugging
+        drop_console: true,
         drop_debugger: true,
       },
     },

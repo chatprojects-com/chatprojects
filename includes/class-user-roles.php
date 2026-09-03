@@ -22,7 +22,19 @@ class User_Roles {
      * Initialize user roles
      */
     public static function init() {
-        add_action('init', array(__CLASS__, 'add_capabilities'));
+        // Role capabilities are persisted in the database; only re-apply after an update.
+        if (get_option('chatprojects_caps_version') === CHATPROJECTS_VERSION) {
+            return;
+        }
+        add_action('init', array(__CLASS__, 'sync_capabilities'));
+    }
+
+    /**
+     * Apply capabilities once per plugin version.
+     */
+    public static function sync_capabilities() {
+        self::add_capabilities();
+        update_option('chatprojects_caps_version', CHATPROJECTS_VERSION);
     }
 
     /**

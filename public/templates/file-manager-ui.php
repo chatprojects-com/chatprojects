@@ -41,7 +41,7 @@ call_user_func(function () {
                 x-ref="fileInput"
                 @change="handleFileSelect($event)"
                 multiple
-                accept=".pdf,.docx,.doc,.txt,.xls,.xlsx,.md,.csv,.json,.xml,.html,.css,.js,.py,.php,.java,.cpp"
+                accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.xml,.css,.py,.java,.cpp"
                 class="hidden"
             />
 

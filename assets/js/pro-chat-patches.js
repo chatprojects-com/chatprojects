@@ -76,7 +76,8 @@
 
                                 if (data.success && data.data && data.data.providers) {
                                     this.availableProviders = Object.entries(data.data.providers).map(function(entry) {
-                                        return { id: entry[0], name: entry[1].name, models: entry[1].models };
+                                        var models = (entry[1].models || []).map(function(m) { return typeof m === 'string' ? { id: m, label: m } : m; });
+                                        return { id: entry[0], name: entry[1].name, defaultModel: entry[1].default || '', models: models };
                                     });
 
                                     if (this.availableProviders.length > 0) {
@@ -86,9 +87,10 @@
 
                                         var self = this;
                                         var currentProvider = this.availableProviders.find(function(p) { return p.id === self.selectedProvider; });
-                                        if (currentProvider) {
-                                            var defaultModel = chatprData.default_model || currentProvider.models[0];
-                                            this.selectedModel = currentProvider.models.includes(defaultModel) ? defaultModel : currentProvider.models[0];
+                                        if (currentProvider && currentProvider.models.length > 0) {
+                                            var candidates = [chatprData.default_model, currentProvider.defaultModel, currentProvider.models[0].id];
+                                            var chosen = candidates.find(function(id) { return id && currentProvider.models.some(function(m) { return m.id === id; }); });
+                                            this.selectedModel = chosen || currentProvider.models[0].id;
                                         }
                                     }
                                 }

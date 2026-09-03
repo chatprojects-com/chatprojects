@@ -259,30 +259,32 @@ class Security {
     /**
      * Validate file type
      *
-     * @param string $file_path File path
-     * @param array  $allowed_types Allowed file extensions
+     * @param string $file_path     Path to the file on disk (tmp_name for uploads).
+     * @param array  $allowed_types Allowed file extensions.
+     * @param string $original_name Original client filename (extension source for uploads).
      * @return bool
      */
-    public static function validate_file_type($file_path, $allowed_types = array()) {
+    public static function validate_file_type($file_path, $allowed_types = array(), $original_name = '') {
         if (empty($allowed_types)) {
             $allowed_types = get_option('chatprojects_allowed_file_types', array());
+        }
+        if (is_string($allowed_types)) {
+            $allowed_types = array_filter(array_map('trim', explode(',', strtolower($allowed_types))));
         }
 
         // If still empty, use default allowed types
         if (empty($allowed_types)) {
-            $allowed_types = array(
-                'pdf', 'doc', 'docx', 'txt', 'md',
-                'xls', 'xlsx',  // Excel files
-                'csv', 'json', 'xml', 'html', 'css',
-                'js', 'py', 'php', 'java', 'cpp'
-            );
+            $allowed_types = self::default_allowed_file_types();
         }
 
-        // Check file extension.
-        $file_type = wp_check_filetype($file_path);
-        $extension = $file_type['ext'];
+        // Executable / server-side types are never allowed, whatever the option says.
+        $allowed_types = array_values(array_diff(array_map('strtolower', (array) $allowed_types), self::blocked_file_types()));
 
-        if (!in_array($extension, $allowed_types, true)) {
+        // Check file extension (from the original filename when given; tmp uploads have none).
+        $name_for_ext = '' !== $original_name ? $original_name : $file_path;
+        $extension    = strtolower((string) pathinfo($name_for_ext, PATHINFO_EXTENSION));
+
+        if ('' === $extension || !in_array($extension, $allowed_types, true)) {
             return false;
         }
 
@@ -418,12 +420,41 @@ class Security {
     }
 
     /**
-     * Debug log helper - disabled for production
+     * Default upload allow-list (extensions).
+     *
+     * @return array
+     */
+    public static function default_allowed_file_types() {
+        return array(
+            'pdf', 'doc', 'docx', 'txt', 'md',
+            'csv', 'json', 'xml', 'css',
+            'py', 'java', 'cpp',
+        );
+    }
+
+    /**
+     * Extensions that are refused even when an administrator adds them.
+     *
+     * @return array
+     */
+    public static function blocked_file_types() {
+        return array('php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'phps', 'phar', 'js', 'mjs', 'html', 'htm', 'svg', 'exe', 'sh', 'bat', 'cmd');
+    }
+
+    /**
+     * Debug log helper.
+     *
+     * Writes to the PHP error log only when WP_DEBUG and WP_DEBUG_LOG are both
+     * enabled. Never pass API keys or full request/response bodies.
      *
      * @param string $message Message to log
      */
     public static function debug_log($message) {
-        // Debug logging disabled for production
+        if (!defined('WP_DEBUG') || !WP_DEBUG || !defined('WP_DEBUG_LOG') || !WP_DEBUG_LOG) {
+            return;
+        }
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated on WP_DEBUG_LOG.
+        error_log('[ChatProjects] ' . (is_scalar($message) ? $message : wp_json_encode($message)));
     }
 
     /**
@@ -443,17 +474,34 @@ class Security {
      * @return string
      */
     public static function get_client_ip() {
-        $ip = '';
+        $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
 
-        if ( isset( $_SERVER['HTTP_CLIENT_IP'] ) ) {
-            $ip = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLIENT_IP'] ) );
-        } elseif ( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-            // X-Forwarded-For can contain multiple IPs, get the first one
-            $forwarded = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
-            $ip_list = explode( ',', $forwarded );
-            $ip = trim( $ip_list[0] );
-        } elseif ( isset( $_SERVER['REMOTE_ADDR'] ) ) {
-            $ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+        /**
+         * Proxy headers to trust for the real client IP, in priority order.
+         *
+         * Empty by default: forwarded headers are attacker-controlled unless a
+         * trusted reverse proxy in front of PHP overwrites them. Behind Cloudflare
+         * return array( 'HTTP_CF_CONNECTING_IP' ); behind a generic proxy
+         * array( 'HTTP_X_FORWARDED_FOR' ). CHATPROJECTS_TRUSTED_PROXY_HEADERS can
+         * also be defined in wp-config.php as a comma-separated list.
+         *
+         * @param string[] $headers $_SERVER keys.
+         */
+        $trusted = apply_filters(
+            'chatprojects_trusted_proxy_headers',
+            defined( 'CHATPROJECTS_TRUSTED_PROXY_HEADERS' ) ? array_map( 'trim', explode( ',', CHATPROJECTS_TRUSTED_PROXY_HEADERS ) ) : array()
+        );
+
+        foreach ( (array) $trusted as $header ) {
+            if ( empty( $_SERVER[ $header ] ) ) {
+                continue;
+            }
+            $value     = sanitize_text_field( wp_unslash( $_SERVER[ $header ] ) );
+            $candidate = trim( explode( ',', $value )[0] );
+            if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+                $ip = $candidate;
+                break;
+            }
         }
 
         // Validate IP format

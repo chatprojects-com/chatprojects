@@ -2,10 +2,10 @@
 Contributors: chatprojects
 Donate link: https://chatprojects.com/
 Tags: ai, chatgpt, openai, chatbot, project management, vector store, responses api
-Requires at least: 5.8
-Tested up to: 6.9
-Requires PHP: 7.4
-Stable tag: 1.1.5
+Requires at least: 6.6
+Tested up to: 7.1
+Requires PHP: 8.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,11 +15,11 @@ AI-powered project management with multi-provider chat. Vector store file search
 
 **ChatProjects** is the easiest way to chat with your files and documents in WordPress. AI-powered project chat with OpenAI Responses API vector store backend for intelligent file search.
 
-Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.2), Anthropic (Claude), Google (Gemini 3 Pro), Chutes (DeepSeek), and OpenRouter.
+Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.6), Anthropic (Claude Opus 5), Google (Gemini 3.8), Chutes (DeepSeek V4), and OpenRouter.
 
 = Key Features =
 
-* **Multi-Provider Chat** - Chat with GPT-5.2, Claude 4.5, Gemini 3, DeepSeek, and 100+ models via OpenRouter
+* **Multi-Provider Chat** - Chat with GPT-5.6, Claude Opus 5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
 * **Project Management** - Create projects with OpenAI's file search capability
 * **File Upload** - Upload documents (PDF, TXT, DOC) to your project's vector store
 * **Custom Instructions** - Set custom assistant instructions for each project
@@ -30,10 +30,10 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 
 = Supported AI Providers =
 
-1. **OpenAI** - GPT-5.2, GPT-5 Mini, GPT-4.1, GPT-4o, o4-mini, o3-mini
-2. **Anthropic** - Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.5
-3. **Google Gemini** - Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 Pro, Gemini 2.5 Flash
-4. **Chutes** - DeepSeek V3, DeepSeek R1, Qwen, Mistral, Llama
+1. **OpenAI** - GPT-5.6 Sol / Terra / Luna, GPT-5.5, GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano
+2. **Anthropic** - Claude Opus 5, Claude Fable 5.1, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5
+3. **Google Gemini** - Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.5 Flash, Gemini 3.5 Flash Lite, Gemini 3.1 Pro (Preview)
+4. **Chutes** - DeepSeek V4 Flash, DeepSeek V4 Pro, plus every model Chutes hosts
 5. **OpenRouter** - Access 100+ models from various providers
 
 = Shortcodes =
@@ -123,6 +123,24 @@ Use the WordPress.org support forum or email support@chatprojects.com
 
 == Changelog ==
 
+= 1.2.0 =
+* **Models:** Replaced every retired model with current ones — GPT-5.6 Sol/Terra/Luna, GPT-5.5, GPT-5.4 family; Claude Opus 5, Fable 5.1, Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5; Gemini 3.8/3.7/3.5 Flash and 3.1 Pro; DeepSeek V4. Existing settings, projects and chats are migrated automatically to the closest current model.
+* **New:** Single model registry with `chatprojects_models` filter for adding custom or fine-tuned models.
+* **New:** OpenAI reasoning effort support (`chatprojects_reasoning_effort` filter); temperature is no longer sent to models that reject it.
+* **New:** Auto-RAG content indexing — index your posts and pages into a project vector store.
+* **New:** Public chat widget (`[chatprojects_widget project="123"]`) with per-project opt-in, session tokens and rate limiting.
+* **New:** "Keep data on uninstall" option.
+* **Security:** Projects, chats and files are now only readable by their author and administrators.
+* **Security:** Rendered markdown is sanitised with DOMPurify; code blocks and links are escaped.
+* **Security:** API keys are never sent back to the browser; use "Remove this key" to clear one.
+* **Security:** Stream endpoints authenticate before sending any output; rate limits on chat and uploads.
+* **Security:** Executable file types can no longer be uploaded; MIME type is verified server-side.
+* **Fixed:** Database tables are now created/updated on plugin update, not only on activation.
+* **Fixed:** Gemini API key is sent as a header instead of in the URL.
+* **Fixed:** Claude responses that start with a thinking block; refusals are reported instead of silently returning nothing.
+* **Compatibility:** Tested with WordPress 7.1 and PHP 8.4/8.5. Requires WordPress 6.6+ and PHP 8.0+.
+* Removed dead code, duplicate asset copies and Excel (.xls/.xlsx) upload, which required a library that was never bundled.
+
 = 1.1.5 =
 * Fixed /settings URL redirect hijacking other pages on sites
 * Improved old slug redirect to use exact path matching only
@@ -165,6 +183,9 @@ Use the WordPress.org support forum or email support@chatprojects.com
 * Shortcode embedding [chatprojects_main]
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Retired AI models are replaced automatically. Project access is now limited to the project author and administrators. Requires WordPress 6.6+ and PHP 8.0+.
 
 = 1.1.0 =
 **IMPORTANT URL CHANGE:** Plugin URLs have changed to prevent conflicts. Old URLs (/projects/, /settings/, /pro-chat/) will automatically redirect to new URLs (/chatprojects/, /cp-settings/, /cp-chat/). Update your bookmarks. If you experience issues, go to Settings > Permalinks and click Save.

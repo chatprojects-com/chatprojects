@@ -4,21 +4,10 @@
  */
 
 // Import utilities
-import { marked } from 'marked';
+import { renderMarkdownSync } from './utils/markdown.js';
 import hljs from 'highlight.js';
 import { toast } from './utils/toast.js';
 
-// Configure marked for markdown rendering
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value;
-    }
-    return hljs.highlightAuto(code).value;
-  },
-  breaks: true,
-  gfm: true,
-});
 
 // Wait for Alpine to be available
 document.addEventListener('alpine:init', () => {
@@ -349,7 +338,7 @@ document.addEventListener('alpine:init', () => {
      */
     formatMarkdown(content) {
       if (!content) return '';
-      return marked.parse(content);
+      return renderMarkdownSync(content);
     },
 
     /**

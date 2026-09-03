@@ -11,21 +11,8 @@
  * @version 1.0.0
  */
 
-import { marked } from 'marked';
-import hljs from 'highlight.js';
 import { showToast } from './index.js';
-
-// Configure marked with syntax highlighting
-marked.setOptions({
-    highlight: function(code, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            return hljs.highlight(code, { language: lang }).value;
-        }
-        return hljs.highlightAuto(code).value;
-    },
-    breaks: true,
-    gfm: true
-});
+import { renderMarkdownSync } from '../utils/markdown.js';
 
 /**
  * Chat Component
@@ -40,7 +27,7 @@ document.addEventListener('alpine:init', () => {
 
         // Provider settings
         provider: 'openai',
-        model: 'gpt-4o',
+        model: '',
         availableProviders: [],
         selectedProvider: null,
         selectedModel: null,
@@ -459,7 +446,7 @@ document.addEventListener('alpine:init', () => {
          * @returns {string} HTML content
          */
         renderMarkdown(content) {
-            return marked.parse(content);
+            return renderMarkdownSync(content);
         },
 
         /**
@@ -589,10 +576,12 @@ document.addEventListener('alpine:init', () => {
                 const data = await response.json();
 
                 if (data.success) {
+                    // models arrive as [{ id, label }]; normalise older string-only payloads too.
                     this.availableProviders = Object.entries(data.data.providers).map(([id, provider]) => ({
                         id: id,
                         name: provider.name,
-                        models: provider.models
+                        defaultModel: provider.default || '',
+                        models: (provider.models || []).map(m => (typeof m === 'string' ? { id: m, label: m } : m))
                     }));
 
                     if (this.availableProviders.length > 0) {
@@ -603,9 +592,9 @@ document.addEventListener('alpine:init', () => {
 
                         // Set default model
                         const provider = this.availableProviders.find(p => p.id === this.selectedProvider);
-                        if (provider) {
-                            const defaultModel = chatprData.default_model || provider.models[0];
-                            this.selectedModel = provider.models.includes(defaultModel) ? defaultModel : provider.models[0];
+                        if (provider && provider.models.length > 0) {
+                            const candidates = [chatprData.default_model, provider.defaultModel, provider.models[0].id];
+                            this.selectedModel = candidates.find(id => id && provider.models.some(m => m.id === id)) || provider.models[0].id;
                         }
                     }
                 }
@@ -623,12 +612,32 @@ document.addEventListener('alpine:init', () => {
         },
 
         /**
+         * Friendly label for the selected model (falls back to the raw id)
+         */
+        get selectedModelLabel() {
+            const match = this.currentProviderModels.find(m => m.id === this.selectedModel);
+            return match ? match.label : (this.selectedModel || '');
+        },
+
+        /**
+         * Models matching the filter box (by label or id)
+         */
+        get filteredProviderModels() {
+            const needle = (this.modelFilter || '').toLowerCase();
+            if (!needle) return this.currentProviderModels;
+            return this.currentProviderModels.filter(m =>
+                m.label.toLowerCase().includes(needle) || m.id.toLowerCase().includes(needle)
+            );
+        },
+
+        /**
          * Handle provider change
          */
         async handleProviderChange() {
             const provider = this.availableProviders.find(p => p.id === this.selectedProvider);
             if (provider && provider.models.length > 0) {
-                this.selectedModel = provider.models[0];
+                const preferred = provider.models.find(m => m.id === provider.defaultModel);
+                this.selectedModel = preferred ? preferred.id : provider.models[0].id;
             }
 
             // Confirm if switching mid-conversation
@@ -660,7 +669,7 @@ document.addEventListener('alpine:init', () => {
             const providerName = this.availableProviders.find(p => p.id === this.selectedProvider)?.name;
 
             const confirmed = confirm(
-                `Switching to ${providerName} (${this.selectedModel}) will create a new conversation. ` +
+                `Switching to ${providerName} (${this.selectedModelLabel}) will create a new conversation. ` +
                 `Your current chat history will be preserved in the sidebar.\n\nContinue?`
             );
 

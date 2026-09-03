@@ -370,15 +370,9 @@ call_user_func(function () {
     ?><?php
     // Styles are enqueued via class-chatprojects.php (templates.css)
     // Theme init script is output via wp_head action in class-chatprojects.php
-    // Ensure type="module" is added to our scripts (fixes ES module error)
-    add_filter('script_loader_tag', function($tag, $handle) {
-        if (in_array($handle, array('chatprojects-frontend', 'chatprojects-main'))) {
-            if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
-            }
-        }
-        return $tag;
-    }, 10, 2);
+    // ES modules: flagged via script data, rendered by ChatProjects::add_module_type_to_scripts().
+    wp_script_add_data('chatprojects-frontend', 'type', 'module');
+    wp_script_add_data('chatprojects-main', 'type', 'module');
 
     wp_head();
     ?>
@@ -1240,7 +1234,7 @@ call_user_func(function () {
     <?php
     // Fallback: If main.js didn't load via wp_enqueue, load it directly
     $main_js_url = esc_url(CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js');
-    $main_js_version = CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js');
+    $main_js_version = \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js');
     $fallback_script = "(function() {
         var mainJsInDom = Array.from(document.querySelectorAll('script')).some(function(s) {
             return s.src && s.src.includes('main.js');

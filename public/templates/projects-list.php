@@ -1115,7 +1115,7 @@ if (window.Alpine && typeof window.Alpine.data === 'function') {
     <?php
     // Fallback: If main.js didn't load via wp_enqueue, load it directly
     $main_js_url = esc_url(CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js');
-    $main_js_version = CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js');
+    $main_js_version = \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js');
     $fallback_script = "(function() {
         var mainJsInDom = Array.from(document.querySelectorAll('script')).some(function(s) {
             return s.src && s.src.includes('main.js');

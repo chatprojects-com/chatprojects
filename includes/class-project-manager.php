@@ -62,7 +62,7 @@ class Project_Manager {
             'post_status' => 'publish',
             'post_author' => get_current_user_id(),
             'instructions' => '',
-            'model' => get_option('chatprojects_default_model', 'gpt-5.2-chat-latest'),
+            'model' => get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai')),
             'tools' => array(array('type' => 'file_search')),
             'sharing_mode' => 'private',
             'shared_users' => array(),
@@ -151,7 +151,7 @@ class Project_Manager {
         }
 
         if (isset($args['model'])) {
-            update_post_meta($project_id, '_cp_model', sanitize_text_field($args['model']));
+            update_post_meta($project_id, '_cp_model', Model_Registry::resolve('openai', sanitize_text_field($args['model']), get_option('chatprojects_default_model')));
         }
 
         if (isset($args['sharing_mode'])) {
@@ -301,7 +301,7 @@ class Project_Manager {
 
         $model = get_post_meta($project_id, '_cp_model', true);
         if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+            $model = get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
             update_post_meta($project_id, '_cp_model', $model);
         }
 

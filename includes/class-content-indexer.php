@@ -109,6 +109,12 @@ class Content_Indexer {
 			return new \WP_Error( 'invalid_post', __( 'Post not found or not published.', 'chatprojects' ) );
 		}
 
+		// Password-protected or otherwise non-public content must never reach a vector store
+		// that the public widget can query.
+		if ( '' !== $post->post_password || ( function_exists( 'is_post_publicly_viewable' ) && ! is_post_publicly_viewable( $post ) ) ) {
+			return new \WP_Error( 'private_post', __( 'Post is not publicly viewable.', 'chatprojects' ) );
+		}
+
 		// Build metadata header.
 		$lines = array();
 		$lines[] = 'Title: ' . $post->post_title;

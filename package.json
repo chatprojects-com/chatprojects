@@ -1,6 +1,6 @@
 {
   "name": "chatprojects",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "AI-powered project management with multi-provider chat support for WordPress",
   "private": true,
   "scripts": {
@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "alpinejs": "^3.13.3",
+    "dompurify": "^3.4.14",
     "highlight.js": "^11.9.0",
-    "marked": "^11.0.0"
+    "marked": "^16.4.2"
   }
 }

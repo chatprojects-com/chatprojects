@@ -92,15 +92,17 @@ class Widget_Handler {
 		$existing_token      = isset( $_POST['session_token'] ) ? sanitize_text_field( wp_unslash( $_POST['session_token'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		// When no explicit project_id is provided (legacy floating widget), require global widget enabled.
+		// Resolve the project: explicit (shortcode) or the global widget project.
+		$project_id = ! empty( $explicit_project_id ) ? $explicit_project_id : absint( get_option( 'chatprojects_widget_project_id', 0 ) );
+
 		if ( empty( $explicit_project_id ) && ! get_option( 'chatprojects_widget_enabled', false ) ) {
 			wp_send_json_error( array( 'message' => __( 'Chat widget is not enabled.', 'chatprojects' ) ) );
 			return;
 		}
 
-		// Validate explicit project if provided.
-		if ( ! empty( $explicit_project_id ) && ! $this->validate_project( $explicit_project_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid project.', 'chatprojects' ) ) );
+		// The project must be explicitly exposed to the public widget.
+		if ( ! $this->validate_project( $project_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'This project is not available for public chat.', 'chatprojects' ) ) );
 			return;
 		}
 
@@ -125,10 +127,7 @@ class Widget_Handler {
 			return;
 		}
 
-		// Determine project ID: explicit from shortcode, or global default.
-		$project_id = ! empty( $explicit_project_id ) ? $explicit_project_id : absint( get_option( 'chatprojects_widget_project_id', 0 ) );
-
-		// Create new session with the resolved project ID.
+		// Create new session bound to the validated project ID.
 		$session_token = $this->create_session( $ip, $project_id );
 
 		if ( is_wp_error( $session_token ) ) {
@@ -148,6 +147,46 @@ class Widget_Handler {
 	 * Streams the AI response via SSE.
 	 */
 	public function handle_message() {
+		// Validate everything BEFORE any output so failures are plain JSON errors.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Public endpoint; uses session token auth instead of nonce
+		$session_token = isset( $_POST['session_token'] ) ? sanitize_text_field( wp_unslash( $_POST['session_token'] ) ) : '';
+		$message       = isset( $_POST['message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['message'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( ! $this->validate_referrer( true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid request origin.', 'chatprojects' ) ), 403 );
+		}
+
+		$session = $this->validate_session( $session_token );
+		if ( ! $session ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid or expired session. Please refresh the page.', 'chatprojects' ) ), 403 );
+		}
+
+		if ( empty( $message ) ) {
+			wp_send_json_error( array( 'message' => __( 'Message is required.', 'chatprojects' ) ), 400 );
+		}
+
+		if ( mb_strlen( $message ) > self::MAX_MESSAGE_LENGTH ) {
+			wp_send_json_error( array( 'message' => __( 'Message is too long.', 'chatprojects' ) ), 400 );
+		}
+
+		$ip         = Security::get_client_ip();
+		$rate_check = Rate_Limiter::check_widget_message( $session_token, $ip );
+		if ( is_wp_error( $rate_check ) ) {
+			wp_send_json_error( array( 'message' => $rate_check->get_error_message() ), 429 );
+		}
+
+		// Project comes from the session row only (bound at init); re-check it is still public.
+		$project_id = absint( $session->project_id );
+		if ( empty( $project_id ) || ! self::is_project_public( $project_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'This project is not available for public chat.', 'chatprojects' ) ), 403 );
+		}
+
+		$vector_store_id = get_post_meta( $project_id, '_cp_vector_store_id', true );
+		if ( empty( $vector_store_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Project vector store not found.', 'chatprojects' ) ), 500 );
+		}
+
 		// Disable output buffering for SSE.
 		while ( ob_get_level() ) {
 			ob_end_clean();
@@ -178,55 +217,6 @@ class Widget_Handler {
 		echo ':' . str_repeat( ' ', 8192 ) . "\n\n";
 		flush();
 
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Public endpoint; uses session token auth instead of nonce
-		$session_token = isset( $_POST['session_token'] ) ? sanitize_text_field( wp_unslash( $_POST['session_token'] ) ) : '';
-		$message       = isset( $_POST['message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['message'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
-
-		// Validate session.
-		$session = $this->validate_session( $session_token );
-		if ( ! $session ) {
-			$this->send_widget_sse( 'error', __( 'Invalid or expired session. Please refresh the page.', 'chatprojects' ) );
-			return;
-		}
-
-		// Validate referrer.
-		if ( ! $this->validate_referrer() ) {
-			$this->send_widget_sse( 'error', __( 'Invalid request origin.', 'chatprojects' ) );
-			return;
-		}
-
-		// Validate message.
-		if ( empty( $message ) ) {
-			$this->send_widget_sse( 'error', __( 'Message is required.', 'chatprojects' ) );
-			return;
-		}
-
-		if ( mb_strlen( $message ) > self::MAX_MESSAGE_LENGTH ) {
-			$this->send_widget_sse( 'error', __( 'Message is too long.', 'chatprojects' ) );
-			return;
-		}
-
-		// Rate limit.
-		$ip         = Security::get_client_ip();
-		$rate_check = Rate_Limiter::check_widget_message( $session_token, $ip );
-		if ( is_wp_error( $rate_check ) ) {
-			$this->send_widget_sse( 'error', $rate_check->get_error_message() );
-			return;
-		}
-
-		// Get project configuration from the session (set when session was created).
-		$project_id = absint( $session->project_id );
-		if ( empty( $project_id ) ) {
-			$this->send_widget_sse( 'error', __( 'Widget is not configured.', 'chatprojects' ) );
-			return;
-		}
-
-		$vector_store_id = get_post_meta( $project_id, '_cp_vector_store_id', true );
-		if ( empty( $vector_store_id ) ) {
-			$this->send_widget_sse( 'error', __( 'Project vector store not found.', 'chatprojects' ) );
-			return;
-		}
 
 		// Build system instructions that constrain the AI to site content.
 		$site_name    = get_bloginfo( 'name' );
@@ -250,7 +240,7 @@ class Widget_Handler {
 
 		// Stream response.
 		$api             = new API_Handler();
-		$model           = get_post_meta( $project_id, '_cp_model', true );
+		$model           = Model_Registry::resolve( 'openai', get_post_meta( $project_id, '_cp_model', true ), get_option( 'chatprojects_default_model' ) );
 		$assistant_content = '';
 		$response_id     = null;
 
@@ -542,6 +532,21 @@ class Widget_Handler {
 	 * @return bool True if valid, false otherwise.
 	 */
 	private function validate_project( $project_id ) {
+		return self::is_project_public( $project_id );
+	}
+
+	/**
+	 * Whether a project may be queried by anonymous widget visitors.
+	 *
+	 * A project is public when the owner ticked "Allow public chat widget" on it,
+	 * or when it is the globally configured widget project and the widget is enabled.
+	 * Anything else is private and must never be reachable without login.
+	 *
+	 * @param int $project_id Project ID.
+	 * @return bool
+	 */
+	public static function is_project_public( $project_id ) {
+		$project_id = absint( $project_id );
 		if ( empty( $project_id ) ) {
 			return false;
 		}
@@ -551,8 +556,21 @@ class Widget_Handler {
 			return false;
 		}
 
-		$vector_store_id = get_post_meta( $project_id, '_cp_vector_store_id', true );
-		return ! empty( $vector_store_id );
+		if ( empty( get_post_meta( $project_id, '_cp_vector_store_id', true ) ) ) {
+			return false;
+		}
+
+		$opted_in = '1' === (string) get_post_meta( $project_id, '_cp_widget_enabled', true );
+		$is_global = get_option( 'chatprojects_widget_enabled', false )
+			&& $project_id === absint( get_option( 'chatprojects_widget_project_id', 0 ) );
+
+		/**
+		 * Filter whether a project is exposed to the public chat widget.
+		 *
+		 * @param bool $public     Default decision.
+		 * @param int  $project_id Project ID.
+		 */
+		return (bool) apply_filters( 'chatprojects_widget_project_public', $opted_in || $is_global, $project_id );
 	}
 
 	// ==================== HELPERS ====================
@@ -585,19 +603,24 @@ class Widget_Handler {
 	 *
 	 * @return bool True if valid, false otherwise.
 	 */
-	private function validate_referrer() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Referrer check, not nonce
-		$referrer = isset( $_SERVER['HTTP_REFERER'] ) ? sanitize_url( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
+	private function validate_referrer( $strict = false ) {
+		$site_host = wp_parse_url( home_url(), PHP_URL_HOST );
 
-		if ( empty( $referrer ) ) {
-			// Allow empty referrer (some browsers/extensions strip it).
-			return true;
+		// Origin is sent by browsers on every cross-site and same-site POST and cannot be set by page scripts.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Origin check, not nonce
+		$origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? sanitize_url( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
+		if ( ! empty( $origin ) ) {
+			return wp_parse_url( $origin, PHP_URL_HOST ) === $site_host;
 		}
 
-		$site_host    = wp_parse_url( home_url(), PHP_URL_HOST );
-		$referrer_host = wp_parse_url( $referrer, PHP_URL_HOST );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Referrer check, not nonce
+		$referrer = isset( $_SERVER['HTTP_REFERER'] ) ? sanitize_url( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
+		if ( ! empty( $referrer ) ) {
+			return wp_parse_url( $referrer, PHP_URL_HOST ) === $site_host;
+		}
 
-		return $site_host === $referrer_host;
+		// No Origin and no Referer: tolerated for session init (privacy extensions), never for messages.
+		return ! $strict;
 	}
 
 	/**

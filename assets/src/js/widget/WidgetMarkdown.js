@@ -36,11 +36,13 @@ export function renderMarkdown( text ) {
 	html = html.replace( /\*(.+?)\*/g, '<em>$1</em>' );
 	html = html.replace( /(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>' );
 
-	// Links [text](url).
-	html = html.replace(
-		/\[([^\]]+)\]\(([^)]+)\)/g,
-		'<a href="$2" target="_blank" rel="noopener noreferrer" class="cpw-link">$1</a>'
-	);
+	// Links [text](url) — only http(s) and mailto schemes become anchors.
+	html = html.replace( /\[([^\]]+)\]\(([^)\s]+)\)/g, function( match, label, url ) {
+		if ( ! isSafeUrl( url ) ) {
+			return label;
+		}
+		return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="cpw-link">' + label + '</a>';
+	} );
 
 	// Unordered lists (lines starting with - or *).
 	html = html.replace( /^[\s]*[-*]\s+(.+)$/gm, '<li>$1</li>' );
@@ -61,6 +63,20 @@ export function renderMarkdown( text ) {
 	}
 
 	return html;
+}
+
+/**
+ * Whether a (already HTML-escaped) URL uses a scheme we allow in links.
+ *
+ * @param {string} url Candidate URL.
+ * @returns {boolean}
+ */
+function isSafeUrl( url ) {
+	const trimmed = url.trim().toLowerCase();
+	if ( trimmed.startsWith( '/' ) && ! trimmed.startsWith( '//' ) ) {
+		return true;
+	}
+	return /^(https?:\/\/|mailto:)/.test( trimmed );
 }
 
 /**

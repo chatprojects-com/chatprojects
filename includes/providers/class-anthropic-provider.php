@@ -10,6 +10,8 @@
 
 namespace ChatProjects\Providers;
 
+use ChatProjects\Model_Registry;
+
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
@@ -36,13 +38,55 @@ class Anthropic_Provider extends Base_Provider {
         $this->name = 'Anthropic Claude';
         $this->identifier = 'anthropic';
         $this->api_base_url = self::API_BASE_URL;
-        $this->models = array(
-            'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
-            'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (Fast)',
-            'claude-opus-4-5-20251101' => 'Claude Opus 4.5 (Most Capable)',
-        );
+        $this->models = Model_Registry::get_labels( 'anthropic' );
 
         parent::__construct();
+    }
+
+    /**
+     * Default max_tokens when the caller does not specify one.
+     */
+    const DEFAULT_MAX_TOKENS = 16384;
+
+    /**
+     * Build the Messages API request body for a model.
+     *
+     * Claude Opus 5 / 4.8, Sonnet 5 and Fable reject sampling parameters, so
+     * temperature is only sent when the registry says the model accepts it
+     * and the caller actually asked for one. max_tokens is clamped to the
+     * model's output limit.
+     *
+     * @param string $model    Model id.
+     * @param array  $messages Formatted messages.
+     * @param array  $options  Caller options.
+     * @param bool   $stream   Whether this is a streaming request.
+     * @return array
+     */
+    private function build_request_body( $model, $messages, $options, $stream ) {
+        $entry      = Model_Registry::get_model( 'anthropic', $model );
+        $max_output = $entry ? (int) $entry['max_output'] : self::DEFAULT_MAX_TOKENS;
+        $max_tokens = isset( $options['max_tokens'] ) ? absint( $options['max_tokens'] ) : self::DEFAULT_MAX_TOKENS;
+
+        $data = array(
+            'model'      => $model,
+            'messages'   => $messages,
+            'max_tokens' => max( 1, min( $max_tokens, $max_output ) ),
+        );
+
+        $supports_temperature = $entry ? ! empty( $entry['supports_temperature'] ) : false;
+        if ( $supports_temperature && isset( $options['temperature'] ) ) {
+            $data['temperature'] = (float) $options['temperature'];
+        }
+
+        if ( ! empty( $options['instructions'] ) ) {
+            $data['system'] = $options['instructions'];
+        }
+
+        if ( $stream ) {
+            $data['stream'] = true;
+        }
+
+        return $data;
     }
 
     /**
@@ -65,18 +109,7 @@ class Anthropic_Provider extends Base_Provider {
         // Format messages for Claude
         $formatted_messages = $this->format_messages_for_claude($messages);
 
-        // Prepare request data
-        $data = array(
-            'model' => $model,
-            'messages' => $formatted_messages,
-            'max_tokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 4096,
-            'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-        );
-
-        // Add system message if provided
-        if (!empty($options['instructions'])) {
-            $data['system'] = $options['instructions'];
-        }
+        $data = $this->build_request_body( $model, $formatted_messages, $options, false );
 
         // Make API request
         $headers = array(
@@ -96,13 +129,27 @@ class Anthropic_Provider extends Base_Provider {
             return $response;
         }
 
-        // Extract assistant's message
-        if (isset($response['content'][0]['text'])) {
-            $content = $response['content'][0]['text'];
+        // Concatenate text blocks (a thinking block may precede the first text block).
+        $content = '';
+        if ( ! empty( $response['content'] ) && is_array( $response['content'] ) ) {
+            foreach ( $response['content'] as $block ) {
+                if ( isset( $block['type'], $block['text'] ) && 'text' === $block['type'] ) {
+                    $content .= $block['text'];
+                }
+            }
+        }
 
+        $stop_reason = isset( $response['stop_reason'] ) ? $response['stop_reason'] : '';
+
+        if ( 'refusal' === $stop_reason && '' === trim( $content ) ) {
+            return $this->error( 'refusal', __( 'Claude declined to answer this request.', 'chatprojects' ) );
+        }
+
+        if ( '' !== $content ) {
             return array(
-                'content' => $content,
-                'model' => $model,
+                'content'     => $content,
+                'model'       => $model,
+                'stop_reason' => $stop_reason,
             );
         }
 
@@ -133,17 +180,7 @@ class Anthropic_Provider extends Base_Provider {
 
         $formatted_messages = $this->format_messages_for_claude( $messages );
 
-        $data = array(
-            'model'       => $model,
-            'messages'    => $formatted_messages,
-            'max_tokens'  => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 4096,
-            'temperature' => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
-            'stream'      => true,
-        );
-
-        if ( ! empty( $options['instructions'] ) ) {
-            $data['system'] = $options['instructions'];
-        }
+        $data = $this->build_request_body( $model, $formatted_messages, $options, true );
 
         $url = self::API_BASE_URL . 'messages';
 
@@ -194,7 +231,13 @@ class Anthropic_Provider extends Base_Provider {
 
                 // Handle content_block_delta events (contains the actual text).
                 if ( 'content_block_delta' === $event_type && isset( $parsed['delta']['text'] ) ) {
+                    $state['has_text'] = true;
                     $callback( array( 'type' => 'content', 'content' => $parsed['delta']['text'] ) );
+                }
+
+                // Safety classifiers can end the turn with stop_reason "refusal".
+                if ( 'message_delta' === $event_type && isset( $parsed['delta']['stop_reason'] ) && 'refusal' === $parsed['delta']['stop_reason'] ) {
+                    $callback( array( 'type' => 'error', 'content' => __( 'Claude declined to answer this request.', 'chatprojects' ) ) );
                 }
 
                 // Handle errors.
@@ -231,7 +274,7 @@ class Anthropic_Provider extends Base_Provider {
 
         // Simple test request
         $data = array(
-            'model' => 'claude-haiku-4-5-20251001',
+            'model' => Model_Registry::get_utility_model( 'anthropic_validate' ),
             'max_tokens' => 10,
             'messages' => array(
                 array(

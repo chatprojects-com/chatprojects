@@ -82,8 +82,9 @@ class General_Chat_Ajax {
         }
 
         // Verify request comes from the same site to prevent CSRF.
-        $referer = wp_get_referer();
-        if (!$referer || strpos($referer, home_url()) !== 0) {
+        $referer      = wp_get_referer();
+        $referer_host = $referer ? wp_parse_url($referer, PHP_URL_HOST) : '';
+        if (!$referer_host || $referer_host !== wp_parse_url(home_url(), PHP_URL_HOST)) {
             wp_send_json_error(array('message' => __('Invalid request origin', 'chatprojects')));
             return;
         }
@@ -110,8 +111,9 @@ class General_Chat_Ajax {
             return;
         }
 
-        $provider = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+        $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+        $model = Model_Registry::resolve($provider, $model, get_option('chatprojects_general_chat_model'));
         $title = isset($_POST['title']) ? sanitize_text_field(wp_unslash($_POST['title'])) : '';
 
         $chat_interface = new Chat_Interface();
@@ -148,8 +150,9 @@ class General_Chat_Ajax {
 
         $chat_id = isset($_POST['chat_id']) ? intval($_POST['chat_id']) : 0;
         $message = isset($_POST['message']) ? sanitize_textarea_field(wp_unslash($_POST['message'])) : '';
-        $provider = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+        $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+        $model = Model_Registry::resolve($provider, $model, get_option('chatprojects_general_chat_model'));
 
         // Process images from base64 JSON (clipboard paste / drag-drop).
         $images = array();
@@ -242,6 +245,21 @@ class General_Chat_Ajax {
      * Stream a message in general chat (Server-Sent Events)
      */
     public function stream_general_message() {
+        // Authenticate BEFORE any output: a failed check must return a normal JSON error,
+        // not an SSE stream to an anonymous caller.
+        if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Invalid security token. Please refresh the page.', 'chatprojects')), 403);
+        }
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')), 401);
+        }
+        if (!current_user_can('read')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')), 403);
+        }
+        if (!Security::check_rate_limit('stream_general', get_current_user_id(), (int) apply_filters('chatprojects_chat_rate_limit', 60), MINUTE_IN_SECONDS)) {
+            wp_send_json_error(array('message' => __('Too many requests. Please wait a moment and try again.', 'chatprojects')), 429);
+        }
+
         // Disable ALL output buffering for SSE
         while (ob_get_level()) {
             ob_end_clean();
@@ -254,12 +272,10 @@ class General_Chat_Ajax {
         header('Expires: 0');
         header('X-Accel-Buffering: no'); // Disable nginx/LiteSpeed buffering
         header('Connection: keep-alive');
-        header('Transfer-Encoding: chunked');
 
         // LiteSpeed specific - disable cache and buffering
         header('X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off');
         header('X-LiteSpeed-Tag: no-cache');
-        header('X-LiteSpeed-Purge: *');
 
         // Cloudflare - disable buffering
         header('X-CF-Buffering: off');
@@ -290,26 +306,11 @@ class General_Chat_Ajax {
         @flush();
 
         try {
-            // Use false as third param to prevent wp_die() on failure
-            if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
-                $this->send_sse_error(__('Invalid security token. Please refresh the page.', 'chatprojects'));
-                return;
-            }
-
-            if (!is_user_logged_in()) {
-                $this->send_sse_error(__('You must be logged in.', 'chatprojects'));
-                return;
-            }
-
-            if (!current_user_can('read')) {
-                $this->send_sse_error(__('Permission denied.', 'chatprojects'));
-                return;
-            }
-
             $chat_id = isset($_POST['chat_id']) ? intval($_POST['chat_id']) : 0;
             $message = isset($_POST['message']) ? sanitize_textarea_field(wp_unslash($_POST['message'])) : '';
-            $provider_name = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-            $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+            $provider_name = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+            $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+            $model = Model_Registry::resolve($provider_name, $model, get_option('chatprojects_general_chat_model'));
 
             // Process images from base64 JSON
             $images = $this->process_images_from_request();
@@ -764,21 +765,23 @@ class General_Chat_Ajax {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
         }
 
-        $providers = array(
-            'openai' => array('name' => 'OpenAI', 'has_key' => false, 'models' => array()),
-            'gemini' => array('name' => 'Google Gemini', 'has_key' => false, 'models' => array()),
-            'anthropic' => array('name' => 'Anthropic Claude', 'has_key' => false, 'models' => array()),
-            'chutes' => array('name' => 'Chutes.ai', 'has_key' => false, 'models' => array()),
-            'openrouter' => array('name' => 'OpenRouter', 'has_key' => false, 'models' => array()),
-        );
+        $providers = array();
+        foreach (Model_Registry::get_provider_names() as $key => $name) {
+            $providers[ $key ] = array(
+                'name'    => $name,
+                'has_key' => false,
+                'default' => Model_Registry::get_default($key),
+                'models'  => array(),
+            );
+        }
 
         foreach ($providers as $key => &$provider) {
             $provider_class = $this->get_provider_instance($key);
             if ($provider_class) {
                 $provider['has_key'] = $provider_class->has_api_key();
                 if ($provider['has_key']) {
-                    // For chutes.ai and openrouter, fetch models dynamically from the API
-                    if (($key === 'chutes' || $key === 'openrouter') && method_exists($provider_class, 'fetch_available_models')) {
+                    // Dynamic providers (Chutes, OpenRouter) fetch their model list from the API
+                    if (Model_Registry::is_dynamic_provider($key) && method_exists($provider_class, 'fetch_available_models')) {
                         $fetched_models = $provider_class->fetch_available_models();
                         // If fetch succeeds, use the fetched models; otherwise fallback to defaults
                         if (!is_wp_error($fetched_models) && !empty($fetched_models)) {
@@ -791,8 +794,17 @@ class General_Chat_Ajax {
                         // For other providers, use hardcoded models
                         $models = $provider_class->get_available_models();
                     }
-                    // Get models as associative array and return just the keys
-                    $provider['models'] = array_keys($models);
+                    // id + label pairs so the UI can show friendly names.
+                    $provider['models'] = array();
+                    foreach ($models as $id => $label) {
+                        $provider['models'][] = array(
+                            'id'    => (string) $id,
+                            'label' => is_string($label) && '' !== $label ? $label : (string) $id,
+                        );
+                    }
+                    if (empty($provider['default']) && !empty($provider['models'])) {
+                        $provider['default'] = $provider['models'][0]['id'];
+                    }
                 }
             }
         }
@@ -852,13 +864,7 @@ class General_Chat_Ajax {
      * @return object|null Provider instance or null
      */
     private function get_provider_instance($provider) {
-        $provider_map = array(
-            'openai' => 'OpenAI_Provider',
-            'gemini' => 'Gemini_Provider',
-            'anthropic' => 'Anthropic_Provider',
-            'chutes' => 'Chutes_Provider',
-            'openrouter' => 'OpenRouter_Provider',
-        );
+        $provider_map = Chat_Interface::provider_class_map();
 
         if (!isset($provider_map[ $provider ])) {
             return null;
@@ -894,7 +900,7 @@ class General_Chat_Ajax {
                 )
             );
 
-            $response = $api_handler->create_chat_completion($messages, 'gpt-4o-mini');
+            $response = $api_handler->create_chat_completion($messages, \ChatProjects\Model_Registry::get_utility_model('title'));
 
             if (is_wp_error($response)) {
                 // Fallback: use first few words of user message
@@ -903,7 +909,7 @@ class General_Chat_Ajax {
 
             $title = isset($response['choices'][0]['message']['content'])
                 ? trim($response['choices'][0]['message']['content'])
-                : 'New Chat';
+                : __('New Chat', 'chatprojects');
 
             // Remove quotes if present
             $title = trim($title, '"\'');
@@ -931,7 +937,7 @@ class General_Chat_Ajax {
         if (count($words) > 5) {
             $title .= '...';
         }
-        return $title ?: 'New Chat';
+        return $title ?: __('New Chat', 'chatprojects');
     }
 
     /**

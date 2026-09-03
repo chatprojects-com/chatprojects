@@ -115,7 +115,7 @@
 
         // Focus textarea after animation
         setTimeout(function() {
-            $textarea.focus();
+            $textarea.trigger('focus');
         }, 100);
     }
 
@@ -239,6 +239,6 @@
     }
 
     // Initialize when DOM is ready
-    $(document).ready(init);
+    $(init);
 
 })(jQuery);

@@ -25,7 +25,7 @@ class REST_Stream_Endpoint {
 	 *
 	 * @var string
 	 */
-	const NAMESPACE = 'chatprojects/v1';
+	const REST_NAMESPACE = 'chatprojects/v1';
 
 	/**
 	 * Initialize the REST endpoint.
@@ -39,7 +39,7 @@ class REST_Stream_Endpoint {
 	 */
 	public function register_routes() {
 		register_rest_route(
-			self::NAMESPACE,
+			self::REST_NAMESPACE,
 			'/stream',
 			array(
 				'methods'             => 'POST',
@@ -157,10 +157,7 @@ class REST_Stream_Endpoint {
 			$instructions = get_option( 'chatprojects_assistant_instructions', '' );
 		}
 
-		$model = get_post_meta( $project_id, '_cp_model', true );
-		if ( empty( $model ) ) {
-			$model = get_option( 'chatprojects_default_model', 'gpt-4o' );
-		}
+		$model = Model_Registry::resolve( 'openai', get_post_meta( $project_id, '_cp_model', true ), get_option( 'chatprojects_default_model' ) );
 
 		// Store user message.
 		$messages_table = $wpdb->prefix . 'chatprojects_messages';
@@ -399,7 +396,7 @@ class REST_Stream_Endpoint {
 				),
 			);
 
-			$title_response = $api->create_chat_completion( $messages, 'gpt-4o-mini' );
+			$title_response = $api->create_chat_completion( $messages, \ChatProjects\Model_Registry::get_utility_model( 'title' ) );
 
 			if ( is_wp_error( $title_response ) ) {
 				return $this->fallback_title( $user_msg );

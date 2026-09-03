@@ -49,7 +49,7 @@ class API_Handler {
      */
     public function __construct() {
         $this->api_key = Security::get_api_key();
-        $this->default_model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+        $this->default_model = get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
     }
 
     /**
@@ -163,8 +163,7 @@ class API_Handler {
     public function upload_file($file_path, $purpose = 'assistants', $original_filename = null) {
         if (!file_exists($file_path)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: File not found: ' . $file_path);
+                Security::debug_log('[ChatProjects] upload_file: File not found: ' . $file_path);
             }
             return new \WP_Error('file_not_found', __('File not found.', 'chatprojects'));
         }
@@ -182,8 +181,7 @@ class API_Handler {
         $filename = $original_filename ? $original_filename : basename($file_path);
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] upload_file: Starting upload - ' . $filename . ' (' . strlen($file_contents) . ' bytes)');
+            Security::debug_log('[ChatProjects] upload_file: Starting upload - ' . $filename . ' (' . strlen($file_contents) . ' bytes)');
         }
 
 
@@ -207,8 +205,7 @@ class API_Handler {
 
         if (is_wp_error($response)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: WP_Error - ' . $response->get_error_message());
+                Security::debug_log('[ChatProjects] upload_file: WP_Error - ' . $response->get_error_message());
             }
             return $response;
         }
@@ -220,18 +217,14 @@ class API_Handler {
         if ($status_code < 200 || $status_code >= 300) {
             $error_message = isset($decoded['error']['message']) ? $decoded['error']['message'] : __('Unknown API error', 'chatprojects');
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: API error ' . $status_code . ' - ' . $error_message);
-                error_log('[ChatProjects] upload_file: Response body: ' . $body);
-                // phpcs:enable WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                Security::debug_log('[ChatProjects] upload_file: API error ' . $status_code . ' - ' . $error_message);
             }
             return new \WP_Error('api_error', $error_message, array('status' => $status_code));
         }
 
         $file_id = isset($decoded['id']) ? $decoded['id'] : 'unknown';
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] upload_file: SUCCESS - File uploaded with ID: ' . $file_id);
+            Security::debug_log('[ChatProjects] upload_file: SUCCESS - File uploaded with ID: ' . $file_id);
         }
 
         return $decoded;
@@ -323,7 +316,7 @@ class API_Handler {
         $body .= $file_contents . "\r\n";
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
-        $body .= "whisper-1\r\n";
+        $body .= Model_Registry::get_utility_model( 'transcribe' ) . "\r\n";
 
         if (!empty($language)) {
             $body .= "--{$boundary}\r\n";
@@ -422,8 +415,7 @@ class API_Handler {
         if (!empty($previous_response_id)) {
             $data['previous_response_id'] = $previous_response_id;
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+                Security::debug_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
             }
         }
 
@@ -434,10 +426,28 @@ class API_Handler {
                 $data['tools'][0]['max_num_results'] = $options['max_num_results'];
                 unset($options['max_num_results']);
             }
-            $data = array_merge($data, $options);
         }
+        $data = $this->apply_model_params($data, $model, $options);
 
         return $this->make_request('responses', $data);
+    }
+
+    /**
+     * Merge model-dependent parameters into a Responses API body.
+     *
+     * Reasoning models reject temperature and take reasoning.effort instead;
+     * the registry decides. Remaining caller options are merged verbatim.
+     *
+     * @param array  $data    Request body so far.
+     * @param string $model   Model id.
+     * @param array  $options Caller options.
+     * @return array
+     */
+    private function apply_model_params($data, $model, $options) {
+        $options = is_array($options) ? $options : array();
+        $data    = array_merge($data, Model_Registry::openai_request_params($model, $options));
+        unset($options['temperature'], $options['max_tokens'], $options['reasoning_effort']);
+        return array_merge($data, $options);
     }
 
     /**
@@ -459,7 +469,7 @@ class API_Handler {
             array('role' => 'user', 'content' => $prompt),
         );
 
-        $response = $this->create_chat_completion($messages, 'gpt-4o');
+        $response = $this->create_chat_completion($messages, Model_Registry::get_utility_model('enhance'));
 
         if (is_wp_error($response)) {
             return $response;
@@ -497,10 +507,7 @@ class API_Handler {
             $data['instructions'] = $instructions;
         }
 
-        // Merge any additional options
-        if (!empty($options)) {
-            $data = array_merge($data, $options);
-        }
+        $data = $this->apply_model_params($data, $model, $options);
 
         return $this->make_request('responses', $data);
     }
@@ -544,13 +551,11 @@ class API_Handler {
         if (!empty($previous_response_id)) {
             $data['previous_response_id'] = $previous_response_id;
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+                Security::debug_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
             }
         }
 
-        // Merge any additional options
-        $data = array_merge($data, $options);
+        $data = $this->apply_model_params($data, $model, $options);
 
         // Context for tracking state (not used for non-file-search but required by method)
         $context = array();
@@ -723,8 +728,7 @@ class API_Handler {
                     if ( isset( $decoded['response']['id'] ) ) {
                         $response_id = $decoded['response']['id'];
                         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                            error_log( '[ChatProjects] Captured response_id: ' . $response_id );
+                            Security::debug_log( '[ChatProjects] Captured response_id: ' . $response_id );
                         }
                     }
                 } elseif ( 'error' === $type ) {
@@ -770,11 +774,6 @@ class API_Handler {
      * @return string|null Response ID from the API
      */
     public function stream_response_with_filesearch($input, $vector_store_id, $callback, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] stream_response_with_filesearch called - VERSION 2.0 WITH FIXES');
-        }
-
         if (!$this->has_api_key()) {
             $callback(array('type' => 'error', 'content' => 'OpenAI API key is not configured'));
             return null;
@@ -808,13 +807,11 @@ class API_Handler {
         if (!empty($previous_response_id)) {
             $data['previous_response_id'] = $previous_response_id;
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+                Security::debug_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
             }
         }
 
-        // Merge any additional options
-        $data = array_merge($data, $options);
+        $data = $this->apply_model_params($data, $model, $options);
 
         // Context to track sources/annotations across streaming events
         $context = array(

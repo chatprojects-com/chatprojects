@@ -66,3 +66,7 @@ vendor/
 
 # ZIP files
 *.zip
+
+# Widget build config (source only)
+vite.widget.config.js
+build-zip.sh

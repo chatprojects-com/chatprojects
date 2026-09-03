@@ -210,8 +210,7 @@ class AJAX_Handlers {
 
         if (is_wp_error($project_id)) {
             // Log detailed error for debugging, return generic message to user.
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('ChatProjects: Failed to create project - ' . $project_id->get_error_message());
+            Security::debug_log('ChatProjects: Failed to create project - ' . $project_id->get_error_message());
             wp_send_json_error(array('message' => __('Failed to create project. Please try again.', 'chatprojects')));
         }
 
@@ -244,7 +243,7 @@ class AJAX_Handlers {
 
             // Store vector store ID and model (no assistant needed with Responses API)
             update_post_meta($project_id, '_cp_vector_store_id', $vector_store_id);
-            update_post_meta($project_id, '_cp_model', get_option('chatprojects_default_model', 'gpt-5.2-chat-latest'));
+            update_post_meta($project_id, '_cp_model', get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai')));
         } catch (\Exception $e) {
             wp_delete_post($project_id, true);
             wp_send_json_error(array('message' => __('Failed to create OpenAI resources: ', 'chatprojects') . $e->getMessage()));
@@ -463,7 +462,7 @@ class AJAX_Handlers {
                         array('role' => 'user', 'content' => $prompt)
                     );
 
-                    $title_response = $api_handler->create_chat_completion($messages, 'gpt-4o-mini');
+                    $title_response = $api_handler->create_chat_completion($messages, \ChatProjects\Model_Registry::get_utility_model('title'));
 
                     if (!is_wp_error($title_response)) {
                         $title = isset($title_response['choices'][0]['message']['content'])
@@ -502,6 +501,18 @@ class AJAX_Handlers {
      * Stream chat message (Server-Sent Events)
      */
     public function stream_chat_message() {
+        // Authenticate BEFORE any output: a failed check must return a normal JSON error,
+        // not an SSE stream to an anonymous caller.
+        if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Invalid security token. Please refresh the page.', 'chatprojects')), 403);
+        }
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')), 401);
+        }
+        if (!Security::check_rate_limit('stream_chat', get_current_user_id(), (int) apply_filters('chatprojects_chat_rate_limit', 60), MINUTE_IN_SECONDS)) {
+            wp_send_json_error(array('message' => __('Too many requests. Please wait a moment and try again.', 'chatprojects')), 429);
+        }
+
         // Disable ALL output buffering for SSE
         while (ob_get_level()) {
             ob_end_clean();
@@ -514,12 +525,10 @@ class AJAX_Handlers {
         header('Expires: 0');
         header('X-Accel-Buffering: no'); // Disable nginx/LiteSpeed buffering
         header('Connection: keep-alive');
-        header('Transfer-Encoding: chunked');
 
         // LiteSpeed specific - disable cache and buffering
         header('X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off');
         header('X-LiteSpeed-Tag: no-cache');
-        header('X-LiteSpeed-Purge: *');
 
         // Cloudflare - disable buffering
         header('X-CF-Buffering: off');
@@ -551,17 +560,6 @@ class AJAX_Handlers {
         @flush();
 
         try {
-            // Use false as third param to prevent wp_die() on failure
-            if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
-                $this->send_sse_error('Invalid security token. Please refresh the page.');
-                return;
-            }
-
-            if (!is_user_logged_in()) {
-                $this->send_sse_error('You must be logged in');
-                return;
-            }
-
             $project_id = $this->get_post_value('project_id', 'absint', 0);
             $message = $this->get_post_value('message', 'sanitize_textarea_field', '');
             $thread_id = $this->get_post_value('thread_id', 'sanitize_text_field', '');
@@ -644,13 +642,9 @@ class AJAX_Handlers {
                 $instructions = get_option('chatprojects_assistant_instructions', '');
             }
 
-            $model = get_post_meta($project_id, '_cp_model', true);
-            if (empty($model)) {
-                $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
-            }
+            $model = Model_Registry::resolve('openai', get_post_meta($project_id, '_cp_model', true), get_option('chatprojects_default_model'));
 
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-            error_log(sprintf('[ChatProjects] stream_chat_message start project_id=%d chat_id=%s thread_id=%s', $project_id, $chat_id, $thread_id));
+            Security::debug_log(sprintf('[ChatProjects] stream_chat_message start project_id=%d chat_id=%s thread_id=%s', $project_id, $chat_id, $thread_id));
 
             // Store user message in database
             $messages_table = $wpdb->prefix . 'chatprojects_messages';
@@ -688,16 +682,13 @@ class AJAX_Handlers {
                 $vector_store_id,
                 function($chunk) use (&$assistant_content, &$sources, $chat_id) {
                     if (isset($chunk['type']) && $chunk['type'] === 'content') {
-                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-                        error_log('[ChatProjects] SSE chunk type=content len=' . strlen($chunk['content']));
+                        Security::debug_log('[ChatProjects] SSE chunk type=content len=' . strlen($chunk['content']));
                         $assistant_content .= $chunk['content'];
                     } elseif (isset($chunk['type']) && $chunk['type'] === 'sources') {
-                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-                        error_log('[ChatProjects] SSE chunk type=sources count=' . count($chunk['sources']));
+                        Security::debug_log('[ChatProjects] SSE chunk type=sources count=' . count($chunk['sources']));
                         $sources = $chunk['sources'];
                     } elseif (isset($chunk['type']) && $chunk['type'] === 'error') {
-                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-                        error_log('[ChatProjects] SSE chunk type=error message=' . ($chunk['content'] ?? ''));
+                        Security::debug_log('[ChatProjects] SSE chunk type=error message=' . ($chunk['content'] ?? ''));
                     } elseif (isset($chunk['type']) && $chunk['type'] === 'done') {
                         // Send chat_id BEFORE done event so frontend can capture it
                         echo 'data: ' . wp_json_encode(array('type' => 'chat_id', 'chat_id' => $chat_id)) . "\n\n";
@@ -734,8 +725,7 @@ class AJAX_Handlers {
 
             // Store assistant message in database with response_id for conversation chaining
             if (!empty($assistant_content)) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for streaming API
-                error_log(sprintf('[ChatProjects] SSE assistant message captured len=%d response_id=%s', strlen($assistant_content), $new_response_id ?? 'null'));
+                Security::debug_log(sprintf('[ChatProjects] SSE assistant message captured len=%d response_id=%s', strlen($assistant_content), $new_response_id ?? 'null'));
 
                 // Build metadata with sources and response_id
                 $metadata = array();
@@ -795,7 +785,7 @@ class AJAX_Handlers {
                             array('role' => 'user', 'content' => $prompt)
                         );
 
-                        $title_response = $api_handler->create_chat_completion($messages, 'gpt-4o-mini');
+                        $title_response = $api_handler->create_chat_completion($messages, \ChatProjects\Model_Registry::get_utility_model('title'));
 
                         if (!is_wp_error($title_response)) {
                             $title = isset($title_response['choices'][0]['message']['content'])
@@ -1137,7 +1127,7 @@ class AJAX_Handlers {
                 )
             );
             
-            $response = $this->get_api_handler()->create_chat_completion($messages, 'gpt-4o-mini');
+            $response = $this->get_api_handler()->create_chat_completion($messages, \ChatProjects\Model_Registry::get_utility_model('title'));
             
             if (is_wp_error($response)) {
                 // Fallback: use first few words of user message
@@ -1198,14 +1188,18 @@ class AJAX_Handlers {
             return;
         }
         
+        if (!Security::check_rate_limit('upload', get_current_user_id(), (int) apply_filters('chatprojects_upload_rate_limit', 30), MINUTE_IN_SECONDS)) {
+            wp_send_json_error(array('message' => __('Too many uploads. Please wait a moment and try again.', 'chatprojects')), 429);
+        }
+
         $file = $this->get_uploaded_file('file');
 
         if (empty($file) || empty($file['tmp_name'])) {
             wp_send_json_error(array('message' => __('No file uploaded', 'chatprojects')));
         }
 
-        // Validate file using Security class (includes Excel support)
-        if (!Security::validate_file_type($file['name'])) {
+        // Validate extension (from the client filename) and real MIME type (from the temp file).
+        if (!Security::validate_file_type($file['tmp_name'], array(), $file['name'])) {
             wp_send_json_error(array('message' => __('File type not allowed', 'chatprojects')));
         }
         
@@ -1469,7 +1463,7 @@ class AJAX_Handlers {
         }
 
         if (isset($_POST['model'])) {
-            update_post_meta($project_id, '_cp_model', $this->get_post_value('model'));
+            update_post_meta($project_id, '_cp_model', Model_Registry::resolve('openai', $this->get_post_value('model'), get_option('chatprojects_default_model')));
         }
 
         wp_send_json_success(array('message' => __('Project updated successfully.', 'chatprojects')));

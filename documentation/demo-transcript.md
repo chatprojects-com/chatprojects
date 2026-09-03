@@ -20,10 +20,10 @@
 > "First, we go to the WordPress admin sidebar and click **ChatProjects**, then **Settings**.
 >
 > Here's where you add your API keys. ChatProjects supports five AI providers:
-> - **OpenAI** - GPT-4o, GPT-4o-mini, and the new o1 reasoning models
-> - **Anthropic** - Claude Sonnet 4 and Claude 3.5
-> - **Google Gemini** - Gemini 2.0 Flash and 1.5 Pro
-> - **Chutes** - DeepSeek V3 and R1 reasoning models
+> - **OpenAI** - GPT-5.6 Sol, Terra and Luna, plus the GPT-5.4 family
+> - **Anthropic** - Claude Opus 5, Sonnet 5 and Haiku 4.5
+> - **Google Gemini** - Gemini 3.8 Flash and 3.1 Pro
+> - **Chutes** - DeepSeek V4 Flash and V4 Pro
 > - **OpenRouter** - Over 100 models from various providers
 >
 > I'll paste in my OpenAI key here. Notice it says 'Key saved securely' - all keys are encrypted using AES-256 before storage.

@@ -63,9 +63,8 @@ class Vector_Store {
             );
         }
 
-        // Check file type (use original filename for extension detection)
-        $filename_for_validation = $original_filename ? $original_filename : $file_path;
-        if (!Security::validate_file_type($filename_for_validation)) {
+        // Check file type: extension from the original filename, MIME from the file on disk.
+        if (!Security::validate_file_type($file_path, array(), $original_filename ? $original_filename : '')) {
             return new \WP_Error('invalid_file_type', __('File type is not allowed.', 'chatprojects'));
         }
 
@@ -216,8 +215,7 @@ class Vector_Store {
             // Log error but continue - file may not be in vector store
             if (is_wp_error($vs_result)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging only when WP_DEBUG is enabled
-                    error_log('ChatProjects: Failed to remove file from vector store: ' . $vs_result->get_error_message());
+                    Security::debug_log('ChatProjects: Failed to remove file from vector store: ' . $vs_result->get_error_message());
                 }
             }
         }

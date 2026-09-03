@@ -53,14 +53,14 @@ ChatProjects is a WordPress plugin that enables AI-powered conversations directl
 
 - **Use your own API keys** - Pay only for what you use, directly to AI providers
 - **Keep data on your server** - All conversations stored in your WordPress database
-- **Chat with multiple AI providers** - Switch between GPT-4, Claude, Gemini, and more
+- **Chat with multiple AI providers** - Switch between GPT-5.6, Claude, Gemini, and more
 - **Create knowledge-based projects** - Upload documents and chat with their contents
 
 ## Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Provider Chat** | Chat with GPT-4, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter |
+| **Multi-Provider Chat** | Chat with GPT-5.6, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter |
 | **Project Management** | Create projects with OpenAI Vector Store integration for document search |
 | **File Upload** | Upload PDFs, Word docs, text files, code files (up to 512MB configurable) |
 | **File Search** | AI searches your uploaded documents to provide contextual answers |
@@ -262,9 +262,9 @@ You are a helpful product support assistant. Answer questions based on the uploa
 ### Default Model for Projects
 
 Select the default OpenAI model used for project chats with file search:
-- GPT-4o (recommended)
-- GPT-4o-mini (faster, cheaper)
-- GPT-4-turbo
+- GPT-5.6 Sol (recommended)
+- GPT-5.6 Terra (balanced)
+- GPT-5.4 Mini (faster, cheaper)
 - GPT-3.5-turbo
 
 ---
@@ -316,17 +316,13 @@ Select which file types users can upload:
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| **GPT-5.1 Chat** | Latest flagship model | Complex reasoning, analysis |
-| **GPT-5.1** | Advanced reasoning | General purpose, coding |
-| **GPT-5.1 Codex** | Code-specialized | Programming tasks |
-| **GPT-5.1 Codex Mini** | Faster code model | Quick code tasks |
-| **o1 Preview** | Reasoning model | Complex problem solving |
-| **o1 Mini** | Faster reasoning | Quick analysis |
-| **GPT-4o** | Multimodal flagship | General purpose, images |
-| **GPT-4o-mini** | Fast and affordable | Everyday tasks |
-| **GPT-4 Turbo** | High performance | Complex tasks |
-| **GPT-4** | Original GPT-4 | Reliable performance |
-| **GPT-3.5 Turbo** | Fast and cheap | Simple tasks, high volume |
+| **GPT-5.6 Sol** | Flagship (default) | Complex reasoning, analysis |
+| **GPT-5.6 Terra** | Balanced intelligence and cost | General purpose |
+| **GPT-5.6 Luna** | Cost-optimised | High-volume, simple tasks |
+| **GPT-5.5** | Coding and professional work | Programming tasks |
+| **GPT-5.4** | Affordable general model | Everyday tasks |
+| **GPT-5.4 Mini** | Fast small model | Quick tasks, sub-agents |
+| **GPT-5.4 Nano** | Cheapest | Titles, classification |
 
 **API Base:** https://api.openai.com/v1/
 
@@ -336,12 +332,12 @@ Select which file types users can upload:
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| **Claude Sonnet 4.5** | Latest Claude | Balanced performance |
-| **Claude 3.5 Sonnet** | Fast and capable | General tasks |
-| **Claude 3.5 Haiku** | Fastest Claude | Quick responses |
-| **Claude 3 Opus** | Most capable | Complex analysis |
-| **Claude 3 Sonnet** | Balanced | General purpose |
-| **Claude 3 Haiku** | Quick | Simple tasks |
+| **Claude Opus 5** | Recommended (default) | Complex analysis, agentic work |
+| **Claude Fable 5.1** | Most capable | Hardest reasoning tasks |
+| **Claude Opus 4.8** | Previous Opus | Long-form work |
+| **Claude Sonnet 5** | Balanced | General tasks, coding |
+| **Claude Sonnet 4.6** | Previous Sonnet | General tasks |
+| **Claude Haiku 4.5** | Fastest Claude | Quick responses |
 
 **API Base:** https://api.anthropic.com/v1/
 
@@ -351,10 +347,11 @@ Select which file types users can upload:
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| **Gemini 2.5 Pro** | Latest flagship | Complex tasks |
-| **Gemini 2.0 Flash** | Fast experimental | Quick tasks |
-| **Gemini 1.5 Pro** | High capability | Analysis, long context |
-| **Gemini 1.5 Flash** | Fast and efficient | Everyday use |
+| **Gemini 3.8 Flash** | Newest Flash (default) | Everyday use |
+| **Gemini 3.7 Flash** | Previous Flash | Everyday use |
+| **Gemini 3.5 Flash** | Stable Flash | General tasks |
+| **Gemini 3.5 Flash Lite** | Fastest, cheapest | Quick tasks |
+| **Gemini 3.1 Pro (Preview)** | Most capable | Complex tasks, long context |
 
 **API Base:** https://generativelanguage.googleapis.com/v1beta/
 
@@ -364,8 +361,8 @@ Select which file types users can upload:
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| **DeepSeek V3** | Latest DeepSeek | General purpose |
-| **DeepSeek R1** | Reasoning model | Complex analysis |
+| **DeepSeek V4 Flash** | Fast, thinking mode built in | General purpose |
+| **DeepSeek V4 Pro** | Most capable DeepSeek | Complex analysis |
 
 **API Base:** https://llm.chutes.ai/
 
@@ -837,7 +834,7 @@ ChatProjects connects to external AI providers only when you:
 | Feature | Free | Pro |
 |---------|:----:|:---:|
 | **AI Providers** | | |
-| OpenAI (GPT-4, GPT-5) | Yes | Yes |
+| OpenAI (GPT-5.x) | Yes | Yes |
 | Anthropic (Claude) | Yes | Yes |
 | Google (Gemini) | Yes | Yes |
 | Chutes (DeepSeek) | Yes | Yes |

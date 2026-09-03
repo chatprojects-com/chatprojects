@@ -10,6 +10,8 @@
 
 namespace ChatProjects\Providers;
 
+use ChatProjects\Model_Registry;
+
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
@@ -31,9 +33,8 @@ class Chutes_Provider extends Base_Provider {
         $this->name = 'Chutes.ai';
         $this->identifier = 'chutes';
         $this->api_base_url = self::API_BASE_URL;
-        $this->models = array(
-            'default' => 'Chutes Default Model',
-        );
+        // Static fallback; the real list is fetched from the API at runtime.
+        $this->models = Model_Registry::get_labels( 'chutes' );
 
         parent::__construct();
     }

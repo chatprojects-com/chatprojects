@@ -60,6 +60,28 @@ class Chat_Interface {
     }
 
     /**
+     * Provider id => provider class (short name, namespace ChatProjects\Providers).
+     *
+     * @return array
+     */
+    public static function provider_class_map() {
+        $map = array(
+            'openai' => 'OpenAI_Provider',
+            'gemini' => 'Gemini_Provider',
+            'anthropic' => 'Anthropic_Provider',
+            'chutes' => 'Chutes_Provider',
+            'openrouter' => 'OpenRouter_Provider',
+        );
+
+        /**
+         * Filter the provider class map (for providers added via chatprojects_providers).
+         *
+         * @param array $map provider id => class short name.
+         */
+        return apply_filters('chatprojects_provider_classes', $map);
+    }
+
+    /**
      * Provider factory
      * Returns appropriate provider instance
      *
@@ -67,13 +89,7 @@ class Chat_Interface {
      * @return Providers\AI_Provider_Interface|WP_Error
      */
     private function get_provider($provider) {
-        $provider_map = array(
-            'openai' => 'OpenAI_Provider',
-            'gemini' => 'Gemini_Provider',
-            'anthropic' => 'Anthropic_Provider',
-            'chutes' => 'Chutes_Provider',
-            'openrouter' => 'OpenRouter_Provider',
-        );
+        $provider_map = self::provider_class_map();
 
         if (!isset($provider_map[ $provider ])) {
             return new \WP_Error('invalid_provider', __('Invalid AI provider.', 'chatprojects'));
@@ -415,10 +431,7 @@ class Chat_Interface {
         }
 
         // Get model from project or use default
-        $model = get_post_meta($chat->project_id, '_cp_model', true);
-        if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
-        }
+        $model = Model_Registry::resolve('openai', get_post_meta($chat->project_id, '_cp_model', true), get_option('chatprojects_default_model'));
 
         // Save user message to local storage
         $this->message_store->save_message($chat_id, 'user', $message);

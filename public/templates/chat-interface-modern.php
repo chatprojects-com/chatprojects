@@ -93,7 +93,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                 <!-- Loading placeholder until providers load -->
                 <span x-show="!availableProviders || availableProviders.length === 0" class="truncate text-neutral-400 dark:text-neutral-500"><?php esc_html_e('Loading...', 'chatprojects'); ?></span>
                 <!-- Actual provider/model display -->
-                <span x-show="availableProviders && availableProviders.length > 0" x-cloak class="truncate" x-text="(availableProviders.find(p => p.id === selectedProvider)?.name || selectedProvider) + ' / ' + selectedModel"></span>
+                <span x-show="availableProviders && availableProviders.length > 0" x-cloak class="truncate" x-text="(availableProviders.find(p => p.id === selectedProvider)?.name || selectedProvider) + ' / ' + selectedModelLabel"></span>
             </div>
             <div class="p-2 -mr-2 text-neutral-500 dark:text-neutral-400">
                 <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': modelSelectorOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +135,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                                 x-model="modelFilter"
                                 @focus="showModelDropdown = true"
                                 @click.away="showModelDropdown = false"
-                                :placeholder="selectedModel || '<?php esc_attr_e('Search models...', 'chatprojects'); ?>'"
+                                :placeholder="selectedModelLabel || '<?php esc_attr_e('Search models...', 'chatprojects'); ?>'"
                                 class="cp-model-filter-input w-full px-3 py-2 text-sm border border-neutral-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             />
                         </template>
@@ -145,16 +145,17 @@ call_user_func(function () use ($chatprojects_chat_context) {
                             x-transition
                             class="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-dark-surface border border-neutral-300 dark:border-dark-border rounded-lg shadow-lg"
                         >
-                            <template x-for="model in currentProviderModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))" :key="model">
+                            <template x-for="model in filteredProviderModels" :key="model.id">
                                 <button
                                     type="button"
-                                    @click="selectedModel = model; modelFilter = ''; showModelDropdown = false; handleModelChange(); window.dispatchEvent(new CustomEvent('model-changed', { detail: { model: model } }));"
+                                    @click="selectedModel = model.id; modelFilter = ''; showModelDropdown = false; handleModelChange(); window.dispatchEvent(new CustomEvent('model-changed', { detail: { model: model.id } }));"
                                     class="cp-model-dropdown-item w-full px-3 py-2 text-left text-sm text-neutral-900 dark:text-neutral-100"
-                                    :class="{ 'bg-blue-600 text-white font-medium': selectedModel === model }"
-                                    x-text="model"
+                                    :class="{ 'bg-blue-600 text-white font-medium': selectedModel === model.id }"
+                                    :title="model.id"
+                                    x-text="model.label"
                                 ></button>
                             </template>
-                            <template x-if="currentProviderModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase())).length === 0">
+                            <template x-if="filteredProviderModels.length === 0">
                                 <div class="px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400">
                                     <?php esc_html_e('No models found', 'chatprojects'); ?>
                                 </div>
@@ -167,8 +168,8 @@ call_user_func(function () use ($chatprojects_chat_context) {
                                 @change="handleModelChange(); window.dispatchEvent(new CustomEvent('model-changed', { detail: { model: selectedModel } }));"
                                 class="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             >
-                                <template x-for="model in currentProviderModels" :key="model">
-                                    <option :value="model" x-text="model"></option>
+                                <template x-for="model in currentProviderModels" :key="model.id">
+                                    <option :value="model.id" x-text="model.label"></option>
                                 </template>
                             </select>
                         </template>

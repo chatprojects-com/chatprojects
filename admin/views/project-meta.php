@@ -27,13 +27,16 @@ if (!defined('ABSPATH')) {
                 <label for="cp_model"><?php esc_html_e('Model', 'chatprojects'); ?></label>
             </th>
             <td>
+                <?php
+                $cp_model_options = \ChatProjects\Model_Registry::get_labels('openai');
+                if (!empty($model) && !isset($cp_model_options[ $model ])) {
+                    $cp_model_options = array($model => $model . ' ' . __('(unlisted)', 'chatprojects')) + $cp_model_options;
+                }
+                ?>
                 <select name="cp_model" id="cp_model" class="regular-text">
-                    <option value="gpt-5.2-chat-latest" <?php selected($model, 'gpt-5.2-chat-latest'); ?>>GPT-5.2 Instant (Recommended)</option>
-                    <option value="gpt-5-mini" <?php selected($model, 'gpt-5-mini'); ?>>GPT-5 Mini</option>
-                    <option value="gpt-4.1" <?php selected($model, 'gpt-4.1'); ?>>GPT-4.1</option>
-                    <option value="gpt-4.1-mini" <?php selected($model, 'gpt-4.1-mini'); ?>>GPT-4.1 Mini</option>
-                    <option value="gpt-4o" <?php selected($model, 'gpt-4o'); ?>>GPT-4o</option>
-                    <option value="gpt-4o-mini" <?php selected($model, 'gpt-4o-mini'); ?>>GPT-4o Mini</option>
+                    <?php foreach ($cp_model_options as $cp_model_id => $cp_model_label) : ?>
+                        <option value="<?php echo esc_attr($cp_model_id); ?>" <?php selected($model, $cp_model_id); ?>><?php echo esc_html($cp_model_label); ?></option>
+                    <?php endforeach; ?>
                 </select>
                 <p class="description">
                     <?php esc_html_e('AI model to use for this project.', 'chatprojects'); ?>
