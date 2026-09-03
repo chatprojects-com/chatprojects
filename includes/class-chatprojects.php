@@ -201,6 +201,10 @@ class ChatProjects {
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-user-roles.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-security.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-access.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-content-indexer.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-rate-limiter.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-widget-handler.php';
+        // Note: REST_Stream_Endpoint is loaded via autoloader when first referenced.
 
         // Provider classes - All 5 providers available in Free version
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/providers/interface-ai-provider.php';
@@ -238,6 +242,12 @@ class ChatProjects {
         $this->projects = new Project_Manager();
         $this->vector_store = new Vector_Store();
         $this->chat = new Chat_Interface();
+
+        // Content Indexer for Auto-RAG
+        new Content_Indexer();
+
+        // Widget handler for public-facing chat widget
+        new Widget_Handler();
 
         // Note: Removed in Free version:
         // $this->transcriber = new Transcriber();
@@ -312,68 +322,63 @@ class ChatProjects {
     }
 
     /**
-     * Register plugin settings
+     * Register plugin settings with WordPress Settings API.
+     *
+     * Registers option names so WordPress allows them to be saved via options.php.
+     * Sections and fields are handled by Admin\Settings::register_settings().
      */
     public function register_settings() {
-        // OpenAI API Key
-        register_setting('chatprojects_settings', 'chatprojects_openai_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
+        // API keys (needed for options.php allowed_options whitelist).
+        $api_keys = array(
+            'chatprojects_openai_key',
+            'chatprojects_gemini_key',
+            'chatprojects_anthropic_key',
+            'chatprojects_chutes_key',
+            'chatprojects_openrouter_key',
+        );
+        foreach ( $api_keys as $key ) {
+            register_setting(
+                'chatprojects_settings',
+                $key,
+                array(
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                )
+            );
+        }
 
-        // Gemini API Key
-        register_setting('chatprojects_settings', 'chatprojects_gemini_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // Anthropic API Key
-        register_setting('chatprojects_settings', 'chatprojects_anthropic_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // Chutes API Key
-        register_setting('chatprojects_settings', 'chatprojects_chutes_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // General settings
-        register_setting('chatprojects_settings', 'chatprojects_general_chat_provider', array(
-            'type' => 'string',
+        // General settings.
+        register_setting( 'chatprojects_settings', 'chatprojects_general_chat_provider', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'openai'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_general_chat_model', array(
-            'type' => 'string',
+            'default'           => 'openai',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_general_chat_model', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'gpt-4o'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_assistant_instructions', array(
-            'type' => 'string',
+            'default'           => 'gpt-5.2-chat-latest',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_assistant_instructions', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_textarea_field',
-            'default' => ''
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_default_model', array(
-            'type' => 'string',
+            'default'           => '',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_default_model', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'gpt-4o'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_max_file_size', array(
-            'type' => 'integer',
+            'default'           => 'gpt-5.2-chat-latest',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_max_file_size', array(
+            'type'              => 'integer',
             'sanitize_callback' => 'absint',
-            'default' => 50
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_allowed_file_types', array(
-            'type' => 'string',
+            'default'           => 50,
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_allowed_file_types', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'pdf,doc,docx,txt,md'
-        ));
+            'default'           => 'pdf,doc,docx,txt,md,csv,json,xml',
+        ) );
     }
 
     /**

@@ -253,11 +253,11 @@ This plugin includes the following third-party JavaScript libraries:
 * Source: https://github.com/highlightjs/highlight.js
 * License file: licenses/HIGHLIGHT.txt
 
-= markdown-it =
-* Version: 14.x
+= marked =
+* Version: 16.x
 * License: MIT
-* Source: https://github.com/markdown-it/markdown-it
-* License file: licenses/MARKDOWN-IT.txt
+* Source: https://github.com/markedjs/marked
+* License file: licenses/MARKED.txt
 
 == Development ==
 

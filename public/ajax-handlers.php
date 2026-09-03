@@ -140,9 +140,6 @@ class AJAX_Handlers {
         add_action('wp_ajax_chatpr_send_chat_message', array($this, 'send_chat_message'));
         add_action('wp_ajax_chatpr_stream_chat_message', array($this, 'stream_chat_message'));
         add_action('wp_ajax_chatpr_load_chat_history', array($this, 'load_chat_history'));
-
-        // Direct streaming via admin-post.php (bypasses admin-ajax buffering)
-        add_action('admin_post_chatpr_direct_stream', array($this, 'direct_stream_chat_message'));
         add_action('wp_ajax_chatpr_new_chat', array($this, 'new_chat'));
         add_action('wp_ajax_chatpr_get_chat_list', array($this, 'get_chat_list'));
         add_action('wp_ajax_chatpr_rename_chat', array($this, 'rename_chat'));
@@ -164,6 +161,13 @@ class AJAX_Handlers {
 
         // Project instructions
         add_action('wp_ajax_chatpr_update_project_instructions', array($this, 'update_project_instructions'));
+
+        // Auto-RAG content indexing
+        add_action( 'wp_ajax_chatpr_start_indexing', array( $this, 'start_indexing' ) );
+        add_action( 'wp_ajax_chatpr_get_index_progress', array( $this, 'get_index_progress' ) );
+        add_action( 'wp_ajax_chatpr_cancel_indexing', array( $this, 'cancel_indexing' ) );
+        add_action( 'wp_ajax_chatpr_get_index_status', array( $this, 'get_index_status' ) );
+        add_action( 'wp_ajax_chatpr_clear_index', array( $this, 'clear_index' ) );
     }
     
     // ==================== PROJECT MANAGEMENT ====================
@@ -832,238 +836,6 @@ class AJAX_Handlers {
             $this->send_sse_error('Server error: ' . $e->getMessage());
         }
 
-        exit;
-    }
-
-    /**
-     * Direct stream chat message via admin-post.php
-     * This bypasses admin-ajax.php which has buffering issues on some servers
-     */
-    public function direct_stream_chat_message() {
-        // Disable ALL output buffering FIRST
-        while (ob_get_level()) {
-            ob_end_clean();
-        }
-
-        // Set SSE headers immediately
-        header('Content-Type: text/event-stream; charset=utf-8');
-        header('Cache-Control: no-cache, no-store, must-revalidate, private');
-        header('Pragma: no-cache');
-        header('Expires: 0');
-        header('X-Accel-Buffering: no');
-        header('Connection: keep-alive');
-        header('X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off');
-        header('X-LiteSpeed-Tag: no-cache');
-
-        if (function_exists('ini_set')) {
-            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE streaming
-            @ini_set('zlib.output_compression', '0');
-            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE streaming
-            @ini_set('implicit_flush', '1');
-            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE streaming
-            @ini_set('output_buffering', '0');
-        }
-        @ob_implicit_flush(true);
-
-        // Send 16KB padding to fill server buffer
-        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Safe: SSE padding with spaces only
-        echo ':' . str_repeat(' ', 16384) . "\n\n";
-        @flush();
-
-        // Verify nonce - use manual check since check_ajax_referer expects admin-ajax
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified below
-        $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
-        if (!wp_verify_nonce($nonce, 'chatpr_ajax_nonce')) {
-            $this->send_sse_error('Invalid security token');
-            exit;
-        }
-
-        if (!is_user_logged_in()) {
-            $this->send_sse_error('You must be logged in');
-            exit;
-        }
-
-        $project_id = $this->get_post_value('project_id', 'absint', 0);
-        $message = $this->get_post_value('message', 'sanitize_textarea_field', '');
-        $thread_id = $this->get_post_value('thread_id', 'sanitize_text_field', '');
-
-        if (empty($message)) {
-            $this->send_sse_error('Message is required');
-            exit;
-        }
-
-        if (empty($project_id)) {
-            $this->send_sse_error('Project ID is required');
-            exit;
-        }
-
-        if (!Access::can_access_project($project_id)) {
-            $this->send_sse_error('Access denied');
-            exit;
-        }
-
-        global $wpdb;
-        $chats_table = $wpdb->prefix . 'chatprojects_chats';
-        $chats_table_sql = esc_sql($chats_table);
-        $user_id = get_current_user_id();
-
-        // Get or create chat
-        $chat_id = null;
-        if (!empty($thread_id)) {
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table requires direct query
-            $chat = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT * FROM {$chats_table} WHERE id = %d AND project_id = %d AND user_id = %d",
-                    intval($thread_id),
-                    $project_id,
-                    $user_id
-                )
-            );
-            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
-            if ($chat) {
-                $chat_id = $chat->id;
-            }
-        }
-
-        if (empty($chat_id)) {
-            $chat_id = $this->get_chat_interface()->create_chat($project_id);
-            if (is_wp_error($chat_id)) {
-                $this->send_sse_error($chat_id->get_error_message());
-                exit;
-            }
-        }
-
-        // Get project settings
-        $vector_store_id = get_post_meta($project_id, '_cp_vector_store_id', true);
-        if (empty($vector_store_id)) {
-            $this->send_sse_error('No vector store configured for this project');
-            exit;
-        }
-
-        $instructions = get_post_meta($project_id, '_cp_instructions', true);
-        if (empty($instructions)) {
-            $instructions = get_option('chatprojects_assistant_instructions', '');
-        }
-
-        $model = get_post_meta($project_id, '_cp_model', true);
-        if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
-        }
-
-        // Store user message
-        $messages_table = $wpdb->prefix . 'chatprojects_messages';
-        $messages_table_sql = esc_sql($messages_table);
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
-        $wpdb->insert($messages_table, array(
-            'chat_id' => $chat_id,
-            'role' => 'user',
-            'content' => $message,
-            'created_at' => current_time('mysql'),
-        ), array('%d', '%s', '%s', '%s'));
-        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
-
-        // Get last response_id from previous assistant message for conversation chaining
-        $last_response_id = null;
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
-        $last_assistant_msg = $wpdb->get_row($wpdb->prepare(
-            "SELECT metadata FROM {$messages_table_sql} WHERE chat_id = %d AND role = 'assistant' ORDER BY id DESC LIMIT 1",
-            $chat_id
-        ));
-        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        if ($last_assistant_msg && !empty($last_assistant_msg->metadata)) {
-            $meta = json_decode($last_assistant_msg->metadata, true);
-            if (isset($meta['response_id'])) {
-                $last_response_id = $meta['response_id'];
-            }
-        }
-
-        // Clear buffers again before streaming
-        while (ob_get_level()) {
-            ob_end_clean();
-        }
-
-        // Stream the response
-        $assistant_content = '';
-        $sources = array();
-
-        $new_response_id = $this->get_api_handler()->stream_response_with_filesearch(
-            $message,
-            $vector_store_id,
-            function($chunk) use (&$assistant_content, &$sources) {
-                if (isset($chunk['type']) && $chunk['type'] === 'content') {
-                    $assistant_content .= $chunk['content'];
-                } elseif (isset($chunk['type']) && $chunk['type'] === 'sources') {
-                    $sources = $chunk['sources'];
-                }
-
-                echo 'data: ' . wp_json_encode($chunk) . "\n\n";
-
-                if (function_exists('litespeed_flush')) {
-                    litespeed_flush();
-                }
-                @ob_flush();
-                @flush();
-            },
-            $model,
-            $instructions,
-            array(),
-            $last_response_id
-        );
-
-        // Store assistant message with response_id for conversation chaining
-        if (!empty($assistant_content)) {
-            // Build metadata with sources and response_id
-            $metadata = array();
-            if (!empty($sources)) {
-                $metadata['sources'] = $sources;
-            }
-            if (!empty($new_response_id)) {
-                $metadata['response_id'] = $new_response_id;
-            }
-
-            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
-            $wpdb->insert($messages_table, array(
-                'chat_id' => $chat_id,
-                'role' => 'assistant',
-                'content' => $assistant_content,
-                'metadata' => !empty($metadata) ? wp_json_encode($metadata) : null,
-                'created_at' => current_time('mysql'),
-            ), array('%d', '%s', '%s', '%s', '%s'));
-            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
-        }
-
-        // Send chat_id
-        $this->send_sse_data(array('type' => 'chat_id', 'chat_id' => $chat_id));
-
-        // Update message count
-        $chats_table = $wpdb->prefix . 'chatprojects_chats';
-        $chats_table_sql = esc_sql($chats_table);
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
-        $chat = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM `{$chats_table_sql}` WHERE id = %d",
-                $chat_id
-            )
-        );
-        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-        if ($chat) {
-            $new_count = $chat->message_count + 2;
-            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
-            $wpdb->update(
-                $chats_table,
-                array(
-                    'message_count' => $new_count,
-                    'updated_at' => current_time('mysql')
-                ),
-                array('id' => $chat_id),
-                array('%d', '%s'),
-                array('%d')
-            );
-            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        }
-
-        $this->send_sse_done();
         exit;
     }
 
@@ -1749,6 +1521,151 @@ class AJAX_Handlers {
             'instructions' => $instructions,
             'preview' => wp_trim_words($instructions, 30, '...')
         ));
+    }
+
+    // ==================== AUTO-RAG CONTENT INDEXING ====================
+
+    /**
+     * Start batch indexing of WordPress content into a project's vector store.
+     */
+    public function start_indexing() {
+        check_ajax_referer( 'chatpr_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'You do not have permission to manage content indexing.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $project_id = $this->get_post_value( 'project_id', 'absint', 0 );
+        if ( empty( $project_id ) ) {
+            wp_send_json_error( array( 'message' => __( 'Project ID is required.', 'chatprojects' ) ) );
+            return;
+        }
+
+        // Sanitize post_types array.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified above via check_ajax_referer
+        $post_types = array();
+        if ( isset( $_POST['post_types'] ) && is_array( $_POST['post_types'] ) ) {
+            $raw_types  = wp_unslash( $_POST['post_types'] );
+            $post_types = array_map( 'sanitize_key', $raw_types );
+        }
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+        $indexer = new Content_Indexer();
+        $result  = $indexer->start_batch_index( $project_id, $post_types );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+            return;
+        }
+
+        wp_send_json_success( $result );
+    }
+
+    /**
+     * Get indexing progress for a project.
+     */
+    public function get_index_progress() {
+        check_ajax_referer( 'chatpr_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $project_id = $this->get_post_value( 'project_id', 'absint', 0 );
+        if ( empty( $project_id ) ) {
+            wp_send_json_error( array( 'message' => __( 'Project ID is required.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $indexer = new Content_Indexer();
+        $job     = $indexer->get_job_status( $project_id );
+
+        if ( ! $job ) {
+            wp_send_json_error( array( 'message' => __( 'No indexing job found for this project.', 'chatprojects' ) ) );
+            return;
+        }
+
+        wp_send_json_success( $job );
+    }
+
+    /**
+     * Cancel a running indexing job.
+     */
+    public function cancel_indexing() {
+        check_ajax_referer( 'chatpr_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $project_id = $this->get_post_value( 'project_id', 'absint', 0 );
+        if ( empty( $project_id ) ) {
+            wp_send_json_error( array( 'message' => __( 'Project ID is required.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $indexer   = new Content_Indexer();
+        $cancelled = $indexer->cancel_job( $project_id );
+
+        if ( ! $cancelled ) {
+            wp_send_json_error( array( 'message' => __( 'No running indexing job to cancel.', 'chatprojects' ) ) );
+            return;
+        }
+
+        wp_send_json_success( array( 'message' => __( 'Indexing job cancelled.', 'chatprojects' ) ) );
+    }
+
+    /**
+     * Get current index status for a project.
+     */
+    public function get_index_status() {
+        check_ajax_referer( 'chatpr_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $project_id = $this->get_post_value( 'project_id', 'absint', 0 );
+        if ( empty( $project_id ) ) {
+            wp_send_json_error( array( 'message' => __( 'Project ID is required.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $indexer = new Content_Indexer();
+        $status  = $indexer->get_index_status( $project_id );
+
+        wp_send_json_success( $status );
+    }
+
+    /**
+     * Clear all indexed content for a project.
+     */
+    public function clear_index() {
+        check_ajax_referer( 'chatpr_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $project_id = $this->get_post_value( 'project_id', 'absint', 0 );
+        if ( empty( $project_id ) ) {
+            wp_send_json_error( array( 'message' => __( 'Project ID is required.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $indexer = new Content_Indexer();
+        $deleted = $indexer->clear_index( $project_id );
+
+        wp_send_json_success( array(
+            /* translators: %d: Number of indexed items removed */
+            'message' => sprintf( __( 'Cleared %d indexed items.', 'chatprojects' ), $deleted ),
+            'deleted' => $deleted,
+        ) );
     }
 }
 

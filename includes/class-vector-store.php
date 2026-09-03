@@ -117,6 +117,84 @@ class Vector_Store {
     }
 
     /**
+     * Upload content string as a file to vector store.
+     *
+     * Used by the Content Indexer to upload programmatically generated content
+     * (e.g. extracted WordPress post content) rather than user-uploaded files.
+     *
+     * @param int    $project_id Project ID.
+     * @param string $content    Text content to upload.
+     * @param string $filename   Filename for the uploaded file (e.g. wp-post-123.txt).
+     * @return array|\WP_Error File data array on success, WP_Error on failure.
+     */
+    public function upload_content_file( $project_id, $content, $filename ) {
+        // Get vector store ID.
+        $vector_store_id = get_post_meta( $project_id, '_cp_vector_store_id', true );
+
+        if ( empty( $vector_store_id ) ) {
+            return new \WP_Error( 'no_vector_store', __( 'Project does not have a vector store.', 'chatprojects' ) );
+        }
+
+        // Write content to a temporary file.
+        $tmp_file = wp_tempnam( $filename );
+        if ( ! $tmp_file ) {
+            return new \WP_Error( 'tmp_file_failed', __( 'Failed to create temporary file.', 'chatprojects' ) );
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing to temp file for API upload
+        $written = file_put_contents( $tmp_file, $content );
+        if ( false === $written ) {
+            wp_delete_file( $tmp_file );
+            return new \WP_Error( 'write_failed', __( 'Failed to write content to temporary file.', 'chatprojects' ) );
+        }
+
+        // Upload to OpenAI Files API.
+        $file = $this->api->upload_file( $tmp_file, 'assistants', $filename );
+
+        // Clean up temp file immediately.
+        wp_delete_file( $tmp_file );
+
+        if ( is_wp_error( $file ) ) {
+            return $file;
+        }
+
+        // Add file to vector store.
+        $result = $this->api->add_file_to_vector_store( $vector_store_id, $file['id'] );
+
+        if ( is_wp_error( $result ) ) {
+            // Clean up the orphaned file.
+            $this->api->delete_file( $file['id'] );
+            return $result;
+        }
+
+        $file_size = strlen( $content );
+
+        // Store file metadata in project post meta.
+        $files = get_post_meta( $project_id, '_cp_files', true );
+        if ( ! is_array( $files ) ) {
+            $files = array();
+        }
+
+        $files[] = array(
+            'file_id'     => $file['id'],
+            'filename'    => $filename,
+            'uploaded_at' => current_time( 'mysql' ),
+            'uploaded_by' => get_current_user_id(),
+            'size'        => $file_size,
+            'source'      => 'auto_rag',
+        );
+
+        update_post_meta( $project_id, '_cp_files', $files );
+
+        return array(
+            'id'         => $file['id'],
+            'filename'   => $filename,
+            'bytes'      => $file_size,
+            'created_at' => current_time( 'mysql' ),
+        );
+    }
+
+    /**
      * Delete file from vector store
      *
      * @param int    $project_id Project ID

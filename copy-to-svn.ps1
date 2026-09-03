@@ -15,7 +15,6 @@ $rootFiles = @(
     "chatprojects.php",
     "uninstall.php",
     "readme.txt",
-    "stream-endpoint.php"
 )
 
 # Folders to copy entirely

@@ -35,8 +35,13 @@ class Frontend {
         add_filter('the_content', array($this, 'inject_project_workspace'));
         add_shortcode('chatprojects_workspace', array($this, 'render_workspace'));
         add_shortcode('chatprojects_main', array($this, 'render_main_app'));
+        add_shortcode('chatprojects_widget', array($this, 'render_widget_shortcode'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_enqueue_scripts', array($this, 'dequeue_conflicting_scripts'), 999);
+        add_action('wp_enqueue_scripts', array($this, 'maybe_enqueue_widget_assets'));
+
+        // Widget auto-inject via wp_footer.
+        add_action('wp_footer', array($this, 'maybe_inject_widget'));
 
         // Hide admin bar on ChatProjects frontend pages
         add_filter('show_admin_bar', array($this, 'maybe_hide_admin_bar'));
@@ -1027,5 +1032,220 @@ class Frontend {
         </body>
         </html>
         <?php
+    }
+
+    // ==================== CHAT WIDGET ====================
+
+    /**
+     * Inline widget instances registered by shortcodes on the current page.
+     *
+     * @var array
+     */
+    private static $widget_instances = array();
+
+    /**
+     * Whether a floating widget override has been set by a shortcode on this page.
+     *
+     * @var array|null
+     */
+    private static $floating_override = null;
+
+    /**
+     * Render the widget shortcode.
+     *
+     * Usage:
+     *   [chatprojects_widget]                                → floating, global settings (backward compat)
+     *   [chatprojects_widget project="123"]                  → inline chat panel for project 123
+     *   [chatprojects_widget project="123" mode="floating"]  → floating bubble for project 123
+     *   [chatprojects_widget project="123" color="#e11d48" title="Support" welcome_message="Hi!" height="500"]
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string HTML output (empty for floating, container div for inline).
+     */
+    public function render_widget_shortcode( $atts ) {
+        $atts = shortcode_atts(
+            array(
+                'project'         => '',
+                'mode'            => '', // 'inline' or 'floating'. Auto-detected if empty.
+                'color'           => '',
+                'title'           => '',
+                'welcome_message' => '',
+                'placeholder'     => '',
+                'height'          => '500',
+            ),
+            $atts,
+            'chatprojects_widget'
+        );
+
+        $project_id = absint( $atts['project'] );
+
+        // Determine mode: default to 'inline' when project is specified, 'floating' otherwise.
+        $mode = sanitize_key( $atts['mode'] );
+        if ( ! in_array( $mode, array( 'inline', 'floating' ), true ) ) {
+            $mode = ! empty( $project_id ) ? 'inline' : 'floating';
+        }
+
+        $this->enqueue_widget_scripts();
+
+        // Two-step color validation: sanitize_hex_color() returns null on invalid input.
+        $color = ! empty( $atts['color'] ) ? sanitize_hex_color( $atts['color'] ) : '';
+
+        // Build per-instance config (shortcode overrides, with global defaults as fallback).
+        $instance_config = array(
+            'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+            'projectId'      => ! empty( $project_id ) ? $project_id : absint( get_option( 'chatprojects_widget_project_id', 0 ) ),
+            'mode'           => $mode,
+            'primaryColor'   => ! empty( $color ) ? $color : sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
+            'title'          => ! empty( $atts['title'] ) ? sanitize_text_field( $atts['title'] ) : get_bloginfo( 'name' ),
+            'welcomeMessage' => ! empty( $atts['welcome_message'] ) ? wp_kses_post( $atts['welcome_message'] ) : wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
+            'placeholder'    => ! empty( $atts['placeholder'] ) ? esc_attr( $atts['placeholder'] ) : esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
+            'showBranding'   => defined( 'CHATPROJECTS_PRO_VERSION' ) ? (bool) get_option( 'chatprojects_widget_show_branding', true ) : true,
+            'siteName'       => get_bloginfo( 'name' ),
+            'height'         => absint( $atts['height'] ),
+            'position'       => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
+        );
+
+        if ( 'inline' === $mode ) {
+            // Register inline instance.
+            $instance_id                    = count( self::$widget_instances );
+            $instance_config['instanceId']  = $instance_id;
+            self::$widget_instances[]       = $instance_config;
+
+            return '<div class="cpw-inline-mount" data-cpw-instance="' . esc_attr( $instance_id ) . '"></div>';
+        }
+
+        // Floating mode with project override — store for use in enqueue_widget_scripts.
+        if ( ! empty( $project_id ) ) {
+            self::$floating_override = $instance_config;
+        }
+
+        return '';
+    }
+
+    /**
+     * Conditionally enqueue widget assets on frontend pages.
+     *
+     * Only loads when the widget is enabled and should appear on the current page.
+     */
+    public function maybe_enqueue_widget_assets() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        // Auto-inject mode: enqueue on all frontend pages if globally enabled.
+        if ( get_option( 'chatprojects_widget_enabled', false ) && get_option( 'chatprojects_widget_auto_inject', false ) ) {
+            $this->enqueue_widget_scripts();
+            return;
+        }
+
+        // Shortcode mode: check if current post has the shortcode.
+        global $post;
+        if ( $post && has_shortcode( $post->post_content, 'chatprojects_widget' ) ) {
+            $this->enqueue_widget_scripts();
+        }
+    }
+
+    /**
+     * Auto-inject widget HTML into wp_footer when auto-inject is enabled.
+     */
+    public function maybe_inject_widget() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        if ( ! get_option( 'chatprojects_widget_enabled', false ) ) {
+            return;
+        }
+
+        if ( ! get_option( 'chatprojects_widget_auto_inject', false ) ) {
+            return;
+        }
+
+        // The widget div is created by the JS bundle, so we just need
+        // to ensure the scripts are enqueued (handled by maybe_enqueue_widget_assets).
+    }
+
+    /**
+     * Enqueue widget JavaScript and CSS.
+     *
+     * Config data is NOT output here — it is deferred to a wp_footer callback
+     * so that all shortcodes on the page have been processed first.
+     */
+    private function enqueue_widget_scripts() {
+        static $enqueued = false;
+        if ( $enqueued ) {
+            return;
+        }
+        $enqueued = true;
+
+        $widget_js_path  = CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/widget.js';
+        $widget_css_path = CHATPROJECTS_PLUGIN_DIR . 'assets/src/css/widget.css';
+
+        // Widget CSS (standalone, no build processing needed).
+        if ( file_exists( $widget_css_path ) ) {
+            wp_enqueue_style(
+                'chatprojects-widget',
+                CHATPROJECTS_PLUGIN_URL . 'assets/src/css/widget.css',
+                array(),
+                CHATPROJECTS_VERSION
+            );
+        }
+
+        // Widget JS.
+        if ( file_exists( $widget_js_path ) ) {
+            wp_enqueue_script(
+                'chatprojects-widget',
+                CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/widget.js',
+                array(),
+                CHATPROJECTS_VERSION,
+                true
+            );
+        }
+
+        // Add defer strategy for non-blocking load.
+        wp_script_add_data( 'chatprojects-widget', 'strategy', 'defer' );
+
+        // Defer config output to wp_footer so all shortcodes have been processed.
+        add_action( 'wp_footer', array( __CLASS__, 'output_widget_configs' ), 5 );
+    }
+
+    /**
+     * Output widget configuration data in wp_footer.
+     *
+     * Runs after all shortcodes have been processed, ensuring:
+     * - All inline instances are registered.
+     * - Floating override (if any) has been captured.
+     * - No phantom floating widget appears when only inline shortcodes are used.
+     */
+    public static function output_widget_configs() {
+        // Floating config: only when a shortcode override was set or global widget is enabled.
+        $floating_config = self::$floating_override;
+        if ( ! $floating_config && get_option( 'chatprojects_widget_enabled', false ) ) {
+            // Global floating widget (auto-inject or bare shortcode).
+            $floating_config = array(
+                'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+                'projectId'      => absint( get_option( 'chatprojects_widget_project_id', 0 ) ),
+                'mode'           => 'floating',
+                'position'       => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
+                'primaryColor'   => sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
+                'welcomeMessage' => wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
+                'placeholder'    => esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
+                'showBranding'   => defined( 'CHATPROJECTS_PRO_VERSION' ) ? (bool) get_option( 'chatprojects_widget_show_branding', true ) : true,
+                'siteName'       => get_bloginfo( 'name' ),
+            );
+        }
+
+        if ( $floating_config ) {
+            wp_localize_script( 'chatprojects-widget', 'chatprWidgetConfig', $floating_config );
+        }
+
+        // Inline instances: output all registered instances.
+        if ( ! empty( self::$widget_instances ) ) {
+            wp_add_inline_script(
+                'chatprojects-widget',
+                'window.chatprWidgetInstances = ' . wp_json_encode( self::$widget_instances ) . ';',
+                'before'
+            );
+        }
     }
 }

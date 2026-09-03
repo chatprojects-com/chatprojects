@@ -21,6 +21,13 @@ if (!defined('ABSPATH')) {
  */
 class Settings {
     /**
+     * Singleton instance for fallback access.
+     *
+     * @var Settings|null
+     */
+    private static $instance = null;
+
+    /**
      * Tracks intentional saves to prevent filter from blocking our own updates
      *
      * @var string|null
@@ -28,9 +35,19 @@ class Settings {
     private $intentional_save = null;
 
     /**
+     * Get the Settings instance.
+     *
+     * @return Settings|null
+     */
+    public static function get_instance() {
+        return self::$instance;
+    }
+
+    /**
      * Constructor
      */
     public function __construct() {
+        self::$instance = $this;
         // Ensure encryption key exists BEFORE any settings can be saved
         $this->ensure_encryption_key();
 
@@ -308,12 +325,12 @@ class Settings {
             )
         );
 
-        // AI Providers Section
+        // ==================== TAB: API Keys ====================
         add_settings_section(
             'chatprojects_providers_settings',
             __('AI Provider API Keys', 'chatprojects'),
             array($this, 'render_providers_settings_section'),
-            'chatprojects-settings'
+            'chatprojects-tab-api'
         );
 
         // OpenAI API Key (Required)
@@ -321,7 +338,7 @@ class Settings {
             'chatprojects_openai_key',
             __('OpenAI API Key', 'chatprojects') . ' <span style="color: #dc2626;">*</span>',
             array($this, 'render_openai_key_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-api',
             'chatprojects_providers_settings'
         );
 
@@ -330,7 +347,7 @@ class Settings {
             'chatprojects_gemini_key',
             __('Google Gemini API Key', 'chatprojects') . ' <span style="color: #6b7280; font-weight: normal; font-size: 12px;">(' . __('Optional', 'chatprojects') . ')</span>',
             array($this, 'render_gemini_key_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-api',
             'chatprojects_providers_settings'
         );
 
@@ -339,7 +356,7 @@ class Settings {
             'chatprojects_anthropic_key',
             __('Anthropic API Key', 'chatprojects') . ' <span style="color: #6b7280; font-weight: normal; font-size: 12px;">(' . __('Optional', 'chatprojects') . ')</span>',
             array($this, 'render_anthropic_key_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-api',
             'chatprojects_providers_settings'
         );
 
@@ -348,7 +365,7 @@ class Settings {
             'chatprojects_chutes_key',
             __('Chutes.ai API Key', 'chatprojects') . ' <span style="color: #6b7280; font-weight: normal; font-size: 12px;">(' . __('Optional', 'chatprojects') . ')</span>',
             array($this, 'render_chutes_key_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-api',
             'chatprojects_providers_settings'
         );
 
@@ -357,16 +374,16 @@ class Settings {
             'chatprojects_openrouter_key',
             __('OpenRouter API Key', 'chatprojects') . ' <span style="color: #6b7280; font-weight: normal; font-size: 12px;">(' . __('Optional', 'chatprojects') . ')</span>',
             array($this, 'render_openrouter_key_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-api',
             'chatprojects_providers_settings'
         );
 
-        // Chat Settings Section
+        // ==================== TAB: Chat ====================
         add_settings_section(
             'chatprojects_general_chat_settings',
-            __('Chat Settings', 'chatprojects'),
+            __('General Chat', 'chatprojects'),
             array($this, 'render_general_chat_settings_section'),
-            'chatprojects-settings'
+            'chatprojects-tab-chat'
         );
 
         // Default Provider for General Chat
@@ -374,7 +391,7 @@ class Settings {
             'chatprojects_general_chat_provider',
             __('Default Provider', 'chatprojects'),
             array($this, 'render_general_chat_provider_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_general_chat_settings'
         );
 
@@ -383,7 +400,7 @@ class Settings {
             'chatprojects_general_chat_model',
             __('Default Model', 'chatprojects'),
             array($this, 'render_general_chat_model_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_general_chat_settings'
         );
 
@@ -392,16 +409,16 @@ class Settings {
             'chatprojects_assistant_instructions',
             __('Assistant Instructions', 'chatprojects'),
             array($this, 'render_assistant_instructions_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_general_chat_settings'
         );
 
         // Project Assistant Settings Section
         add_settings_section(
             'chatprojects_project_settings',
-            __('Project Assistant Settings', 'chatprojects'),
+            __('Project Assistant', 'chatprojects'),
             array($this, 'render_project_settings_section'),
-            'chatprojects-settings'
+            'chatprojects-tab-chat'
         );
 
         // Default Model for Projects
@@ -409,16 +426,16 @@ class Settings {
             'chatprojects_default_model',
             __('Default Model', 'chatprojects'),
             array($this, 'render_model_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_project_settings'
         );
 
         // File Settings Section
         add_settings_section(
             'chatprojects_file_settings',
-            __('File Settings', 'chatprojects'),
+            __('File Upload', 'chatprojects'),
             array($this, 'render_file_settings_section'),
-            'chatprojects-settings'
+            'chatprojects-tab-chat'
         );
 
         // Max File Size
@@ -426,7 +443,7 @@ class Settings {
             'chatprojects_max_file_size',
             __('Max File Size (MB)', 'chatprojects'),
             array($this, 'render_file_size_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_file_settings'
         );
 
@@ -435,8 +452,213 @@ class Settings {
             'chatprojects_allowed_file_types',
             __('Allowed File Types', 'chatprojects'),
             array($this, 'render_file_types_field'),
-            'chatprojects-settings',
+            'chatprojects-tab-chat',
             'chatprojects_file_settings'
+        );
+
+        // ==================== TAB: Chat Widget ====================
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_enabled',
+            array(
+                'type'              => 'boolean',
+                'sanitize_callback' => 'rest_sanitize_boolean',
+                'default'           => false,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_project_id',
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 0,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_position',
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => 'bottom-right',
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_primary_color',
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_hex_color',
+                'default'           => '#2563eb',
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_welcome_message',
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_textarea_field',
+                'default'           => '',
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_placeholder',
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => '',
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_auto_inject',
+            array(
+                'type'              => 'boolean',
+                'sanitize_callback' => 'rest_sanitize_boolean',
+                'default'           => false,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_rate_limit_msgs',
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 20,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_rate_limit_sessions',
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 5,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
+            'chatprojects_widget_show_branding',
+            array(
+                'type'              => 'boolean',
+                'sanitize_callback' => 'rest_sanitize_boolean',
+                'default'           => true,
+            )
+        );
+
+        // Widget General Section
+        add_settings_section(
+            'chatprojects_widget_general',
+            __( 'General', 'chatprojects' ),
+            array( $this, 'render_widget_settings_section' ),
+            'chatprojects-tab-widget'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_enabled',
+            __( 'Enable Widget', 'chatprojects' ),
+            array( $this, 'render_widget_enabled_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_general'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_project_id',
+            __( 'Project', 'chatprojects' ),
+            array( $this, 'render_widget_project_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_general'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_auto_inject',
+            __( 'Auto-inject on All Pages', 'chatprojects' ),
+            array( $this, 'render_widget_auto_inject_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_general'
+        );
+
+        // Widget Appearance Section
+        add_settings_section(
+            'chatprojects_widget_appearance',
+            __( 'Appearance', 'chatprojects' ),
+            '__return_false',
+            'chatprojects-tab-widget'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_position',
+            __( 'Position', 'chatprojects' ),
+            array( $this, 'render_widget_position_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_appearance'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_primary_color',
+            __( 'Primary Color', 'chatprojects' ),
+            array( $this, 'render_widget_color_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_appearance'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_welcome_message',
+            __( 'Welcome Message', 'chatprojects' ),
+            array( $this, 'render_widget_welcome_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_appearance'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_placeholder',
+            __( 'Input Placeholder', 'chatprojects' ),
+            array( $this, 'render_widget_placeholder_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_appearance'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_show_branding',
+            __( 'Show Branding', 'chatprojects' ),
+            array( $this, 'render_widget_branding_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_appearance'
+        );
+
+        // Widget Rate Limiting Section
+        add_settings_section(
+            'chatprojects_widget_limits',
+            __( 'Rate Limiting', 'chatprojects' ),
+            '__return_false',
+            'chatprojects-tab-widget'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_rate_limit_msgs',
+            __( 'Message Limit', 'chatprojects' ),
+            array( $this, 'render_widget_rate_limit_msgs_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_limits'
+        );
+
+        add_settings_field(
+            'chatprojects_widget_rate_limit_sessions',
+            __( 'Session Limit', 'chatprojects' ),
+            array( $this, 'render_widget_rate_limit_sessions_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_limits'
         );
     }
 
@@ -840,6 +1062,216 @@ class Settings {
         <p class="description">
             <?php esc_html_e('Default instructions for the AI assistant. These will be included in every chat session unless overridden by project-specific instructions.', 'chatprojects'); ?>
         </p>
+        <?php
+    }
+
+    /**
+     * Render widget settings section
+     */
+    public function render_widget_settings_section() {
+        echo '<p>' . esc_html__( 'Configure the default chat widget. These settings apply to the global floating widget and serve as defaults for shortcode-based chatbots. Use shortcodes to embed project-specific chatbots on any page — see the reference below.', 'chatprojects' ) . '</p>';
+    }
+
+    /**
+     * Render widget enabled toggle
+     */
+    public function render_widget_enabled_field() {
+        $enabled = get_option( 'chatprojects_widget_enabled', false );
+        ?>
+        <label>
+            <input type="checkbox"
+                   id="chatprojects_widget_enabled"
+                   name="chatprojects_widget_enabled"
+                   value="1"
+                   <?php checked( $enabled ); ?> />
+            <?php esc_html_e( 'Enable the chat widget on the frontend', 'chatprojects' ); ?>
+        </label>
+        <?php
+    }
+
+    /**
+     * Render widget project selector
+     */
+    public function render_widget_project_field() {
+        $project_id = get_option( 'chatprojects_widget_project_id', 0 );
+        $projects   = get_posts(
+            array(
+                'post_type'      => 'chatpr_project',
+                'post_status'    => 'publish',
+                'posts_per_page' => 100,
+                'orderby'        => 'title',
+                'order'          => 'ASC',
+            )
+        );
+        ?>
+        <select id="chatprojects_widget_project_id" name="chatprojects_widget_project_id">
+            <option value="0"><?php esc_html_e( '— Select a project —', 'chatprojects' ); ?></option>
+            <?php foreach ( $projects as $project ) : ?>
+                <option value="<?php echo esc_attr( $project->ID ); ?>" <?php selected( $project_id, $project->ID ); ?>>
+                    <?php echo esc_html( $project->post_title ); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <p class="description">
+            <?php esc_html_e( 'Select the project whose indexed content the widget will use. The project must have a vector store with indexed content.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget position field
+     */
+    public function render_widget_position_field() {
+        $position = get_option( 'chatprojects_widget_position', 'bottom-right' );
+        ?>
+        <select id="chatprojects_widget_position" name="chatprojects_widget_position">
+            <option value="bottom-right" <?php selected( $position, 'bottom-right' ); ?>>
+                <?php esc_html_e( 'Bottom Right', 'chatprojects' ); ?>
+            </option>
+            <option value="bottom-left" <?php selected( $position, 'bottom-left' ); ?>>
+                <?php esc_html_e( 'Bottom Left', 'chatprojects' ); ?>
+            </option>
+        </select>
+        <p class="description">
+            <?php esc_html_e( 'Position of the chat bubble on the page.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget primary color field
+     */
+    public function render_widget_color_field() {
+        $color = get_option( 'chatprojects_widget_primary_color', '#2563eb' );
+        ?>
+        <input type="text"
+               id="chatprojects_widget_primary_color"
+               name="chatprojects_widget_primary_color"
+               value="<?php echo esc_attr( $color ); ?>"
+               class="regular-text"
+               placeholder="#2563eb" />
+        <p class="description">
+            <?php esc_html_e( 'Primary color for the widget (hex format, e.g. #2563eb).', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget welcome message field
+     */
+    public function render_widget_welcome_field() {
+        $message = get_option( 'chatprojects_widget_welcome_message', '' );
+        ?>
+        <textarea id="chatprojects_widget_welcome_message"
+                  name="chatprojects_widget_welcome_message"
+                  rows="3"
+                  class="large-text"
+                  placeholder="<?php esc_attr_e( 'Hello! How can I help you today?', 'chatprojects' ); ?>"><?php echo esc_textarea( $message ); ?></textarea>
+        <p class="description">
+            <?php esc_html_e( 'Message displayed when a visitor first opens the chat widget. Leave blank for default.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget placeholder field
+     */
+    public function render_widget_placeholder_field() {
+        $placeholder = get_option( 'chatprojects_widget_placeholder', '' );
+        ?>
+        <input type="text"
+               id="chatprojects_widget_placeholder"
+               name="chatprojects_widget_placeholder"
+               value="<?php echo esc_attr( $placeholder ); ?>"
+               class="regular-text"
+               placeholder="<?php esc_attr_e( 'Type your message...', 'chatprojects' ); ?>" />
+        <p class="description">
+            <?php esc_html_e( 'Placeholder text in the message input field. Leave blank for default.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget auto-inject toggle
+     */
+    public function render_widget_auto_inject_field() {
+        $auto_inject = get_option( 'chatprojects_widget_auto_inject', false );
+        ?>
+        <label>
+            <input type="checkbox"
+                   id="chatprojects_widget_auto_inject"
+                   name="chatprojects_widget_auto_inject"
+                   value="1"
+                   <?php checked( $auto_inject ); ?> />
+            <?php esc_html_e( 'Automatically display the widget on all frontend pages', 'chatprojects' ); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e( 'When disabled, use the [chatprojects_widget] shortcode to place the widget on specific pages.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget message rate limit field
+     */
+    public function render_widget_rate_limit_msgs_field() {
+        $limit = get_option( 'chatprojects_widget_rate_limit_msgs', 20 );
+        ?>
+        <input type="number"
+               id="chatprojects_widget_rate_limit_msgs"
+               name="chatprojects_widget_rate_limit_msgs"
+               value="<?php echo esc_attr( $limit ); ?>"
+               min="1"
+               max="200"
+               class="small-text" />
+        <span><?php esc_html_e( 'messages per session per hour', 'chatprojects' ); ?></span>
+        <p class="description">
+            <?php esc_html_e( 'Maximum number of messages a visitor can send per hour.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget session rate limit field
+     */
+    public function render_widget_rate_limit_sessions_field() {
+        $limit = get_option( 'chatprojects_widget_rate_limit_sessions', 5 );
+        ?>
+        <input type="number"
+               id="chatprojects_widget_rate_limit_sessions"
+               name="chatprojects_widget_rate_limit_sessions"
+               value="<?php echo esc_attr( $limit ); ?>"
+               min="1"
+               max="50"
+               class="small-text" />
+        <span><?php esc_html_e( 'new sessions per IP per hour', 'chatprojects' ); ?></span>
+        <p class="description">
+            <?php esc_html_e( 'Maximum number of new chat sessions a single IP address can create per hour.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render widget branding toggle
+     */
+    public function render_widget_branding_field() {
+        $show_branding = get_option( 'chatprojects_widget_show_branding', true );
+        $is_pro        = defined( 'CHATPROJECTS_PRO' ) && CHATPROJECTS_PRO;
+        ?>
+        <label>
+            <input type="checkbox"
+                   id="chatprojects_widget_show_branding"
+                   name="chatprojects_widget_show_branding"
+                   value="1"
+                   <?php checked( $show_branding ); ?>
+                   <?php disabled( ! $is_pro ); ?> />
+            <?php esc_html_e( 'Display "Powered by ChatProjects" in the widget', 'chatprojects' ); ?>
+        </label>
+        <?php if ( ! $is_pro ) : ?>
+            <p class="description">
+                <?php esc_html_e( 'Branding is always shown in the free version. Upgrade to Pro to remove it.', 'chatprojects' ); ?>
+            </p>
+        <?php endif; ?>
         <?php
     }
 

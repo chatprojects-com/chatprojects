@@ -43,7 +43,27 @@ class Metaboxes {
             'high'
         );
 
+        // Auto-RAG Content Indexing metabox
+        add_meta_box(
+            'chatprojects_auto_rag',
+            __( 'Content Index (Auto-RAG)', 'chatprojects' ),
+            array( $this, 'render_auto_rag_metabox' ),
+            'chatpr_project',
+            'normal',
+            'default'
+        );
+
         // Sharing Settings metabox removed from Free version
+
+        // Embed as Chatbot — shows copy-ready shortcodes in sidebar.
+        add_meta_box(
+            'chatprojects_widget_shortcode',
+            __( 'Embed as Chatbot', 'chatprojects' ),
+            array( $this, 'render_widget_shortcode_metabox' ),
+            'chatpr_project',
+            'side',
+            'default'
+        );
 
         // Prompt metaboxes
         add_meta_box(
@@ -210,6 +230,312 @@ class Metaboxes {
             });
         });";
         wp_print_inline_script_tag($variables_script, array('id' => 'chatprojects-variables-script'));
+    }
+
+    /**
+     * Render "Embed as Chatbot" sidebar metabox.
+     *
+     * Shows copy-ready shortcodes when the project has a vector store.
+     *
+     * @param \WP_Post $post Post object.
+     */
+    public function render_widget_shortcode_metabox( $post ) {
+        $vector_store_id = get_post_meta( $post->ID, '_cp_vector_store_id', true );
+        $post_id         = absint( $post->ID );
+        $settings_url    = admin_url( 'admin.php?page=chatprojects-settings&tab=widget' );
+
+        if ( empty( $vector_store_id ) ) {
+            echo '<p class="description" style="margin:0;">';
+            esc_html_e( 'Index content first using Content Index (Auto-RAG), then come back here to get your embed shortcode.', 'chatprojects' );
+            echo '</p>';
+            return;
+        }
+        ?>
+        <style>
+            .cpw-embed-row { margin-bottom: 12px; }
+            .cpw-embed-row:last-of-type { margin-bottom: 8px; }
+            .cpw-embed-label { display: block; font-weight: 600; font-size: 12px; color: #1d2327; margin-bottom: 4px; }
+            .cpw-embed-field { display: flex; align-items: center; gap: 4px; }
+            .cpw-embed-field code { flex: 1; background: #f0f0f1; padding: 6px 8px; border-radius: 3px; font-size: 11.5px; word-break: break-all; line-height: 1.4; user-select: all; }
+            .cpw-embed-copy { background: none; border: 1px solid #c3c4c7; border-radius: 3px; padding: 4px 6px; cursor: pointer; color: #50575e; flex-shrink: 0; line-height: 1; }
+            .cpw-embed-copy:hover { color: #2271b1; border-color: #2271b1; }
+            .cpw-embed-copy .dashicons { font-size: 16px; width: 16px; height: 16px; }
+            .cpw-embed-copy.cpw-copied { color: #00a32a; border-color: #00a32a; }
+            .cpw-embed-note { font-size: 12px; color: #50575e; line-height: 1.5; margin-top: 8px; }
+            .cpw-embed-note a { color: #2271b1; text-decoration: none; }
+            .cpw-embed-note a:hover { text-decoration: underline; }
+        </style>
+
+        <div class="cpw-embed-row">
+            <span class="cpw-embed-label"><?php esc_html_e( 'Inline (embedded in page)', 'chatprojects' ); ?></span>
+            <div class="cpw-embed-field">
+                <code>[chatprojects_widget project="<?php echo esc_attr( $post_id ); ?>"]</code>
+                <button type="button" class="cpw-embed-copy" data-shortcode='[chatprojects_widget project="<?php echo esc_attr( $post_id ); ?>"]' title="<?php esc_attr_e( 'Copy', 'chatprojects' ); ?>">
+                    <span class="dashicons dashicons-clipboard"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="cpw-embed-row">
+            <span class="cpw-embed-label"><?php esc_html_e( 'Floating (chat bubble)', 'chatprojects' ); ?></span>
+            <div class="cpw-embed-field">
+                <code>[chatprojects_widget project="<?php echo esc_attr( $post_id ); ?>" mode="floating"]</code>
+                <button type="button" class="cpw-embed-copy" data-shortcode='[chatprojects_widget project="<?php echo esc_attr( $post_id ); ?>" mode="floating"]' title="<?php esc_attr_e( 'Copy', 'chatprojects' ); ?>">
+                    <span class="dashicons dashicons-clipboard"></span>
+                </button>
+            </div>
+        </div>
+
+        <p class="cpw-embed-note">
+            <?php esc_html_e( 'Paste into any page or post.', 'chatprojects' ); ?>
+            <?php
+            printf(
+                /* translators: %s: link to widget settings */
+                esc_html__( 'Customize with color, title, height — see %s.', 'chatprojects' ),
+                '<a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'full attribute reference', 'chatprojects' ) . '</a>'
+            );
+            ?>
+        </p>
+
+        <script>
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('.cpw-embed-copy');
+                if (!btn) return;
+                var shortcode = btn.getAttribute('data-shortcode');
+                navigator.clipboard.writeText(shortcode).then(function() {
+                    btn.classList.add('cpw-copied');
+                    var icon = btn.querySelector('.dashicons');
+                    if (icon) { icon.className = 'dashicons dashicons-yes'; }
+                    setTimeout(function() {
+                        btn.classList.remove('cpw-copied');
+                        if (icon) { icon.className = 'dashicons dashicons-clipboard'; }
+                    }, 1500);
+                });
+            });
+        </script>
+        <?php
+    }
+
+    /**
+     * Render Auto-RAG content indexing metabox.
+     *
+     * @param \WP_Post $post Post object.
+     */
+    public function render_auto_rag_metabox( $post ) {
+        $vector_store_id = get_post_meta( $post->ID, '_cp_vector_store_id', true );
+
+        if ( empty( $vector_store_id ) ) {
+            echo '<p>' . esc_html__( 'Publish this project first to enable content indexing.', 'chatprojects' ) . '</p>';
+            return;
+        }
+
+        $indexer     = new \ChatProjects\Content_Indexer();
+        $status      = $indexer->get_index_status( $post->ID );
+        $job         = $indexer->get_job_status( $post->ID );
+        $post_types  = $indexer->get_indexable_post_types();
+        $is_running  = $job && 'running' === $job['status'];
+        ?>
+        <div id="chatpr-autorag" data-project-id="<?php echo esc_attr( $post->ID ); ?>">
+            <div class="chatpr-autorag-status" style="margin-bottom: 16px;">
+                <p>
+                    <strong><?php esc_html_e( 'Index Status:', 'chatprojects' ); ?></strong>
+                    <span id="chatpr-autorag-indexed"><?php echo absint( $status['indexed'] ); ?></span> /
+                    <span id="chatpr-autorag-available"><?php echo absint( $status['available'] ); ?></span>
+                    <?php esc_html_e( 'posts indexed', 'chatprojects' ); ?>
+                    <?php if ( $status['failed'] > 0 ) : ?>
+                        <span style="color: #d63638;">
+                            (<?php echo absint( $status['failed'] ); ?> <?php esc_html_e( 'failed', 'chatprojects' ); ?>)
+                        </span>
+                    <?php endif; ?>
+                </p>
+                <p class="description">
+                    <?php
+                    /* translators: %s: comma-separated list of post types */
+                    printf( esc_html__( 'Indexable post types: %s', 'chatprojects' ), esc_html( implode( ', ', $post_types ) ) );
+                    ?>
+                    <?php if ( ! defined( 'CHATPROJECTS_PRO_VERSION' ) ) : ?>
+                        <br>
+                        <?php
+                        /* translators: %d: maximum posts allowed in free version */
+                        printf( esc_html__( 'Free version limit: %d posts per project.', 'chatprojects' ), \ChatProjects\Content_Indexer::FREE_MAX_POSTS );
+                        ?>
+                    <?php endif; ?>
+                </p>
+            </div>
+
+            <div id="chatpr-autorag-progress" style="display: <?php echo $is_running ? 'block' : 'none'; ?>; margin-bottom: 16px;">
+                <div style="background: #f0f0f1; border-radius: 3px; overflow: hidden; height: 20px; margin-bottom: 8px;">
+                    <div id="chatpr-autorag-bar" style="background: #2271b1; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <p id="chatpr-autorag-progress-text" style="margin: 0; font-style: italic;"></p>
+            </div>
+
+            <div id="chatpr-autorag-errors" style="display: none; margin-bottom: 16px;">
+                <div class="notice notice-error inline" style="margin: 0;">
+                    <p><strong><?php esc_html_e( 'Indexing Errors:', 'chatprojects' ); ?></strong></p>
+                    <ul id="chatpr-autorag-error-list" style="margin-left: 16px; list-style: disc;"></ul>
+                </div>
+            </div>
+
+            <div class="chatpr-autorag-actions">
+                <button type="button" id="chatpr-autorag-start" class="button button-primary" <?php disabled( $is_running ); ?>>
+                    <?php esc_html_e( 'Index My Site', 'chatprojects' ); ?>
+                </button>
+                <button type="button" id="chatpr-autorag-cancel" class="button" style="display: <?php echo $is_running ? 'inline-block' : 'none'; ?>;">
+                    <?php esc_html_e( 'Cancel', 'chatprojects' ); ?>
+                </button>
+                <button type="button" id="chatpr-autorag-clear" class="button" <?php disabled( $status['total'] < 1 ); ?>>
+                    <?php esc_html_e( 'Clear Index', 'chatprojects' ); ?>
+                </button>
+            </div>
+        </div>
+        <?php
+        // Inline JS for the Auto-RAG metabox.
+        $autorag_script = $this->get_autorag_inline_script( $post->ID );
+        wp_print_inline_script_tag( $autorag_script, array( 'id' => 'chatprojects-autorag-script' ) );
+    }
+
+    /**
+     * Get inline JavaScript for the Auto-RAG metabox.
+     *
+     * @param int $project_id Project ID.
+     * @return string JavaScript code.
+     */
+    private function get_autorag_inline_script( $project_id ) {
+        $nonce      = wp_create_nonce( 'chatpr_ajax_nonce' );
+        $ajax_url   = admin_url( 'admin-ajax.php' );
+        $project_id = absint( $project_id );
+
+        $confirm_clear = esc_js( __( 'Are you sure you want to clear all indexed content? This will remove files from the vector store.', 'chatprojects' ) );
+        $indexing_text = esc_js( __( 'Indexing...', 'chatprojects' ) );
+        $complete_text = esc_js( __( 'Indexing complete!', 'chatprojects' ) );
+        $cancel_text   = esc_js( __( 'Indexing cancelled.', 'chatprojects' ) );
+
+        return <<<JS
+jQuery(document).ready(function($) {
+    var projectId = {$project_id};
+    var nonce = '{$nonce}';
+    var ajaxUrl = '{$ajax_url}';
+    var pollInterval = null;
+
+    function startIndexing() {
+        $.post(ajaxUrl, {
+            action: 'chatpr_start_indexing',
+            nonce: nonce,
+            project_id: projectId
+        }, function(response) {
+            if (response.success) {
+                $('#chatpr-autorag-start').prop('disabled', true);
+                $('#chatpr-autorag-cancel').show();
+                $('#chatpr-autorag-progress').show();
+                $('#chatpr-autorag-errors').hide();
+                startPolling();
+            } else {
+                alert(response.data.message);
+            }
+        });
+    }
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(pollProgress, 2000);
+    }
+
+    function pollProgress() {
+        $.post(ajaxUrl, {
+            action: 'chatpr_get_index_progress',
+            nonce: nonce,
+            project_id: projectId
+        }, function(response) {
+            if (!response.success) {
+                stopPolling();
+                return;
+            }
+            var job = response.data;
+            var pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0;
+            $('#chatpr-autorag-bar').css('width', pct + '%');
+            $('#chatpr-autorag-progress-text').text(
+                '{$indexing_text} ' + job.processed + ' / ' + job.total +
+                ' (' + job.indexed + ' indexed, ' + job.skipped + ' skipped, ' + job.failed + ' failed)'
+            );
+
+            if (job.status === 'completed' || job.status === 'cancelled') {
+                stopPolling();
+                $('#chatpr-autorag-start').prop('disabled', false);
+                $('#chatpr-autorag-cancel').hide();
+                if (job.status === 'completed') {
+                    $('#chatpr-autorag-progress-text').text('{$complete_text}');
+                } else {
+                    $('#chatpr-autorag-progress-text').text('{$cancel_text}');
+                }
+                refreshStatus();
+
+                if (job.errors && job.errors.length > 0) {
+                    var list = $('#chatpr-autorag-error-list').empty();
+                    $.each(job.errors, function(i, err) {
+                        list.append($('<li>').text(err.title + ': ' + err.error));
+                    });
+                    $('#chatpr-autorag-errors').show();
+                }
+            }
+        });
+    }
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    function refreshStatus() {
+        $.post(ajaxUrl, {
+            action: 'chatpr_get_index_status',
+            nonce: nonce,
+            project_id: projectId
+        }, function(response) {
+            if (response.success) {
+                $('#chatpr-autorag-indexed').text(response.data.indexed);
+                $('#chatpr-autorag-available').text(response.data.available);
+                $('#chatpr-autorag-clear').prop('disabled', response.data.total < 1);
+            }
+        });
+    }
+
+    $('#chatpr-autorag-start').on('click', startIndexing);
+
+    $('#chatpr-autorag-cancel').on('click', function() {
+        $.post(ajaxUrl, {
+            action: 'chatpr_cancel_indexing',
+            nonce: nonce,
+            project_id: projectId
+        });
+    });
+
+    $('#chatpr-autorag-clear').on('click', function() {
+        if (!confirm('{$confirm_clear}')) return;
+        var btn = $(this);
+        btn.prop('disabled', true);
+        $.post(ajaxUrl, {
+            action: 'chatpr_clear_index',
+            nonce: nonce,
+            project_id: projectId
+        }, function(response) {
+            if (response.success) {
+                refreshStatus();
+                $('#chatpr-autorag-progress').hide();
+                $('#chatpr-autorag-errors').hide();
+            }
+            btn.prop('disabled', false);
+        });
+    });
+
+    // If job was already running when page loaded, resume polling.
+    if ($('#chatpr-autorag-cancel').is(':visible')) {
+        startPolling();
+    }
+});
+JS;
     }
 
     /**

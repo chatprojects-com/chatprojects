@@ -24,7 +24,7 @@ class Installer {
      *
      * @var string
      */
-    const DB_VERSION = '1.1.0';
+    const DB_VERSION = '1.2.0';
 
     /**
      * Plugin activation
@@ -199,6 +199,8 @@ class Installer {
     public static function deactivate() {
         flush_rewrite_rules();
         wp_clear_scheduled_hook('chatprojects_cleanup_transients');
+        wp_clear_scheduled_hook('chatprojects_process_index_batch');
+        wp_clear_scheduled_hook('chatprojects_cleanup_widget_sessions');
 
         // Delete rewrite flush flag so reinstall triggers a fresh flush
         delete_option('chatprojects_rewrites_flushed');
@@ -254,10 +256,64 @@ class Installer {
             INDEX created_idx (created_at)
         ) $charset_collate;";
 
+        // Indexed content tracking table for Auto-RAG
+        $indexed_table = esc_sql( $wpdb->prefix . 'chatprojects_indexed_content' );
+        $indexed_sql   = "CREATE TABLE IF NOT EXISTS {$indexed_table} (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            project_id BIGINT UNSIGNED NOT NULL,
+            post_id BIGINT UNSIGNED NOT NULL,
+            post_type VARCHAR(50) NOT NULL,
+            file_id VARCHAR(255) DEFAULT NULL,
+            content_hash VARCHAR(64) NOT NULL,
+            status VARCHAR(20) DEFAULT 'pending',
+            error_message TEXT DEFAULT NULL,
+            indexed_at DATETIME DEFAULT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            UNIQUE KEY project_post (project_id, post_id),
+            INDEX status_idx (status)
+        ) $charset_collate;";
+
+        // Widget sessions table
+        $widget_sessions_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_sessions' );
+        $widget_sessions_sql   = "CREATE TABLE IF NOT EXISTS {$widget_sessions_table} (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            session_token VARCHAR(64) NOT NULL,
+            project_id BIGINT UNSIGNED DEFAULT NULL,
+            ip_address VARCHAR(45) NOT NULL,
+            user_agent VARCHAR(255) DEFAULT NULL,
+            message_count INT DEFAULT 0,
+            last_message_at DATETIME DEFAULT NULL,
+            lead_email VARCHAR(255) DEFAULT NULL,
+            lead_name VARCHAR(255) DEFAULT NULL,
+            metadata TEXT DEFAULT NULL,
+            created_at DATETIME NOT NULL,
+            expires_at DATETIME NOT NULL,
+            INDEX session_idx (session_token),
+            INDEX ip_idx (ip_address),
+            INDEX expires_idx (expires_at)
+        ) $charset_collate;";
+
+        // Widget messages table
+        $widget_messages_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_messages' );
+        $widget_messages_sql   = "CREATE TABLE IF NOT EXISTS {$widget_messages_table} (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            session_id BIGINT UNSIGNED NOT NULL,
+            role VARCHAR(20) NOT NULL,
+            content LONGTEXT NOT NULL,
+            metadata TEXT DEFAULT NULL,
+            created_at DATETIME NOT NULL,
+            INDEX session_idx (session_id),
+            INDEX created_idx (created_at)
+        ) $charset_collate;";
+
         // Execute table creation
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($chats_sql);
         dbDelta($messages_sql);
+        dbDelta($indexed_sql);
+        dbDelta($widget_sessions_sql);
+        dbDelta($widget_messages_sql);
 
         // Note: Transcriptions, Comparisons, and Licenses tables not created in Free version
 
@@ -317,6 +373,47 @@ class Installer {
             update_option('chatprojects_allowed_file_types', array(
                 'pdf', 'doc', 'docx', 'txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py', 'php'
             ));
+        }
+
+        // Widget defaults.
+        if ( get_option( 'chatprojects_widget_enabled' ) === false ) {
+            update_option( 'chatprojects_widget_enabled', false );
+        }
+
+        if ( get_option( 'chatprojects_widget_project_id' ) === false ) {
+            update_option( 'chatprojects_widget_project_id', 0 );
+        }
+
+        if ( get_option( 'chatprojects_widget_position' ) === false ) {
+            update_option( 'chatprojects_widget_position', 'bottom-right' );
+        }
+
+        if ( get_option( 'chatprojects_widget_primary_color' ) === false ) {
+            update_option( 'chatprojects_widget_primary_color', '#2563eb' );
+        }
+
+        if ( get_option( 'chatprojects_widget_welcome_message' ) === false ) {
+            update_option( 'chatprojects_widget_welcome_message', 'Hello! How can I help you today?' );
+        }
+
+        if ( get_option( 'chatprojects_widget_placeholder' ) === false ) {
+            update_option( 'chatprojects_widget_placeholder', 'Type your message...' );
+        }
+
+        if ( get_option( 'chatprojects_widget_auto_inject' ) === false ) {
+            update_option( 'chatprojects_widget_auto_inject', false );
+        }
+
+        if ( get_option( 'chatprojects_widget_rate_limit_msgs' ) === false ) {
+            update_option( 'chatprojects_widget_rate_limit_msgs', 20 );
+        }
+
+        if ( get_option( 'chatprojects_widget_rate_limit_sessions' ) === false ) {
+            update_option( 'chatprojects_widget_rate_limit_sessions', 5 );
+        }
+
+        if ( get_option( 'chatprojects_widget_show_branding' ) === false ) {
+            update_option( 'chatprojects_widget_show_branding', true );
         }
     }
 
