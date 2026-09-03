@@ -70,3 +70,4 @@ vendor/
 # Widget build config (source only)
 vite.widget.config.js
 build-zip.sh
+deploy.sh

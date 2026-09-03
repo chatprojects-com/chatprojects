@@ -39,6 +39,10 @@
 	<!-- Set minimum supported WordPress version -->
 	<config name="minimum_wp_version" value="6.6"/>
 
+	<!-- PHP compatibility: plugin supports PHP 8.0 and newer -->
+	<config name="testVersion" value="8.0-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
 	<!-- Set text domain for i18n -->
 	<rule ref="WordPress.WP.I18n">
 		<properties>

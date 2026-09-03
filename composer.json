@@ -5,7 +5,7 @@
         "php": ">=8.0"
     },
     "require-dev": {
-        "squizlabs/php_codesniffer": "^3.14",
+        "squizlabs/php_codesniffer": "^3.13.6",
         "phpcompatibility/phpcompatibility-wp": "^2.1",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
         "wp-coding-standards/wpcs": "^3.3"
