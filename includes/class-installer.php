@@ -223,88 +223,93 @@ class Installer {
         // Chat threads table (thread_id kept for backward compat but no longer used)
         $chats_table = esc_sql($wpdb->prefix . 'chatprojects_chats');
         $chats_sql = "CREATE TABLE {$chats_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            chat_mode VARCHAR(20) DEFAULT 'project',
-            provider VARCHAR(50) DEFAULT 'openai',
-            model VARCHAR(100) DEFAULT '" . esc_sql( Model_Registry::get_default( 'openai' ) ) . "',
-            project_id BIGINT UNSIGNED DEFAULT NULL,
-            thread_id VARCHAR(255) DEFAULT NULL,
-            user_id BIGINT UNSIGNED NOT NULL,
-            title VARCHAR(255) DEFAULT NULL,
-            instructions TEXT DEFAULT NULL,
-            message_count INT DEFAULT 0,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            INDEX project_idx (project_id),
-            INDEX user_idx (user_id),
-            INDEX thread_idx (thread_id),
-            INDEX mode_idx (chat_mode),
-            INDEX provider_idx (provider)
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            chat_mode varchar(20) DEFAULT 'project',
+            provider varchar(50) DEFAULT 'openai',
+            model varchar(100) DEFAULT '" . esc_sql( Model_Registry::get_default( 'openai' ) ) . "',
+            project_id bigint(20) unsigned DEFAULT NULL,
+            thread_id varchar(255) DEFAULT NULL,
+            user_id bigint(20) unsigned NOT NULL,
+            title varchar(255) DEFAULT NULL,
+            instructions text DEFAULT NULL,
+            message_count int(11) DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY project_idx (project_id),
+            KEY user_idx (user_id),
+            KEY thread_idx (thread_id),
+            KEY mode_idx (chat_mode),
+            KEY provider_idx (provider)
         ) $charset_collate;";
 
         // Messages table for Responses API
         $messages_table = esc_sql($wpdb->prefix . 'chatprojects_messages');
         $messages_sql = "CREATE TABLE {$messages_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            chat_id BIGINT UNSIGNED NOT NULL,
-            role VARCHAR(20) NOT NULL,
-            content LONGTEXT NOT NULL,
-            metadata TEXT DEFAULT NULL,
-            created_at DATETIME NOT NULL,
-            INDEX chat_idx (chat_id),
-            INDEX role_idx (role),
-            INDEX created_idx (created_at)
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            chat_id bigint(20) unsigned NOT NULL,
+            role varchar(20) NOT NULL,
+            content longtext NOT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY chat_idx (chat_id),
+            KEY role_idx (role),
+            KEY created_idx (created_at)
         ) $charset_collate;";
 
         // Indexed content tracking table for Auto-RAG
         $indexed_table = esc_sql( $wpdb->prefix . 'chatprojects_indexed_content' );
         $indexed_sql   = "CREATE TABLE {$indexed_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            project_id BIGINT UNSIGNED NOT NULL,
-            post_id BIGINT UNSIGNED NOT NULL,
-            post_type VARCHAR(50) NOT NULL,
-            file_id VARCHAR(255) DEFAULT NULL,
-            content_hash VARCHAR(64) NOT NULL,
-            status VARCHAR(20) DEFAULT 'pending',
-            error_message TEXT DEFAULT NULL,
-            indexed_at DATETIME DEFAULT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            project_id bigint(20) unsigned NOT NULL,
+            post_id bigint(20) unsigned NOT NULL,
+            post_type varchar(50) NOT NULL,
+            file_id varchar(255) DEFAULT NULL,
+            content_hash varchar(64) NOT NULL,
+            status varchar(20) DEFAULT 'pending',
+            error_message text DEFAULT NULL,
+            indexed_at datetime DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
             UNIQUE KEY project_post (project_id, post_id),
-            INDEX status_idx (status)
+            KEY status_idx (status)
         ) $charset_collate;";
 
         // Widget sessions table
         $widget_sessions_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_sessions' );
         $widget_sessions_sql   = "CREATE TABLE {$widget_sessions_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            session_token VARCHAR(64) NOT NULL,
-            project_id BIGINT UNSIGNED DEFAULT NULL,
-            ip_address VARCHAR(45) NOT NULL,
-            user_agent VARCHAR(255) DEFAULT NULL,
-            message_count INT DEFAULT 0,
-            last_message_at DATETIME DEFAULT NULL,
-            lead_email VARCHAR(255) DEFAULT NULL,
-            lead_name VARCHAR(255) DEFAULT NULL,
-            metadata TEXT DEFAULT NULL,
-            created_at DATETIME NOT NULL,
-            expires_at DATETIME NOT NULL,
-            INDEX session_idx (session_token),
-            INDEX ip_idx (ip_address),
-            INDEX expires_idx (expires_at)
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_token varchar(64) NOT NULL,
+            project_id bigint(20) unsigned DEFAULT NULL,
+            ip_address varchar(45) NOT NULL,
+            user_agent varchar(255) DEFAULT NULL,
+            message_count int(11) DEFAULT 0,
+            last_message_at datetime DEFAULT NULL,
+            lead_email varchar(255) DEFAULT NULL,
+            lead_name varchar(255) DEFAULT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            expires_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY session_idx (session_token),
+            KEY ip_idx (ip_address),
+            KEY expires_idx (expires_at)
         ) $charset_collate;";
 
         // Widget messages table
         $widget_messages_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_messages' );
         $widget_messages_sql   = "CREATE TABLE {$widget_messages_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            session_id BIGINT UNSIGNED NOT NULL,
-            role VARCHAR(20) NOT NULL,
-            content LONGTEXT NOT NULL,
-            metadata TEXT DEFAULT NULL,
-            created_at DATETIME NOT NULL,
-            INDEX session_idx (session_id),
-            INDEX created_idx (created_at)
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_id bigint(20) unsigned NOT NULL,
+            role varchar(20) NOT NULL,
+            content longtext NOT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY session_idx (session_id),
+            KEY created_idx (created_at)
         ) $charset_collate;";
 
         // Execute table creation

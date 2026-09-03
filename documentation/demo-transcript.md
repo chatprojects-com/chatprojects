@@ -23,7 +23,7 @@
 > - **OpenAI** - GPT-5.6 Sol, Terra and Luna, plus the GPT-5.4 family
 > - **Anthropic** - Claude Opus 5, Sonnet 5 and Haiku 4.5
 > - **Google Gemini** - Gemini 3.8 Flash and 3.1 Pro
-> - **Chutes** - DeepSeek V4 Flash and V4 Pro
+> - **Chutes** - DeepSeek V4 Flash and V3.2
 > - **OpenRouter** - Over 100 models from various providers
 >
 > I'll paste in my OpenAI key here. Notice it says 'Key saved securely' - all keys are encrypted using AES-256 before storage.

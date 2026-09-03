@@ -33,7 +33,7 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 1. **OpenAI** - GPT-5.6 Sol / Terra / Luna, GPT-5.5, GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano
 2. **Anthropic** - Claude Opus 5, Claude Fable 5.1, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5
 3. **Google Gemini** - Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.5 Flash, Gemini 3.5 Flash Lite, Gemini 3.1 Pro (Preview)
-4. **Chutes** - DeepSeek V4 Flash, DeepSeek V4 Pro, plus every model Chutes hosts
+4. **Chutes** - DeepSeek V4 Flash, DeepSeek V3.2, plus every model Chutes hosts
 5. **OpenRouter** - Access 100+ models from various providers
 
 = Shortcodes =

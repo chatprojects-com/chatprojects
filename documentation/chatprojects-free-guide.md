@@ -362,7 +362,7 @@ Select which file types users can upload:
 | Model | Description | Best For |
 |-------|-------------|----------|
 | **DeepSeek V4 Flash** | Fast, thinking mode built in | General purpose |
-| **DeepSeek V4 Pro** | Most capable DeepSeek | Complex analysis |
+| **DeepSeek V3.2** | Previous generation | General tasks |
 
 **API Base:** https://llm.chutes.ai/
 

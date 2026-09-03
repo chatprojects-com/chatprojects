@@ -211,7 +211,7 @@ All OpenAI models are reasoning models; the effort level defaults to `medium` (f
 | Model | Description | Context |
 |-------|-------------|---------|
 | DeepSeek V4 Flash | Fast general model with thinking mode (default) | 1M |
-| DeepSeek V4 Pro | Most capable DeepSeek | 1M |
+| DeepSeek V3.2 | Previous generation | 128K |
 
 The full Chutes model list is fetched live from the Chutes API.
 

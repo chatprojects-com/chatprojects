@@ -283,19 +283,21 @@ final class Model_Registry {
 					'tier'       => 'flagship',
 				),
 			),
+			// Chutes uses its own ids (org/model); the live list from the API
+			// replaces this fallback whenever a key is configured.
 			'chutes'     => array(
-				'deepseek-v4-flash' => array(
+				'deepseek-ai/DeepSeek-V4-Flash-0731-TEE' => array(
 					'label'      => 'DeepSeek V4 Flash (Recommended)',
 					'default'    => true,
 					'max_output' => 65536,
 					'context'    => 1000000,
 					'tier'       => 'balanced',
 				),
-				'deepseek-v4-pro'   => array(
-					'label'      => 'DeepSeek V4 Pro',
+				'deepseek-ai/DeepSeek-V3.2-TEE'          => array(
+					'label'      => 'DeepSeek V3.2',
 					'max_output' => 65536,
-					'context'    => 1000000,
-					'tier'       => 'flagship',
+					'context'    => 128000,
+					'tier'       => 'balanced',
 				),
 			),
 			'openrouter' => array(),
@@ -352,11 +354,9 @@ final class Model_Registry {
 			'gemini-3.1-flash-lite-preview' => 'gemini-3.5-flash-lite',
 			'gemini-1.5-flash*'     => 'gemini-3.8-flash',
 			'gemini-pro'            => 'gemini-3.8-flash',
-			// DeepSeek (direct or via Chutes).
-			'deepseek-chat'         => 'deepseek-v4-flash',
-			'deepseek-reasoner'     => 'deepseek-v4-flash',
-			'deepseek-ai/DeepSeek-V3*' => 'deepseek-v4-flash',
-			'deepseek-ai/DeepSeek-R1*' => 'deepseek-v4-pro',
+			// DeepSeek's retired direct-API names (Chutes ids are validated live, not remapped).
+			'deepseek-chat'         => 'deepseek-ai/DeepSeek-V4-Flash-0731-TEE',
+			'deepseek-reasoner'     => 'deepseek-ai/DeepSeek-V4-Flash-0731-TEE',
 			// OpenAI reasoning-only models -> flagship (regex so o1-mini etc. match).
 			'/^o[134](-|$)/'        => 'gpt-5.6-sol',
 			// Any other gpt-4* / gpt-3.5* snapshot.
