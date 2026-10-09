@@ -1420,8 +1420,11 @@ class Settings {
      * @return string Masked key
      */
     private function mask_api_key($key) {
-        if (empty($key) || strlen($key) < 12) {
+        if (empty($key)) {
             return '';
+        }
+        if (strlen($key) < 12) {
+            return str_repeat('•', 8);
         }
 
         $visible_start = 7;  // Show "sk-proj" or similar

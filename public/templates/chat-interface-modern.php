@@ -205,7 +205,7 @@ call_user_func(function () use ($chatprojects_chat_context) {
                 <p class="text-neutral-700 dark:text-neutral-400 max-w-md mb-4">
                     <?php
                     if ($cp_chat_mode === 'general') {
-                        esc_html_e('Load provider API keys in the backend, and chat with them here!', 'chatprojects');
+                        esc_html_e('Choose a provider and model above, then ask anything.', 'chatprojects');
                     } else {
                         esc_html_e('I can help you understand your files and answer questions. Get started by uploading project documents (PDF or Office) in the Files page.', 'chatprojects');
                     }

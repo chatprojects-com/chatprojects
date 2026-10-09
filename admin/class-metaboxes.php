@@ -372,13 +372,6 @@ class Metaboxes {
                     /* translators: %s: comma-separated list of post types */
                     printf( esc_html__( 'Indexable post types: %s', 'chatprojects' ), esc_html( implode( ', ', $post_types ) ) );
                     ?>
-                    <?php if ( ! defined( 'CHATPROJECTS_PRO_VERSION' ) ) : ?>
-                        <br>
-                        <?php
-                        /* translators: %d: maximum posts allowed in free version */
-                        printf( esc_html__( 'Free version limit: %d posts per project.', 'chatprojects' ), absint( \ChatProjects\Content_Indexer::FREE_MAX_POSTS ) );
-                        ?>
-                    <?php endif; ?>
                 </p>
             </div>
 

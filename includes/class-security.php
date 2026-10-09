@@ -320,20 +320,7 @@ class Security {
      * @return bool
      */
     public static function validate_file_type($file_path, $allowed_types = array(), $original_name = '') {
-        if (empty($allowed_types)) {
-            $allowed_types = get_option('chatprojects_allowed_file_types', array());
-        }
-        if (is_string($allowed_types)) {
-            $allowed_types = array_filter(array_map('trim', explode(',', strtolower($allowed_types))));
-        }
-
-        // If still empty, use default allowed types
-        if (empty($allowed_types)) {
-            $allowed_types = self::default_allowed_file_types();
-        }
-
-        // Executable / server-side types are never allowed, whatever the option says.
-        $allowed_types = array_values(array_diff(array_map('strtolower', (array) $allowed_types), self::blocked_file_types()));
+        $allowed_types = self::allowed_file_types($allowed_types);
 
         // Check file extension (from the original filename when given; tmp uploads have none).
         $name_for_ext = '' !== $original_name ? $original_name : $file_path;
@@ -484,6 +471,26 @@ class Security {
             'csv', 'json', 'xml', 'css',
             'py', 'java', 'cpp',
         );
+    }
+
+    /**
+     * The upload allow-list in effect: the given list (or the saved setting,
+     * or the defaults), minus the types that are always refused.
+     *
+     * @param array|string $types Extensions; empty for the saved setting.
+     * @return array
+     */
+    public static function allowed_file_types($types = array()) {
+        if (empty($types)) {
+            $types = get_option('chatprojects_allowed_file_types', array());
+        }
+        if (is_string($types)) {
+            $types = array_filter(array_map('trim', explode(',', $types)));
+        }
+        if (empty($types)) {
+            $types = self::default_allowed_file_types();
+        }
+        return array_values(array_diff(array_map('strtolower', (array) $types), self::blocked_file_types()));
     }
 
     /**

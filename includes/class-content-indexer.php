@@ -29,13 +29,6 @@ class Content_Indexer {
 	const BATCH_SIZE = 10;
 
 	/**
-	 * Maximum posts allowed in the free version.
-	 *
-	 * @var int
-	 */
-	const FREE_MAX_POSTS = 100;
-
-	/**
 	 * Delay between API uploads in seconds.
 	 *
 	 * @var int
@@ -541,11 +534,6 @@ class Content_Indexer {
 		// Count total posts to index.
 		$total = $this->count_indexable_posts( $post_types );
 
-		// Enforce free version limit.
-		if ( ! defined( 'CHATPROJECTS_PRO_VERSION' ) && $total > self::FREE_MAX_POSTS ) {
-			$total = self::FREE_MAX_POSTS;
-		}
-
 		if ( 0 === $total ) {
 			return new \WP_Error( 'no_posts', __( 'No published posts found for the selected post types.', 'chatprojects' ) );
 		}
@@ -595,17 +583,6 @@ class Content_Indexer {
 
 		$limit = self::BATCH_SIZE;
 
-		// Enforce free version limit.
-		if ( ! defined( 'CHATPROJECTS_PRO_VERSION' ) ) {
-			$remaining_allowed = self::FREE_MAX_POSTS - $job['processed'];
-			if ( $remaining_allowed <= 0 ) {
-				$job['status'] = 'completed';
-				set_transient( 'chatpr_index_job_' . $project_id, $job, HOUR_IN_SECONDS );
-				return;
-			}
-			$limit = min( $limit, $remaining_allowed );
-		}
-
 		// Get posts to process.
 		$posts = $this->get_posts_for_indexing( $job['post_types'], $limit, $job['offset'] );
 
@@ -644,7 +621,7 @@ class Content_Indexer {
 		// Check if more posts remain.
 		$next_posts = $this->get_posts_for_indexing( $job['post_types'], 1, $job['offset'] );
 
-		if ( empty( $next_posts ) || ( ! defined( 'CHATPROJECTS_PRO_VERSION' ) && $job['processed'] >= self::FREE_MAX_POSTS ) ) {
+		if ( empty( $next_posts ) ) {
 			$job['status'] = 'completed';
 		}
 
