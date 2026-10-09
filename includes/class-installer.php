@@ -27,6 +27,30 @@ class Installer {
     const DB_VERSION = '1.3.0';
 
     /**
+     * Option holding Free's schema version. Pro keeps its own (2.x) version in
+     * chatprojects_db_version, so Free must not read or overwrite that one.
+     */
+    const VERSION_OPTION = 'chatprojects_free_db_version';
+
+    /**
+     * Free's installed schema version.
+     *
+     * Before 1.3.0 Free stored it in the shared chatprojects_db_version
+     * option; a value of 2.0+ there belongs to Pro and means "unknown", so
+     * every (idempotent) upgrade step runs.
+     *
+     * @return string
+     */
+    private static function installed_version() {
+        $version = get_option(self::VERSION_OPTION, '');
+        if ('' !== $version) {
+            return (string) $version;
+        }
+        $shared = (string) get_option('chatprojects_db_version', '0');
+        return version_compare($shared, '2.0', '<') ? $shared : '0';
+    }
+
+    /**
      * Plugin activation
      */
     public static function activate() {
@@ -63,7 +87,7 @@ class Installer {
 
         // Store activation time
         update_option('chatprojects_activated', time());
-        update_option('chatprojects_db_version', self::DB_VERSION);
+        update_option(self::VERSION_OPTION, self::DB_VERSION);
     }
 
     /**
@@ -334,7 +358,7 @@ class Installer {
      * the activation hook) still get new tables and model remaps.
      */
     public static function maybe_upgrade() {
-        $installed = get_option('chatprojects_db_version', '0');
+        $installed = self::installed_version();
 
         if (version_compare($installed, self::DB_VERSION, '>=')) {
             return;
@@ -348,7 +372,7 @@ class Installer {
 
         self::run_upgrade_steps();
 
-        update_option('chatprojects_db_version', self::DB_VERSION);
+        update_option(self::VERSION_OPTION, self::DB_VERSION);
         delete_transient('chatprojects_upgrade_lock');
     }
 
