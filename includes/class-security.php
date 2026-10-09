@@ -40,12 +40,15 @@ class Security {
      * Secret the encryption keys are derived from.
      *
      * CHATPROJECTS_ENCRYPTION_KEY if defined, else the site's AUTH_KEY /
-     * SECURE_AUTH_KEY, else (unconfigured sites only) the plugin path + DB_NAME.
+     * SECURE_AUTH_KEY, else (sites without salts only) ABSPATH + DB_NAME, which
+     * ChatProjects Pro derives identically. The pre-1.3.0 scheme used the plugin
+     * path instead, so legacy values pass $legacy = true.
      * Changing it makes stored API keys unreadable; they must be re-entered.
      *
+     * @param bool $legacy Seed for the pre-1.3.0 AES scheme.
      * @return string
      */
-    private static function get_key_seed() {
+    private static function get_key_seed($legacy = false) {
         if (defined('CHATPROJECTS_ENCRYPTION_KEY') && '' !== (string) CHATPROJECTS_ENCRYPTION_KEY) {
             return (string) CHATPROJECTS_ENCRYPTION_KEY;
         }
@@ -55,8 +58,12 @@ class Security {
         if (defined('SECURE_AUTH_KEY') && !empty(SECURE_AUTH_KEY) && SECURE_AUTH_KEY !== 'put your unique phrase here') {
             return SECURE_AUTH_KEY;
         }
-        $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
-        return $plugin_path . (defined('DB_NAME') ? DB_NAME : 'chatprojects');
+        $db_name = defined('DB_NAME') ? DB_NAME : 'chatprojects';
+        if ($legacy) {
+            $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
+            return $plugin_path . $db_name;
+        }
+        return ABSPATH . $db_name;
     }
 
     /**
@@ -81,7 +88,7 @@ class Security {
         if (defined('CHATPROJECTS_ENCRYPTION_KEY')) {
             self::$cached_encryption_key = CHATPROJECTS_ENCRYPTION_KEY;
         } else {
-            self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . self::get_key_seed()), 0, 32);
+            self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . self::get_key_seed(true)), 0, 32);
         }
 
         return self::$cached_encryption_key;
