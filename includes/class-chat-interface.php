@@ -193,6 +193,10 @@ class Chat_Interface {
             return $provider_instance;
         }
 
+        if (!empty($images) && !Model_Registry::supports_vision($chat->provider, $chat->model)) {
+            return new \WP_Error('no_vision', __('The selected model cannot read images. Choose a vision-capable model or remove the image.', 'chatprojects'));
+        }
+
         // Save user message to database
         $user_metadata = !empty($images) ? array('images' => $images) : array();
         $this->message_store->save_message($chat_id, 'user', $message, $user_metadata);

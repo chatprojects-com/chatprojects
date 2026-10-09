@@ -19,59 +19,82 @@ if (!defined('ABSPATH')) {
  */
 class Security {
     /**
-     * Encryption method
+     * Cipher used by values stored before 1.3.0 (read-only; see decrypt()).
      */
     const ENCRYPTION_METHOD = 'AES-256-CBC';
 
     /**
-     * Cached encryption key for request consistency
+     * Prefix of values encrypted with the current scheme (libsodium secretbox:
+     * XSalsa20-Poly1305, so tampered values fail to decrypt).
+     */
+    const ENCRYPTION_PREFIX = 'cpv2:';
+
+    /**
+     * Cached legacy key for request consistency
      *
      * @var string|null
      */
     private static $cached_encryption_key = null;
 
     /**
-     * Get encryption key
+     * Secret the encryption keys are derived from.
      *
-     * Uses a deterministic key derived from WordPress constants to ensure
-     * consistency across all requests without any database/cache dependencies.
+     * CHATPROJECTS_ENCRYPTION_KEY if defined, else the site's AUTH_KEY /
+     * SECURE_AUTH_KEY, else (unconfigured sites only) the plugin path + DB_NAME.
+     * Changing it makes stored API keys unreadable; they must be re-entered.
+     *
+     * @return string
+     */
+    private static function get_key_seed() {
+        if (defined('CHATPROJECTS_ENCRYPTION_KEY') && '' !== (string) CHATPROJECTS_ENCRYPTION_KEY) {
+            return (string) CHATPROJECTS_ENCRYPTION_KEY;
+        }
+        if (defined('AUTH_KEY') && !empty(AUTH_KEY) && AUTH_KEY !== 'put your unique phrase here') {
+            return AUTH_KEY;
+        }
+        if (defined('SECURE_AUTH_KEY') && !empty(SECURE_AUTH_KEY) && SECURE_AUTH_KEY !== 'put your unique phrase here') {
+            return SECURE_AUTH_KEY;
+        }
+        $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
+        return $plugin_path . (defined('DB_NAME') ? DB_NAME : 'chatprojects');
+    }
+
+    /**
+     * 32-byte key for the current scheme.
+     *
+     * @return string Raw binary key.
+     */
+    private static function get_secretbox_key() {
+        return hash('sha256', 'chatprojects_v2|' . self::get_key_seed(), true);
+    }
+
+    /**
+     * Key used by the pre-1.3.0 scheme, kept so old values can still be read.
      *
      * @return string
      */
     private static function get_encryption_key() {
-        // Return cached key if available (ensures consistency within request)
         if (self::$cached_encryption_key !== null) {
             return self::$cached_encryption_key;
         }
 
-        // Allow override via constant
         if (defined('CHATPROJECTS_ENCRYPTION_KEY')) {
             self::$cached_encryption_key = CHATPROJECTS_ENCRYPTION_KEY;
-            return self::$cached_encryption_key;
+        } else {
+            self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . self::get_key_seed()), 0, 32);
         }
-
-        // Use deterministic key derived from WordPress constants
-        // This ensures the same key is always generated without any database dependency
-        $seed = '';
-
-        // Use AUTH_KEY if available (most reliable)
-        if (defined('AUTH_KEY') && !empty(AUTH_KEY) && AUTH_KEY !== 'put your unique phrase here') {
-            $seed = AUTH_KEY;
-        }
-        // Fallback to SECURE_AUTH_KEY
-        elseif (defined('SECURE_AUTH_KEY') && !empty(SECURE_AUTH_KEY) && SECURE_AUTH_KEY !== 'put your unique phrase here') {
-            $seed = SECURE_AUTH_KEY;
-        }
-        // Last resort: use plugin directory + DB_NAME (location-agnostic)
-        else {
-            $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
-            $seed = $plugin_path . (defined('DB_NAME') ? DB_NAME : 'chatprojects');
-        }
-
-        // Generate a consistent 32-character key
-        self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . $seed), 0, 32);
 
         return self::$cached_encryption_key;
+    }
+
+    /**
+     * Whether a stored value already uses the current encryption scheme.
+     *
+     * @param string $value Stored value.
+     * @return bool
+     */
+    public static function is_current_format($value) {
+        return is_string($value) && 0 === strpos($value, self::ENCRYPTION_PREFIX);
     }
 
     /**
@@ -85,17 +108,15 @@ class Security {
             return '';
         }
 
-        $key = self::get_encryption_key();
-        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length(self::ENCRYPTION_METHOD));
-
-        $encrypted = openssl_encrypt($data, self::ENCRYPTION_METHOD, $key, 0, $iv);
-
-        if ($encrypted === false) {
+        try {
+            $nonce  = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+            $cipher = sodium_crypto_secretbox((string) $data, $nonce, self::get_secretbox_key());
+        } catch (\Exception $e) {
             return false;
         }
 
-        // Combine IV and encrypted data
-        return base64_encode($iv . $encrypted);
+        // base64 keeps the binary value safe in wp_options.
+        return self::ENCRYPTION_PREFIX . base64_encode($nonce . $cipher); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Binary ciphertext stored as text.
     }
 
     /**
@@ -109,8 +130,35 @@ class Security {
             return '';
         }
 
+        if (self::is_current_format($encrypted_data)) {
+            $raw = base64_decode(substr($encrypted_data, strlen(self::ENCRYPTION_PREFIX)), true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Decoding our own stored ciphertext.
+            if (false === $raw || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+                return false;
+            }
+            try {
+                $plain = sodium_crypto_secretbox_open(
+                    substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+                    substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+                    self::get_secretbox_key()
+                );
+            } catch (\Exception $e) {
+                return false;
+            }
+            return false === $plain ? false : $plain;
+        }
+
+        return self::decrypt_legacy($encrypted_data);
+    }
+
+    /**
+     * Read a value stored before 1.3.0 (AES-256-CBC, no integrity check).
+     *
+     * @param string $encrypted_data Stored value.
+     * @return string|false
+     */
+    private static function decrypt_legacy($encrypted_data) {
         $key = self::get_encryption_key();
-        $data = base64_decode($encrypted_data, true);
+        $data = base64_decode($encrypted_data, true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Decoding legacy stored ciphertext.
 
         // If base64 decode succeeded and data is long enough, try decryption
         if ($data !== false) {
@@ -638,7 +686,7 @@ class Security {
         }
 
         // Decode and check size
-        $decoded = base64_decode($base64_data, true);
+        $decoded = base64_decode($base64_data, true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Validating an uploaded image data URL.
         if ($decoded === false) {
             return new \WP_Error('decode_error', __('Failed to decode image data.', 'chatprojects'));
         }
@@ -682,7 +730,7 @@ class Security {
             return false;
         }
 
-        return 'data:' . $mime_type . ';base64,' . base64_encode($contents);
+        return 'data:' . $mime_type . ';base64,' . base64_encode($contents); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Building an image data URL for the AI provider.
     }
 
     /**

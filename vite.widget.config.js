@@ -13,6 +13,8 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig( {
+	// The plugin's public/ folder holds PHP, not static assets; don't copy it into dist.
+	publicDir: false,
 	build: {
 		outDir: 'assets/dist',
 		rollupOptions: {

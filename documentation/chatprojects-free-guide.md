@@ -3,7 +3,7 @@
 
 ---
 
-**Version:** 1.0.0
+**Version:** 1.3.0
 **Website:** https://chatprojects.com
 **Support:** https://wordpress.org/support/plugin/chatprojects/
 **License:** GPLv2 or later
@@ -12,7 +12,7 @@
 
 # Own Your Chat
 
-ChatProjects is a powerful WordPress plugin that brings AI-powered project management and chat capabilities directly to your website. Use your own API keys to chat with multiple AI providers including OpenAI (GPT-4/GPT-5), Anthropic (Claude), Google (Gemini), Chutes (DeepSeek), and OpenRouter (100+ models).
+ChatProjects is a powerful WordPress plugin that brings AI-powered project management and chat capabilities directly to your website. Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.6), Anthropic (Claude), Google (Gemini), Chutes (DeepSeek), and OpenRouter (100+ models).
 
 **Your keys. Your data. Your server.**
 
@@ -65,7 +65,7 @@ ChatProjects is a WordPress plugin that enables AI-powered conversations directl
 | **File Upload** | Upload PDFs, Word docs, text files, code files (up to 512MB configurable) |
 | **File Search** | AI searches your uploaded documents to provide contextual answers |
 | **Modern Interface** | Clean, responsive design with dark mode support |
-| **Privacy First** | API keys encrypted with AES-256, stored locally on your server |
+| **Privacy First** | API keys encrypted with libsodium (XSalsa20-Poly1305), stored locally on your server |
 | **Easy Embedding** | Simple shortcode: `[chatprojects_main]` |
 | **Chat History** | All conversations saved and searchable |
 
@@ -86,13 +86,14 @@ ChatProjects is a WordPress plugin that enables AI-powered conversations directl
 
 | Requirement | Version |
 |-------------|---------|
-| WordPress | 5.8 or higher |
-| PHP | 7.4 or higher |
+| WordPress | 6.6 or higher |
+| PHP | 8.0 or higher |
 | MySQL | 5.6 or higher |
 
 ## Server Requirements
 
-- **OpenSSL Extension** - Required for API key encryption
+- **Sodium** - Used for API key encryption (bundled with PHP; WordPress includes a fallback)
+- **OpenSSL Extension** - Only needed to read API keys saved by versions before 1.3.0
 - **cURL Extension** - Recommended for optimal streaming (HTTP API falls back to other transports if unavailable)
 - **Memory Limit** - 128MB minimum (256MB recommended)
 - **Max Upload Size** - Should match your desired file upload limit
@@ -168,7 +169,7 @@ Navigate to **WordPress Admin > ChatProjects > Settings**
 
 ## API Keys Section
 
-All API keys are encrypted using AES-256 before storage in your database.
+All API keys are encrypted (libsodium secretbox, XSalsa20-Poly1305) before storage in your database.
 
 ### OpenAI API Key
 
@@ -252,7 +253,7 @@ Select the default model for the chosen provider. Available models depend on whi
 
 ### Assistant Instructions
 
-Enter custom system instructions for the OpenAI Assistant used in project chats. This defines how the AI should behave when answering questions about your documents.
+Enter default system instructions for the AI assistant. They are included in every chat unless a project has its own instructions, and are used as the starting instructions for new projects.
 
 **Example:**
 ```
@@ -265,7 +266,7 @@ Select the default OpenAI model used for project chats with file search:
 - GPT-5.6 Sol (recommended)
 - GPT-5.6 Terra (balanced)
 - GPT-5.4 Mini (faster, cheaper)
-- GPT-3.5-turbo
+- Any other OpenAI model listed in section 5
 
 ---
 
@@ -281,7 +282,7 @@ Set the maximum file size for uploads in megabytes (MB).
 
 ### Allowed File Types
 
-Select which file types users can upload:
+Enter a comma-separated list of the file extensions users can upload. Supported types:
 
 **Documents:**
 - PDF (.pdf)
@@ -293,18 +294,14 @@ Select which file types users can upload:
 - CSV (.csv)
 - JSON (.json)
 - XML (.xml)
-- HTML (.html)
 
 **Code:**
-- JavaScript (.js)
 - Python (.py)
-- PHP (.php)
 - CSS (.css)
 - Java (.java)
 - C++ (.cpp)
 
-**Spreadsheets:**
-- Excel (.xls, .xlsx)
+> **Note:** Executable and script types (such as .php, .js, .html and .svg) are always refused, even if you add them to the list.
 
 ---
 
@@ -332,11 +329,13 @@ Select which file types users can upload:
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| **Claude Opus 5** | Recommended (default) | Complex analysis, agentic work |
+| **Claude Opus 5.5** | Recommended (default) | Complex analysis, agentic work |
 | **Claude Fable 5.1** | Most capable | Hardest reasoning tasks |
-| **Claude Opus 4.8** | Previous Opus | Long-form work |
-| **Claude Sonnet 5** | Balanced | General tasks, coding |
-| **Claude Sonnet 4.6** | Previous Sonnet | General tasks |
+| **Claude Sonnet 5.5** | Balanced | General tasks, coding |
+| **Claude Opus 5** | Previous Opus | Long-form work |
+| **Claude Opus 4.8** | Older Opus | Long-form work |
+| **Claude Sonnet 5** | Previous Sonnet | General tasks |
+| **Claude Sonnet 4.6** | Older Sonnet | General tasks |
 | **Claude Haiku 4.5** | Fastest Claude | Quick responses |
 
 **API Base:** https://api.anthropic.com/v1/
@@ -434,20 +433,18 @@ OpenRouter provides access to **100+ models** from multiple providers through a 
 3. Drag and drop files, or click to browse
 4. Wait for files to upload and index
 
-> **Supported formats:** PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP, and more.
+> **Supported formats:** PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, Java, C++.
 
 ---
 
 ## Step 5: Start Chatting
 
 1. Go to the **Chat** tab
-2. Select your **AI Provider** (if you have multiple configured)
-3. Select the **Model** you want to use
-4. Type your question and press Enter
-5. The AI will search your uploaded documents to answer
+2. Type your question and press Enter
+3. The AI will search your uploaded documents to answer (project chat uses OpenAI with file search)
 
 **Tips:**
-- Switch providers mid-conversation to compare responses
+- Use General Chat (**AI Chat** on the ChatProjects page, or `/cp-chat/`) to switch providers and models mid-conversation
 - Reference specific documents in your question
 - Use the dark mode toggle for comfortable viewing
 
@@ -474,8 +471,8 @@ ChatProjects offers two chat modes:
 
 - Conversations within a specific project context
 - AI searches uploaded documents to answer questions
-- Uses OpenAI Assistants API
-- All project users share the same assistant
+- Uses the OpenAI Responses API with file search (always OpenAI)
+- Each project has its own vector store and instructions, and is private to the user who created it
 
 **Best for:** Questions about uploaded documents, knowledge base queries
 
@@ -483,7 +480,7 @@ ChatProjects offers two chat modes:
 
 ## Selecting Providers and Models
 
-At the top of the chat interface:
+At the top of the General Chat interface:
 
 1. **Provider Dropdown** - Select from configured AI providers
 2. **Model Dropdown** - Select from available models for that provider
@@ -571,7 +568,7 @@ You are a legal assistant. Provide information from the uploaded contracts. Alwa
 | **Shared** | Specific users can access |
 | **Public** | All logged-in users can access |
 
-> **Free Version:** All projects are shared by all users.
+> **Free Version:** Each project is private to the user who created it (administrators can see all projects). Sharing modes are a Pro feature.
 
 ---
 
@@ -601,8 +598,8 @@ You are a legal assistant. Provide information from the uploaded contracts. Alwa
 
 | Limit | Value |
 |-------|-------|
-| Maximum Projects | 5 |
-| Project Ownership | Shared (all users) |
+| Maximum Projects | No fixed limit (up to 10 new projects per user per hour) |
+| Project Ownership | Per user (private; administrators see all) |
 
 ---
 
@@ -638,22 +635,16 @@ When you upload files to a project:
 | CSV | .csv | Comma-separated values |
 | JSON | .json | JavaScript Object Notation |
 | XML | .xml | Extensible Markup Language |
-| HTML | .html | Web pages |
 
 ### Code Files
 | Type | Extensions | Description |
 |------|------------|-------------|
-| JavaScript | .js | JavaScript source |
 | Python | .py | Python source |
-| PHP | .php | PHP source |
 | CSS | .css | Stylesheets |
 | Java | .java | Java source |
 | C++ | .cpp | C++ source |
 
-### Spreadsheets
-| Type | Extensions | Description |
-|------|------------|-------------|
-| Excel | .xls, .xlsx | Microsoft Excel |
+> **Note:** Executable and script types (such as .php, .js, .html and .svg) are always refused.
 
 ---
 
@@ -704,11 +695,12 @@ When you upload files to a project:
 [chatprojects_main]
 ```
 
-Renders the full ChatProjects application including:
-- Navigation menu
-- Projects list
-- Chat interface
-- Settings panel
+Renders the ChatProjects navigation hub, with links to:
+- Projects
+- Chat
+- Settings
+
+Logged-out visitors see a login prompt.
 
 ---
 
@@ -716,8 +708,7 @@ Renders the full ChatProjects application including:
 
 | Attribute | Values | Default | Description |
 |-----------|--------|---------|-------------|
-| `default_tab` | chat, projects | chat | Initial tab to display |
-| `height` | Any CSS value | 80vh | Container height |
+| `default_tab` | projects, chat, settings | projects | Section the hub's main "Open" button links to |
 
 ---
 
@@ -729,22 +720,16 @@ Renders the full ChatProjects application including:
 [chatprojects_main]
 ```
 
-### Start on Projects Tab
+### Main Button Opens Projects
 
 ```
 [chatprojects_main default_tab="projects"]
 ```
 
-### Custom Height
+### Main Button Opens Chat
 
 ```
-[chatprojects_main height="600px"]
-```
-
-### Combined Options
-
-```
-[chatprojects_main default_tab="chat" height="90vh"]
+[chatprojects_main default_tab="chat"]
 ```
 
 ---
@@ -755,7 +740,29 @@ Renders the full ChatProjects application including:
 [chatprojects_workspace]
 ```
 
-Alias for `[chatprojects_main]` - identical functionality.
+Shows a simple workspace listing the current user's projects, with a **Create New Project** button.
+
+---
+
+## Website Chat Widget
+
+```
+[chatprojects_widget project="123"]
+```
+
+Embeds a project's assistant for site visitors (no login needed). Tick **Allow public chat widget** on the project first. Visitor messages are sent to OpenAI and answered from the project's files.
+
+| Attribute | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `project` | Project ID | Widget setting | Project to chat with |
+| `mode` | inline, floating | inline when `project` is set | Embedded in the page or a floating button |
+| `color` | Hex colour | Widget setting | Primary colour |
+| `title` | Text | Site name | Widget header title |
+| `welcome_message` | Text | Widget setting | First message shown |
+| `placeholder` | Text | Widget setting | Input placeholder |
+| `height` | Pixels | 500 | Inline widget height |
+
+Global defaults, rate limits and the optional "Powered by ChatProjects" link (off by default) are under **ChatProjects > Settings > Chat Widget**.
 
 ---
 
@@ -769,10 +776,12 @@ All API keys are encrypted before storage:
 
 | Feature | Implementation |
 |---------|---------------|
-| Algorithm | AES-256-CBC |
-| Library | OpenSSL |
-| Key Derivation | WordPress AUTH_KEY |
+| Algorithm | XSalsa20-Poly1305 (authenticated) |
+| Library | libsodium (secretbox) |
+| Key Derivation | `CHATPROJECTS_ENCRYPTION_KEY` if defined, otherwise WordPress AUTH_KEY |
 | Storage | WordPress options table |
+
+Keys saved by versions before 1.3.0 (AES-256-CBC) are re-encrypted automatically on upgrade.
 
 **Your API keys are:**
 - Never stored in plain text
@@ -785,9 +794,10 @@ All API keys are encrypted before storage:
 
 | Data | Location | Encryption |
 |------|----------|------------|
-| API Keys | wp_options | AES-256 |
+| API Keys | wp_options | libsodium (XSalsa20-Poly1305) |
 | Chat History | wp_chatprojects_chats | None (local) |
 | Messages | wp_chatprojects_messages | None (local) |
+| Widget Conversations | wp_chatprojects_widget_sessions, wp_chatprojects_widget_messages | None (local) |
 | Projects | wp_posts (chatpr_project) | None (local) |
 | Uploaded Files | OpenAI servers | Provider managed |
 
@@ -795,20 +805,25 @@ All API keys are encrypted before storage:
 
 ## Data Transmission
 
-ChatProjects connects to external AI providers only when you:
-- Send a chat message
-- Upload files to a project
-- Create a new project
+ChatProjects connects to external AI providers only when:
+- You send a chat message
+- You upload files to a project
+- You create a new project
+- A site visitor sends a message in the chat widget (OpenAI)
+- Auto-RAG indexing runs in the background after an administrator starts it, or an indexed post is edited (OpenAI)
 
 **Data sent to AI providers:**
 - Chat messages (to selected provider)
 - Uploaded file contents (to OpenAI only)
 - System instructions (if configured)
+- The first message and reply of a chat, to generate its title (OpenAI)
+- Widget visitor messages (to OpenAI)
+- Title, URL, date, author, categories, tags, excerpt and text of published, public posts and pages you index with Auto-RAG (to OpenAI only)
 
 **Data NOT sent anywhere:**
 - Your API keys (used only for authentication)
 - WordPress user data
-- Other website data
+- Other website data (beyond the posts and pages you index, and the site URL and name that OpenRouter requests include)
 
 ---
 
@@ -820,7 +835,7 @@ ChatProjects connects to external AI providers only when you:
 | Capability Checks | Permission validation for all actions |
 | Input Sanitization | All user input sanitized |
 | Output Escaping | All output properly escaped |
-| Rate Limiting | Built-in rate limiting support |
+| Rate Limiting | Per-user limits on chat, uploads and project creation; per-session, per-IP and daily limits on the public widget |
 | File Validation | File type and size verification |
 
 ---
@@ -840,8 +855,8 @@ ChatProjects connects to external AI providers only when you:
 | Chutes (DeepSeek) | Yes | Yes |
 | OpenRouter (100+ models) | Yes | Yes |
 | **Projects** | | |
-| Number of Projects | 5 | Unlimited |
-| Project Ownership | Shared | Per-User |
+| Number of Projects | Unlimited | Unlimited |
+| Project Ownership | Per-User | Per-User |
 | Project Sharing | - | Yes |
 | **Features** | | |
 | File Upload | Yes | Yes |
@@ -862,8 +877,6 @@ ChatProjects connects to external AI providers only when you:
 
 Consider ChatProjects Pro if you need:
 
-- **More than 5 projects**
-- **Per-user project ownership** - Each user manages their own projects
 - **Project sharing** - Share specific projects with team members
 - **Model comparison** - Compare responses from different AI models side-by-side
 - **Audio transcription** - Transcribe audio files using Whisper
@@ -882,7 +895,7 @@ ChatProjects connects to external AI services when you use their features. Your 
 
 ## OpenAI API
 
-**Used for:** AI chat, file analysis, Vector Store, Assistants API
+**Used for:** AI chat, file analysis, Vector Store, Responses API (file search)
 
 | | |
 |--|--|
@@ -890,7 +903,7 @@ ChatProjects connects to external AI services when you use their features. Your 
 | Privacy Policy | https://openai.com/privacy/ |
 | Terms of Service | https://openai.com/terms/ |
 
-**Data transmitted:** Chat messages, uploaded files, system instructions
+**Data transmitted:** Chat messages, uploaded files, system instructions, chat-title requests, widget visitor messages, Auto-RAG post and page content
 
 ---
 
@@ -946,7 +959,7 @@ ChatProjects connects to external AI services when you use their features. Your 
 | Privacy Policy | https://openrouter.ai/privacy |
 | Terms of Service | https://openrouter.ai/terms |
 
-**Data transmitted:** Chat messages
+**Data transmitted:** Chat messages, plus your site URL and site name in request headers (required by OpenRouter for attribution)
 
 ---
 
@@ -986,14 +999,25 @@ ChatProjects includes the following open-source JavaScript libraries:
 
 ---
 
-## markdown-it
+## marked
 
 | | |
 |--|--|
-| Version | 14.x |
+| Version | 16.x |
 | License | MIT |
-| Source | https://github.com/markdown-it/markdown-it |
+| Source | https://github.com/markedjs/marked |
 | Purpose | Markdown rendering in chat messages |
+
+---
+
+## DOMPurify
+
+| | |
+|--|--|
+| Version | 3.x |
+| License | Apache-2.0 (dual licensed Apache-2.0 / MPL-2.0) |
+| Source | https://github.com/cure53/DOMPurify |
+| Purpose | Sanitising rendered markdown |
 
 ---
 
@@ -1011,13 +1035,13 @@ ChatProjects includes the following open-source JavaScript libraries:
 
 ### Where are my API keys stored?
 
-Your API keys are stored **encrypted** in your WordPress database using AES-256 encryption. They never leave your server except when making API calls to the respective providers.
+Your API keys are stored **encrypted** in your WordPress database using libsodium (XSalsa20-Poly1305) encryption. They never leave your server except when making API calls to the respective providers.
 
 ---
 
 ### Can multiple users access projects?
 
-**Yes.** In the Free version, there are 5 shared projects accessible to all logged-in users with appropriate permissions. The Pro version adds per-user projects and sharing controls.
+**Yes, each with their own projects.** Users need the "Projects User" role (or Author, Editor or Administrator). Each project is private to the user who created it; administrators can see all projects. The Pro version adds project sharing controls.
 
 ---
 
@@ -1031,7 +1055,7 @@ Your API keys are stored **encrypted** in your WordPress database using AES-256 
 
 ### What file types can I upload?
 
-PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP, Java, C++, XLS, XLSX
+PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, Java, C++. Executable and script types (such as PHP, JS, HTML and SVG) are always refused.
 
 ---
 
@@ -1148,6 +1172,24 @@ PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP, Java, C++, XLS,
 
 # 17. Changelog
 
+## Version 1.3.0
+
+- API keys use authenticated encryption (libsodium); existing keys are re-encrypted automatically
+- Rate limits on every AI request, plus a site-wide daily limit for the public widget
+- The widget's "Powered by ChatProjects" link is now opt-in (off by default)
+- Claude Opus 5.5 (new default) and Claude Sonnet 5.5
+- Removed the unused REST stream endpoint
+
+## Version 1.2.0
+
+- Current model line-up; retired models are migrated automatically
+- Auto-RAG content indexing and the public chat widget (`[chatprojects_widget]`)
+- Projects are private to their author (administrators see all)
+- Excel (.xls/.xlsx) upload removed; executable file types blocked
+- Requires WordPress 6.6+ and PHP 8.0+
+
+See `readme.txt` for the full changelog.
+
 ## Version 1.0.0
 
 *Initial Release*
@@ -1208,7 +1250,8 @@ ChatProjects uses the following open source libraries:
 |---------|---------|
 | Alpine.js | MIT |
 | highlight.js | BSD-3-Clause |
-| markdown-it | MIT |
+| marked | MIT |
+| DOMPurify | Apache-2.0 / MPL-2.0 |
 
 ---
 
@@ -1225,7 +1268,7 @@ Thank you to:
 
 ---
 
-**ChatProjects v1.0.0**
+**ChatProjects v1.3.0**
 
 *Own Your Chat*
 

@@ -88,9 +88,9 @@ class Metaboxes {
         wp_nonce_field('chatprojects_project_meta', 'chatprojects_project_nonce');
 
         // Vector store ID (no assistant needed with Responses API)
-        $vector_store_id = get_post_meta($post->ID, '_cp_vector_store_id', true);
-        $model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
-        $instructions = get_post_meta($post->ID, '_cp_instructions', true);
+        $chatprojects_vector_store_id = get_post_meta($post->ID, '_cp_vector_store_id', true);
+        $chatprojects_model = get_post_meta($post->ID, '_cp_model', true) ?: get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
+        $chatprojects_instructions = get_post_meta($post->ID, '_cp_instructions', true);
 
         include CHATPROJECTS_PLUGIN_DIR . 'admin/views/project-meta.php';
     }
@@ -376,7 +376,7 @@ class Metaboxes {
                         <br>
                         <?php
                         /* translators: %d: maximum posts allowed in free version */
-                        printf( esc_html__( 'Free version limit: %d posts per project.', 'chatprojects' ), \ChatProjects\Content_Indexer::FREE_MAX_POSTS );
+                        printf( esc_html__( 'Free version limit: %d posts per project.', 'chatprojects' ), absint( \ChatProjects\Content_Indexer::FREE_MAX_POSTS ) );
                         ?>
                     <?php endif; ?>
                 </p>
@@ -409,152 +409,35 @@ class Metaboxes {
             </div>
         </div>
         <?php
-        // Inline JS for the Auto-RAG metabox.
-        $autorag_script = $this->get_autorag_inline_script( $post->ID );
-        wp_print_inline_script_tag( $autorag_script, array( 'id' => 'chatprojects-autorag-script' ) );
+        $this->enqueue_autorag_script( $post->ID );
     }
 
     /**
-     * Get inline JavaScript for the Auto-RAG metabox.
+     * Enqueue the Auto-RAG metabox script with its settings.
      *
      * @param int $project_id Project ID.
-     * @return string JavaScript code.
      */
-    private function get_autorag_inline_script( $project_id ) {
-        $nonce      = wp_create_nonce( 'chatpr_ajax_nonce' );
-        $ajax_url   = admin_url( 'admin-ajax.php' );
-        $project_id = absint( $project_id );
+    private function enqueue_autorag_script( $project_id ) {
+        wp_enqueue_script(
+            'chatprojects-autorag',
+            CHATPROJECTS_PLUGIN_URL . 'assets/js/autorag-metabox.js',
+            array( 'jquery' ),
+            \ChatProjects\ChatProjects::asset_version( 'assets/js/autorag-metabox.js' ),
+            true
+        );
 
-        $confirm_clear = esc_js( __( 'Are you sure you want to clear all indexed content? This will remove files from the vector store.', 'chatprojects' ) );
-        $indexing_text = esc_js( __( 'Indexing...', 'chatprojects' ) );
-        $complete_text = esc_js( __( 'Indexing complete!', 'chatprojects' ) );
-        $cancel_text   = esc_js( __( 'Indexing cancelled.', 'chatprojects' ) );
-
-        return <<<JS
-jQuery(document).ready(function($) {
-    var projectId = {$project_id};
-    var nonce = '{$nonce}';
-    var ajaxUrl = '{$ajax_url}';
-    var pollInterval = null;
-
-    function startIndexing() {
-        $.post(ajaxUrl, {
-            action: 'chatpr_start_indexing',
-            nonce: nonce,
-            project_id: projectId
-        }, function(response) {
-            if (response.success) {
-                $('#chatpr-autorag-start').prop('disabled', true);
-                $('#chatpr-autorag-cancel').show();
-                $('#chatpr-autorag-progress').show();
-                $('#chatpr-autorag-errors').hide();
-                startPolling();
-            } else {
-                alert(response.data.message);
-            }
-        });
-    }
-
-    function startPolling() {
-        if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(pollProgress, 2000);
-    }
-
-    function pollProgress() {
-        $.post(ajaxUrl, {
-            action: 'chatpr_get_index_progress',
-            nonce: nonce,
-            project_id: projectId
-        }, function(response) {
-            if (!response.success) {
-                stopPolling();
-                return;
-            }
-            var job = response.data;
-            var pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0;
-            $('#chatpr-autorag-bar').css('width', pct + '%');
-            $('#chatpr-autorag-progress-text').text(
-                '{$indexing_text} ' + job.processed + ' / ' + job.total +
-                ' (' + job.indexed + ' indexed, ' + job.skipped + ' skipped, ' + job.failed + ' failed)'
-            );
-
-            if (job.status === 'completed' || job.status === 'cancelled') {
-                stopPolling();
-                $('#chatpr-autorag-start').prop('disabled', false);
-                $('#chatpr-autorag-cancel').hide();
-                if (job.status === 'completed') {
-                    $('#chatpr-autorag-progress-text').text('{$complete_text}');
-                } else {
-                    $('#chatpr-autorag-progress-text').text('{$cancel_text}');
-                }
-                refreshStatus();
-
-                if (job.errors && job.errors.length > 0) {
-                    var list = $('#chatpr-autorag-error-list').empty();
-                    $.each(job.errors, function(i, err) {
-                        list.append($('<li>').text(err.title + ': ' + err.error));
-                    });
-                    $('#chatpr-autorag-errors').show();
-                }
-            }
-        });
-    }
-
-    function stopPolling() {
-        if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-        }
-    }
-
-    function refreshStatus() {
-        $.post(ajaxUrl, {
-            action: 'chatpr_get_index_status',
-            nonce: nonce,
-            project_id: projectId
-        }, function(response) {
-            if (response.success) {
-                $('#chatpr-autorag-indexed').text(response.data.indexed);
-                $('#chatpr-autorag-available').text(response.data.available);
-                $('#chatpr-autorag-clear').prop('disabled', response.data.total < 1);
-            }
-        });
-    }
-
-    $('#chatpr-autorag-start').on('click', startIndexing);
-
-    $('#chatpr-autorag-cancel').on('click', function() {
-        $.post(ajaxUrl, {
-            action: 'chatpr_cancel_indexing',
-            nonce: nonce,
-            project_id: projectId
-        });
-    });
-
-    $('#chatpr-autorag-clear').on('click', function() {
-        if (!confirm('{$confirm_clear}')) return;
-        var btn = $(this);
-        btn.prop('disabled', true);
-        $.post(ajaxUrl, {
-            action: 'chatpr_clear_index',
-            nonce: nonce,
-            project_id: projectId
-        }, function(response) {
-            if (response.success) {
-                refreshStatus();
-                $('#chatpr-autorag-progress').hide();
-                $('#chatpr-autorag-errors').hide();
-            }
-            btn.prop('disabled', false);
-        });
-    });
-
-    // If job was already running when page loaded, resume polling.
-    if ($('#chatpr-autorag-cancel').is(':visible')) {
-        startPolling();
-    }
-});
-JS;
+        $config = array(
+            'projectId' => absint( $project_id ),
+            'nonce'     => wp_create_nonce( 'chatpr_ajax_nonce' ),
+            'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
+            'strings'   => array(
+                'confirmClear' => __( 'Are you sure you want to clear all indexed content? This will remove files from the vector store.', 'chatprojects' ),
+                'indexing'     => __( 'Indexing...', 'chatprojects' ),
+                'complete'     => __( 'Indexing complete!', 'chatprojects' ),
+                'cancelled'    => __( 'Indexing cancelled.', 'chatprojects' ),
+            ),
+        );
+        wp_add_inline_script( 'chatprojects-autorag', 'window.chatprAutorag = ' . wp_json_encode( $config ) . ';', 'before' );
     }
 
     /**

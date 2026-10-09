@@ -1,11 +1,11 @@
 === ChatProjects ===
 Contributors: chatprojects
 Donate link: https://chatprojects.com/
-Tags: ai, chatgpt, openai, chatbot, project management, vector store, responses api
+Tags: ai, chatbot, openai, chatgpt, vector store
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,15 +15,16 @@ AI-powered project management with multi-provider chat. Vector store file search
 
 **ChatProjects** is the easiest way to chat with your files and documents in WordPress. AI-powered project chat with OpenAI Responses API vector store backend for intelligent file search.
 
-Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.6), Anthropic (Claude Opus 5), Google (Gemini 3.8), Chutes (DeepSeek V4), and OpenRouter.
+Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.6), Anthropic (Claude Opus 5.5), Google (Gemini 3.8), Chutes (DeepSeek V4), and OpenRouter.
 
 = Key Features =
 
-* **Multi-Provider Chat** - Chat with GPT-5.6, Claude Opus 5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
+* **Multi-Provider Chat** - Chat with GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
 * **Project Management** - Create projects with OpenAI's file search capability
-* **File Upload** - Upload documents (PDF, TXT, DOC) to your project's vector store
+* **File Upload** - Upload documents (PDF, DOCX, TXT, MD, CSV and more) to your project's vector store
 * **Custom Instructions** - Set custom assistant instructions for each project
-* **Shared Chatbots** - Create project-based chatbots that can be shared with your team
+* **Website Chat Widget** - Put a project-powered assistant on any page with `[chatprojects_widget]`
+* **Auto-RAG** - Index your published posts and pages into a project so the assistant can answer from your site's content
 * **Modern Interface** - Clean, responsive chat interface with dark mode support
 * **Embeddable** - Use shortcodes to embed the full application on any page
 * **Privacy First** - Your API keys stay on your server, not ours
@@ -31,7 +32,7 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 = Supported AI Providers =
 
 1. **OpenAI** - GPT-5.6 Sol / Terra / Luna, GPT-5.5, GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano
-2. **Anthropic** - Claude Opus 5, Claude Fable 5.1, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5
+2. **Anthropic** - Claude Opus 5.5, Claude Fable 5.1, Claude Sonnet 5.5, Claude Opus 5, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5
 3. **Google Gemini** - Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.5 Flash, Gemini 3.5 Flash Lite, Gemini 3.1 Pro (Preview)
 4. **Chutes** - DeepSeek V4 Flash, DeepSeek V3.2, plus every model Chutes hosts
 5. **OpenRouter** - Access 100+ models from various providers
@@ -42,12 +43,15 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 `[chatprojects_main]`
 
 **With Options:**
-`[chatprojects_main default_tab="chat" height="80vh"]`
+`[chatprojects_main default_tab="chat"]` - the hub's main button opens `projects` (default), `chat` or `settings`
+
+**Website chat widget for a project:**
+`[chatprojects_widget project="123"]`
 
 = Requirements =
 
-* WordPress 5.8 or higher
-* PHP 7.4 or higher
+* WordPress 6.6 or higher
+* PHP 8.0 or higher
 * At least one API key (OpenAI, Anthropic, Gemini, Chutes, or OpenRouter)
 
 == Installation ==
@@ -92,13 +96,13 @@ No! You only need one API key to start chatting. Add more providers as needed. N
 
 Your API keys are stored encrypted in your WordPress database. They never leave your server.
 
-= Can multiple users access the project? =
+= Who can see a project? =
 
-Yes! Projects are accessible to all logged-in users. Administrators can configure sharing controls in settings.
+Each project is private to the user who created it; administrators can see all projects. Users need the "Projects User" role (or Author, Editor, Administrator) to use ChatProjects. To share a project's knowledge with site visitors, enable the chat widget for it.
 
 = What file types can I upload? =
 
-Supported file types: PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP
+Supported file types: PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, JAVA, CPP. Executable and script types (such as PHP, JS, HTML and SVG) are always refused.
 
 = Is there a file size limit? =
 
@@ -122,6 +126,29 @@ Use the WordPress.org support forum or email support@chatprojects.com
 6. Chat administration settings and adding API keys
 
 == Changelog ==
+
+= 1.3.0 =
+* **Security:** A user could delete OpenAI files that didn't belong to their project; deletion is now limited to the project's own files, and file IDs are no longer sent to widget visitors.
+* **Security:** General chat streaming now checks that the chat belongs to you before saving anything to it.
+* **Security:** The projects page no longer includes your full user record (including the password hash) in the page source.
+* **Security:** All chat, project and file actions now require a ChatProjects role (Projects User, Author, Editor or Administrator), matching the pages themselves.
+* **Security:** Changing your email from ChatProjects settings now sends a confirmation link, like the WordPress profile screen.
+* **Security:** Only the uploader (or someone who can edit it) can import a Media Library file into a project.
+* **Security:** API keys use authenticated encryption (libsodium); existing keys are re-encrypted automatically. Keys that can't be decrypted are no longer deleted.
+* **Security:** Rate limits on every AI request, plus a site-wide daily limit for the public widget (Settings > Chat Widget).
+* **Fixed:** Deleting the free plugin while ChatProjects Pro is installed no longer removes Pro's data.
+* **Fixed:** Project chat replies could stop arriving before the final events on PHP-FPM hosts, losing automatic chat titles.
+* **Fixed:** The chat widget's stylesheet was missing from the released plugin.
+* **Fixed:** Widget sessions expired early on sites in timezones ahead of UTC.
+* **Fixed:** General chat now uses the chat's instructions when streaming.
+* **Fixed:** Conversations recover automatically when OpenAI no longer has the previous response; history is sent when there is nothing to continue from.
+* **Fixed:** Real error messages from AI providers are shown instead of "HTTP error: 400"; replies cut off by length or content filters are marked as incomplete.
+* **Fixed:** Chutes now streams and receives the system prompt; Chutes and OpenRouter use each model's own temperature and length defaults.
+* **Fixed:** Auto-RAG removes posts from the index when they are unpublished, made private, password-protected or deleted, and re-indexes edited posts.
+* **Models:** Claude Opus 5.5 (new default) and Claude Sonnet 5.5. Claude requests opt into Anthropic's server-side fallback when a safety classifier declines.
+* **Models:** Images are only sent to models that can read them.
+* **Compliance:** The widget's "Powered by ChatProjects" link is now opt-in. Google Fonts are no longer loaded from Google's servers. DOMPurify's licence is included.
+* Removed the unused REST stream endpoint, Pro-only code paths and unused source files.
 
 = 1.2.0 =
 * **Models:** Replaced every retired model with current ones — GPT-5.6 Sol/Terra/Luna, GPT-5.5, GPT-5.4 family; Claude Opus 5, Fable 5.1, Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5; Gemini 3.8/3.7/3.5 Flash and 3.1 Pro; DeepSeek V4. Existing settings, projects and chats are migrated automatically to the closest current model.
@@ -184,6 +211,9 @@ Use the WordPress.org support forum or email support@chatprojects.com
 
 == Upgrade Notice ==
 
+= 1.3.0 =
+Security release: fixes file deletion and chat access checks, and stops deleting ChatProjects Pro data when the free plugin is removed. Update recommended.
+
 = 1.2.0 =
 Retired AI models are replaced automatically. Project access is now limited to the project author and administrators. Requires WordPress 6.6+ and PHP 8.0+.
 
@@ -195,30 +225,33 @@ Initial release. Add your API keys and start chatting with AI!
 
 == Privacy Policy ==
 
-ChatProjects stores your API keys encrypted in your WordPress database. The plugin connects directly to AI provider APIs (OpenAI, Anthropic, Google, Chutes) using your own API keys. No data is sent to our servers.
+ChatProjects stores your API keys encrypted in your WordPress database. The plugin connects directly to AI provider APIs (OpenAI, Anthropic, Google, Chutes, OpenRouter) using your own API keys. No data is sent to our servers.
 
 For more information, see our [Privacy Policy](https://chatprojects.com/privacy/).
 
-== Third-Party Services ==
+== External services ==
 
-This plugin connects to external AI services when users interact with chat features. **No data is sent automatically** - transmission only occurs when users explicitly take action.
+This plugin connects to the external AI services listed below, using API keys the site owner provides. Nothing is sent until an administrator adds a key for a service.
 
 = Data Transmitted =
 
-* **Chat Messages:** User-entered text is sent to the selected AI provider when the user submits a message
-* **Uploaded Files:** File contents are sent to OpenAI when users upload to a project with Vector Store enabled
-* **System Instructions:** Project-configured system prompts are included with chat requests
+* **Chat Messages:** Text (and attached images) a logged-in user sends is sent to the AI provider they selected, together with recent conversation history
+* **Website Widget Messages:** Messages typed by site visitors into the `[chatprojects_widget]` chat are sent to OpenAI with the project's instructions
+* **Uploaded Files:** File contents are sent to OpenAI when users upload or import a file into a project
+* **Auto-RAG Content:** When an administrator starts indexing, the title, URL, date, author, categories and text of published, public posts and pages are uploaded to the project's OpenAI vector store in background batches. Edited posts are re-uploaded, and posts that are unpublished or deleted are removed
+* **System Instructions:** Project or chat instructions are included with chat requests
+* **Chat Titles:** The first message and reply of a chat are sent to OpenAI to generate a short title
 
 = When Data Is Sent =
 
-* On chat message submission (user clicks send or presses Enter)
-* On file upload to a project (OpenAI only)
-* On file search/retrieval operations (OpenAI only)
+* When a user or widget visitor sends a chat message
+* When a file is uploaded or imported into a project (OpenAI only)
+* While Auto-RAG indexing runs, and when an indexed post is edited (OpenAI only)
 
 = API Keys =
 
 * **Site owners supply their own API keys** - this plugin does not provide access to any AI service
-* Keys are encrypted using AES-256-CBC and stored locally in the WordPress database
+* Keys are encrypted (libsodium secretbox) and stored locally in the WordPress database
 * Keys are never transmitted to chatprojects.com or any third party
 
 = Service Providers =
@@ -280,6 +313,12 @@ This plugin includes the following third-party JavaScript libraries:
 * Source: https://github.com/markedjs/marked
 * License file: licenses/MARKED.txt
 
+= DOMPurify =
+* Version: 3.x
+* License: Apache-2.0 (dual licensed Apache-2.0 / MPL-2.0)
+* Source: https://github.com/cure53/DOMPurify
+* License file: licenses/DOMPURIFY.txt
+
 == Development ==
 
 = Source Code =
@@ -303,4 +342,4 @@ This plugin uses the WordPress HTTP API (`wp_remote_post`) for AI provider strea
 If cURL is not available, the HTTP API will fall back to other transports and the request will still complete (though streaming callbacks are only available when cURL is the active transport).
 
 **PHP Configuration:**
-SSE streaming requires specific PHP settings (disabled output buffering, compression off) which are set only within the streaming endpoint functions, not globally.
+SSE streaming clears output buffers and turns off output compression for the streaming request only, not globally.

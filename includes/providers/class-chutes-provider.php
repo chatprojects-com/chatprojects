@@ -56,30 +56,7 @@ class Chutes_Provider extends Base_Provider {
             return $this->error('no_messages', __('No messages provided.', 'chatprojects'));
         }
 
-        // Format messages
-        $formatted_messages = array();
-        foreach ($messages as $msg) {
-            $role = isset($msg['role']) ? $msg['role'] : 'user';
-            $content = isset($msg['content']) ? $msg['content'] : '';
-
-            $formatted_messages[] = array(
-                'role' => $role,
-                'content' => $content,
-            );
-        }
-
-        // Prepare request data
-        $data = array(
-            'model' => $model,
-            'messages' => $formatted_messages,
-            'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-            'max_tokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 2000,
-        );
-
-        // Add system message if provided
-        if (!empty($options['instructions'])) {
-            $data['system'] = $options['instructions'];
-        }
+        $data = $this->chat_completions_body($model, $messages, $options, false);
 
         $headers = array(
             'Authorization' => 'Bearer ' . $this->api_key,
@@ -114,6 +91,40 @@ class Chutes_Provider extends Base_Provider {
         }
 
         return $this->error('no_response', __('No response from Chutes.ai.', 'chatprojects'));
+    }
+
+    /**
+     * Stream completion with callback (OpenAI-compatible SSE).
+     *
+     * @param array    $messages Array of message objects
+     * @param string   $model    Model identifier
+     * @param callable $callback Callback for each chunk
+     * @param array    $options  Additional options
+     * @return void
+     */
+    public function stream_completion( $messages, $model, $callback, $options = array() ) {
+        if ( ! $this->has_api_key() ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'Chutes.ai API key is not configured.', 'chatprojects' ) ) );
+            return;
+        }
+
+        if ( empty( $messages ) ) {
+            $callback( array( 'type' => 'error', 'content' => __( 'No messages provided.', 'chatprojects' ) ) );
+            return;
+        }
+
+        $headers = array(
+            'Authorization' => 'Bearer ' . $this->api_key,
+            'Content-Type'  => 'application/json',
+            'Accept'        => 'text/event-stream',
+        );
+
+        $this->stream_chat_completions(
+            self::API_BASE_URL . 'chat/completions',
+            $headers,
+            $this->chat_completions_body( $model, $messages, $options, true ),
+            $callback
+        );
     }
 
     /**

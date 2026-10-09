@@ -64,6 +64,78 @@ class SSE_Stream_Manager {
 	private function __construct() {}
 
 	/**
+	 * Switch the current request into a Server-Sent Events response.
+	 *
+	 * Clears output buffers, sends no-cache / no-buffering headers for common
+	 * servers and proxies, and pads the first write so buffering proxies flush.
+	 * Call only after authentication, so failures can still return JSON.
+	 */
+	public static function begin_response() {
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		header( 'Content-Type: text/event-stream; charset=utf-8' );
+		header( 'Cache-Control: no-cache, no-store, must-revalidate, private' );
+		header( 'Pragma: no-cache' );
+		header( 'Expires: 0' );
+		header( 'X-Accel-Buffering: no' ); // nginx / LiteSpeed.
+		header( 'Connection: keep-alive' );
+		header( 'X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off' );
+		header( 'X-LiteSpeed-Tag: no-cache' );
+		header( 'X-CF-Buffering: off' ); // Cloudflare.
+
+		// Keep going if the visitor closes the tab, so the reply is still saved
+		// and the chat history stays consistent.
+		ignore_user_abort( true );
+
+		// Compression buffers the whole response; turn it off for this request only.
+		if ( function_exists( 'apache_setenv' ) ) {
+			apache_setenv( 'no-gzip', '1' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_apache_setenv -- Disables mod_deflate for this SSE response only.
+		}
+		if ( ! headers_sent() && ini_get( 'zlib.output_compression' ) ) {
+			ini_set( 'zlib.output_compression', '0' ); // phpcs:ignore WordPress.PHP.IniSet.Risky, Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE; affects this request only.
+		}
+		ob_implicit_flush( true );
+
+		// Padding fills server buffers (often 8KB) so streaming starts immediately.
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SSE comment of spaces only.
+		echo ':' . str_repeat( ' ', 8192 ) . "\n\n";
+		echo ": stream started\n\n";
+		flush();
+	}
+
+	/**
+	 * Text appended to a reply the provider stopped early, so the user (and the
+	 * saved history) can tell it is incomplete.
+	 *
+	 * @param string $reason Provider stop reason (max_tokens, length, content_filter, safety, ...).
+	 * @return string
+	 */
+	public static function truncation_notice( $reason = '' ) {
+		$reason = strtolower( (string) $reason );
+		if ( in_array( $reason, array( 'content_filter', 'safety', 'refusal', 'blocklist', 'prohibited_content', 'spii', 'recitation' ), true ) ) {
+			$text = __( 'The AI provider stopped this reply because of its content policy.', 'chatprojects' );
+		} else {
+			$text = __( 'This reply was cut off because it reached the maximum length.', 'chatprojects' );
+		}
+		return "\n\n_(" . $text . ')_';
+	}
+
+	/**
+	 * Push everything written so far to the browser.
+	 */
+	public static function flush() {
+		if ( function_exists( 'litespeed_flush' ) ) {
+			litespeed_flush();
+		}
+		if ( ob_get_level() > 0 ) {
+			ob_flush();
+		}
+		flush();
+	}
+
+	/**
 	 * Register the http_api_curl hook.
 	 */
 	private function register_hooks() {
@@ -99,10 +171,11 @@ class SSE_Stream_Manager {
 			return;
 		}
 
-		$callback = $this->context['callback'];
-		$parser   = $this->context['parser'];
-		$buffer   = &$this->context['buffer'];
-		$state    = &$this->context['state'];
+		$callback   = $this->context['callback'];
+		$parser     = $this->context['parser'];
+		$buffer     = &$this->context['buffer'];
+		$state      = &$this->context['state'];
+		$error_body = &$this->context['error_body'];
 
 		// Set streaming-specific cURL options via http_api_curl hook.
 		// This is the WordPress-approved method for customizing cURL behavior.
@@ -118,7 +191,16 @@ class SSE_Stream_Manager {
 		curl_setopt(
 			$handle,
 			CURLOPT_WRITEFUNCTION,
-			function ( $ch, $chunk ) use ( $callback, $parser, &$buffer, &$state ) {
+			function ( $ch, $chunk ) use ( $callback, $parser, &$buffer, &$state, &$error_body ) {
+				// Error responses are plain JSON, not SSE: keep the body so the
+				// caller can show the provider's actual error message.
+				if ( (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE ) >= 400 ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- Inside the http_api_curl write callback.
+					if ( strlen( $error_body ) < 65536 ) {
+						$error_body .= $chunk;
+					}
+					return strlen( $chunk );
+				}
+
 				// Use the provider-specific parser to process chunks.
 				$parser( $chunk, $callback, $buffer, $state );
 				return strlen( $chunk );
@@ -140,11 +222,12 @@ class SSE_Stream_Manager {
 	public function stream_request( $url, $data, $headers, $callback, $parser, $state = array() ) {
 		// Set up the streaming context.
 		$this->context = array(
-			'url'      => $url,
-			'callback' => $callback,
-			'parser'   => $parser,
-			'buffer'   => '',
-			'state'    => $state,
+			'url'        => $url,
+			'callback'   => $callback,
+			'parser'     => $parser,
+			'buffer'     => '',
+			'state'      => $state,
+			'error_body' => '',
 		);
 
 		// Register hooks before the request.
@@ -161,6 +244,12 @@ class SSE_Stream_Manager {
 			)
 		);
 
+		// With CURLOPT_RETURNTRANSFER off the body is empty; put a captured
+		// error body back so callers can read it.
+		if ( ! is_wp_error( $response ) && '' !== $this->context['error_body'] ) {
+			$response['body'] = $this->context['error_body'];
+		}
+
 		// Clean up after request completes.
 		$this->unregister_hooks();
 		$this->context = null;
@@ -169,20 +258,55 @@ class SSE_Stream_Manager {
 	}
 
 	/**
-	 * Get reference to current buffer (for post-processing if needed).
+	 * Build a readable message from a failed (status >= 400) streaming response.
 	 *
-	 * @return string|null Current buffer contents or null if no active context.
+	 * Understands the JSON error shapes used by OpenAI, Anthropic, Gemini and
+	 * OpenAI-compatible APIs ({"error":{"message":...}}, Gemini's list form, or
+	 * a plain {"message":...}).
+	 *
+	 * @param array $response WordPress HTTP API response.
+	 * @return string
 	 */
-	public function get_buffer() {
-		return $this->context ? $this->context['buffer'] : null;
+	public static function error_message( $response ) {
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( is_array( $decoded ) && isset( $decoded[0] ) && is_array( $decoded[0] ) ) {
+			$decoded = $decoded[0];
+		}
+
+		$message = '';
+		if ( is_array( $decoded ) ) {
+			if ( isset( $decoded['error']['message'] ) ) {
+				$message = (string) $decoded['error']['message'];
+			} elseif ( isset( $decoded['error'] ) && is_string( $decoded['error'] ) ) {
+				$message = $decoded['error'];
+			} elseif ( isset( $decoded['message'] ) ) {
+				$message = (string) $decoded['message'];
+			} elseif ( isset( $decoded['detail'] ) && is_string( $decoded['detail'] ) ) {
+				$message = $decoded['detail'];
+			}
+		}
+
+		if ( '' === $message ) {
+			/* translators: %d: HTTP status code */
+			return sprintf( __( 'The AI provider returned an error (HTTP %d).', 'chatprojects' ), $status );
+		}
+
+		/* translators: 1: HTTP status code, 2: error message from the AI provider */
+		return sprintf( __( 'AI provider error (HTTP %1$d): %2$s', 'chatprojects' ), $status, wp_strip_all_tags( $message ) );
 	}
 
 	/**
-	 * Get reference to current state (for post-processing if needed).
+	 * Machine-readable error code from a failed streaming response, if any.
 	 *
-	 * @return array|null Current state or null if no active context.
+	 * @param array $response WordPress HTTP API response.
+	 * @return string
 	 */
-	public function get_state() {
-		return $this->context ? $this->context['state'] : null;
+	public static function error_code( $response ) {
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( is_array( $decoded ) && isset( $decoded['error']['code'] ) && is_string( $decoded['error']['code'] ) ) {
+			return $decoded['error']['code'];
+		}
+		return '';
 	}
 }

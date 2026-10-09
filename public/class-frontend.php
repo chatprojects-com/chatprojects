@@ -233,7 +233,6 @@ class Frontend {
         add_rewrite_rule('^' . $slugs['projects'] . '/?$', 'index.php?chatpr_page=projects', 'top');
         add_rewrite_rule('^' . $slugs['settings'] . '/?$', 'index.php?chatpr_page=settings', 'top');
         add_rewrite_rule('^' . $slugs['chat'] . '/?$', 'index.php?chatpr_page=pro_chat', 'top');
-        add_rewrite_rule('^' . $slugs['comparison'] . '/?$', 'index.php?chatpr_page=pro_comparison', 'top');
 
         // Add query var
         add_filter('query_vars', function($vars) {
@@ -330,9 +329,6 @@ class Frontend {
             case 'pro_chat':
                 $this->load_pro_chat_page();
                 break;
-            case 'pro_comparison':
-                $this->load_pro_comparison_page();
-                break;
         }
     }
 
@@ -364,9 +360,9 @@ class Frontend {
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            \ChatProjects\ChatProjects::asset_version('assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
         wp_enqueue_script(
             'chatprojects-main',
@@ -376,7 +372,6 @@ class Frontend {
             true // Load in footer
         );
         wp_script_add_data('chatprojects-main', 'type', 'module');
-        wp_script_add_data('chatprojects-comparison', 'type', 'module');
         // Localize script for AJAX
         wp_localize_script('chatprojects-main', 'chatprAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -416,9 +411,9 @@ class Frontend {
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            \ChatProjects\ChatProjects::asset_version('assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
 
         wp_enqueue_script(
@@ -430,7 +425,6 @@ class Frontend {
         );
 
         wp_script_add_data('chatprojects-main', 'type', 'module');
-        wp_script_add_data('chatprojects-comparison', 'type', 'module');
 
         // Localize script
         wp_localize_script('chatprojects-main', 'chatprData', array(
@@ -468,9 +462,9 @@ class Frontend {
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            \ChatProjects\ChatProjects::asset_version('assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
 
         wp_enqueue_script(
@@ -482,7 +476,6 @@ class Frontend {
         );
 
         wp_script_add_data('chatprojects-main', 'type', 'module');
-        wp_script_add_data('chatprojects-comparison', 'type', 'module');
 
         // Localize script
         wp_localize_script('chatprojects-main', 'chatprData', array(
@@ -511,84 +504,6 @@ class Frontend {
         ));
 
         $template = CHATPROJECTS_PLUGIN_DIR . 'public/templates/pro-chat.php';
-
-        if (file_exists($template)) {
-            include $template;
-            exit;
-        }
-    }
-
-    /**
-     * Load Pro Comparison page
-     */
-    private function load_pro_comparison_page() {
-        // Prevent browser caching to ensure fresh nonces and scripts
-        nocache_headers();
-
-        // Pro-only feature: redirect Free users to Pro Chat
-        if (!defined('CHATPROJECTS_PRO_VERSION')) {
-            $slugs = \ChatProjects\ChatProjects::get_slugs();
-            wp_safe_redirect(home_url('/' . $slugs['chat'] . '/'));
-            exit;
-        }
-
-        // Ensure jQuery is loaded
-        wp_enqueue_script('jquery');
-
-        // Manually enqueue scripts directly
-        wp_enqueue_style(
-            'chatprojects-frontend',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
-            array(),
-            \ChatProjects\ChatProjects::asset_version('assets/dist/css/main.css')
-        );
-
-        // Enqueue main JS first (for Alpine)
-        wp_enqueue_script(
-            'chatprojects-main',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
-            array('jquery'),
-            \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js'),
-            true
-        );
-
-        // Enqueue comparison-specific JavaScript (depends on main.js for Alpine)
-        // Note: This file may not exist in Free version
-        $comparison_js = CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/comparison.js';
-        if (file_exists($comparison_js)) {
-            wp_enqueue_script(
-                'chatprojects-comparison',
-                CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/comparison.js',
-                array('chatprojects-main'),
-                \ChatProjects\ChatProjects::asset_version(str_replace(CHATPROJECTS_PLUGIN_DIR, '', $comparison_js)),
-                true
-            );
-        }
-
-        wp_script_add_data('chatprojects-main', 'type', 'module');
-        wp_script_add_data('chatprojects-comparison', 'type', 'module');
-
-        // Localize script data for comparison page
-        if (!wp_script_is('chatprojects-comparison', 'registered')) {
-            return;
-        }
-        wp_localize_script('chatprojects-comparison', 'chatprComparisonData', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('chatpr_ajax_nonce'),
-            'current_user' => wp_get_current_user()->display_name,
-            'default_provider' => get_option('chatprojects_general_chat_provider', 'openai'),
-            'default_model' => get_option('chatprojects_general_chat_model', \ChatProjects\Model_Registry::get_default(get_option('chatprojects_general_chat_provider', 'openai'))),
-            'strings' => array(
-                'sending' => __('Sending...', 'chatprojects'),
-                'error' => __('An error occurred. Please try again.', 'chatprojects'),
-                'creating_comparison' => __('Creating comparison...', 'chatprojects'),
-                'select_providers' => __('Please select providers and models for both sides.', 'chatprojects'),
-                'comparison_created' => __('Comparison created successfully.', 'chatprojects'),
-                'delete_confirm' => __('Are you sure you want to delete this comparison?', 'chatprojects'),
-            ),
-        ));
-
-        $template = CHATPROJECTS_PLUGIN_DIR . 'public/templates/pro-comparison.php';
 
         if (file_exists($template)) {
             include $template;
@@ -825,7 +740,15 @@ class Frontend {
             'settings' => home_url('/' . $slugs['settings'] . '/'),
         );
 
-        $redirect_url = isset($redirect_urls[ $default_tab ]) ? $redirect_urls[ $default_tab ] : $redirect_urls['projects'];
+        if (!isset($redirect_urls[ $default_tab ])) {
+            $default_tab = 'projects';
+        }
+        $redirect_url = $redirect_urls[ $default_tab ];
+        $open_labels  = array(
+            'projects' => __('Open Projects', 'chatprojects'),
+            'chat'     => __('Open Chat', 'chatprojects'),
+            'settings' => __('Open Settings', 'chatprojects'),
+        );
 
         // Render navigation hub
         ob_start();
@@ -840,6 +763,11 @@ class Frontend {
                 </h2>
                 <p style="margin: 0; color: #6b7280;">
                     <?php esc_html_e('AI-powered project management', 'chatprojects'); ?>
+                </p>
+                <p style="margin: 1.25rem 0 0;">
+                    <a href="<?php echo esc_url($redirect_url); ?>" style="display: inline-block; padding: 0.625rem 1.25rem; background: #2563eb; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                        <?php echo esc_html($open_labels[ $default_tab ]); ?>
+                    </a>
                 </p>
             </div>
 
@@ -1073,7 +1001,7 @@ class Frontend {
             'title'          => ! empty( $atts['title'] ) ? sanitize_text_field( $atts['title'] ) : get_bloginfo( 'name' ),
             'welcomeMessage' => ! empty( $atts['welcome_message'] ) ? wp_kses_post( $atts['welcome_message'] ) : wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
             'placeholder'    => ! empty( $atts['placeholder'] ) ? esc_attr( $atts['placeholder'] ) : esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
-            'showBranding'   => defined( 'CHATPROJECTS_PRO_VERSION' ) ? (bool) get_option( 'chatprojects_widget_show_branding', true ) : true,
+            'showBranding'   => (bool) get_option( 'chatprojects_widget_show_branding', false ),
             'siteName'       => get_bloginfo( 'name' ),
             'height'         => absint( $atts['height'] ),
             'position'       => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
@@ -1153,15 +1081,15 @@ class Frontend {
         $enqueued = true;
 
         $widget_js_path  = CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/widget.js';
-        $widget_css_path = CHATPROJECTS_PLUGIN_DIR . 'assets/src/css/widget.css';
+        $widget_css_path = CHATPROJECTS_PLUGIN_DIR . 'assets/css/widget.css';
 
         // Widget CSS (standalone, no build processing needed).
         if ( file_exists( $widget_css_path ) ) {
             wp_enqueue_style(
                 'chatprojects-widget',
-                CHATPROJECTS_PLUGIN_URL . 'assets/src/css/widget.css',
+                CHATPROJECTS_PLUGIN_URL . 'assets/css/widget.css',
                 array(),
-                CHATPROJECTS_VERSION
+                \ChatProjects\ChatProjects::asset_version( 'assets/css/widget.css' )
             );
         }
 
@@ -1171,7 +1099,7 @@ class Frontend {
                 'chatprojects-widget',
                 CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/widget.js',
                 array(),
-                CHATPROJECTS_VERSION,
+                \ChatProjects\ChatProjects::asset_version( 'assets/dist/js/widget.js' ),
                 true
             );
         }
@@ -1204,7 +1132,7 @@ class Frontend {
                 'primaryColor'   => sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
                 'welcomeMessage' => wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
                 'placeholder'    => esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
-                'showBranding'   => defined( 'CHATPROJECTS_PRO_VERSION' ) ? (bool) get_option( 'chatprojects_widget_show_branding', true ) : true,
+                'showBranding'   => (bool) get_option( 'chatprojects_widget_show_branding', false ),
                 'siteName'       => get_bloginfo( 'name' ),
             );
         }

@@ -159,7 +159,11 @@ $total_projects = count($all_projects);
     // Define projectsApp function EARLY in head to prevent "not defined" errors
     // when Alpine.js is loaded by other plugins (like Elementor) before our scripts
     $projects_json = wp_json_encode($all_projects);
-    $current_user_json = wp_json_encode($current_user);
+    // Only what the page needs; encoding WP_User would expose the password hash and email.
+    $current_user_json = wp_json_encode(array(
+        'ID'           => (int) $current_user->ID,
+        'display_name' => $current_user->display_name,
+    ));
     $home_url = esc_url(home_url());
     $error_create = esc_js(__('Failed to create project.', 'chatprojects'));
     $error_update = esc_js(__('Failed to update project.', 'chatprojects'));
@@ -427,7 +431,6 @@ function projectsApp() {
 // Also register with Alpine if it's already loaded (Elementor compatibility)
 if (window.Alpine && typeof window.Alpine.data === 'function') {
     window.Alpine.data('projectsApp', projectsApp);
-    console.log('ChatProjects: Registered projectsApp with existing Alpine instance');
 }
     </script>
     <?php

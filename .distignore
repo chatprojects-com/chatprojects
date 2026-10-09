@@ -31,6 +31,8 @@ build-zip.ps1
 # Documentation (not needed in distribution)
 WIKI.md
 CLAUDE.md
+README.md
+documentation/
 .claude/
 
 # IDE / Editor

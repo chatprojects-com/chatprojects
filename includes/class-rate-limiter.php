@@ -96,6 +96,15 @@ class Rate_Limiter {
 			);
 		}
 
+		// Site-wide daily cap, so many IPs together can't run up unlimited API spend.
+		$daily_limit = absint( apply_filters( 'chatprojects_widget_daily_limit', get_option( 'chatprojects_widget_daily_limit', 500 ) ) );
+		if ( $daily_limit > 0 && ! self::check( 'widget_msg_daily', gmdate( 'Y-m-d' ), $daily_limit, DAY_IN_SECONDS ) ) {
+			return new \WP_Error(
+				'rate_limited',
+				__( 'The chat assistant is unavailable for the rest of the day. Please try again tomorrow.', 'chatprojects' )
+			);
+		}
+
 		return true;
 	}
 

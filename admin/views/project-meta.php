@@ -12,11 +12,11 @@ if (!defined('ABSPATH')) {
 ?>
 
 <div class="chatprojects-project-meta">
-    <?php if (!empty($vector_store_id)) : ?>
+    <?php if (!empty($chatprojects_vector_store_id)) : ?>
         <div class="notice notice-success inline">
             <p>
                 <strong><?php esc_html_e('Vector Store:', 'chatprojects'); ?></strong>
-                <code><?php echo esc_html($vector_store_id); ?></code>
+                <code><?php echo esc_html($chatprojects_vector_store_id); ?></code>
             </p>
         </div>
     <?php endif; ?>
@@ -28,14 +28,14 @@ if (!defined('ABSPATH')) {
             </th>
             <td>
                 <?php
-                $cp_model_options = \ChatProjects\Model_Registry::get_labels('openai');
-                if (!empty($model) && !isset($cp_model_options[ $model ])) {
-                    $cp_model_options = array($model => $model . ' ' . __('(unlisted)', 'chatprojects')) + $cp_model_options;
+                $chatprojects_model_options = \ChatProjects\Model_Registry::get_labels('openai');
+                if (!empty($chatprojects_model) && !isset($chatprojects_model_options[ $chatprojects_model ])) {
+                    $chatprojects_model_options = array($chatprojects_model => $chatprojects_model . ' ' . __('(unlisted)', 'chatprojects')) + $chatprojects_model_options;
                 }
                 ?>
                 <select name="cp_model" id="cp_model" class="regular-text">
-                    <?php foreach ($cp_model_options as $cp_model_id => $cp_model_label) : ?>
-                        <option value="<?php echo esc_attr($cp_model_id); ?>" <?php selected($model, $cp_model_id); ?>><?php echo esc_html($cp_model_label); ?></option>
+                    <?php foreach ($chatprojects_model_options as $chatprojects_model_id => $chatprojects_model_label) : ?>
+                        <option value="<?php echo esc_attr($chatprojects_model_id); ?>" <?php selected($chatprojects_model, $chatprojects_model_id); ?>><?php echo esc_html($chatprojects_model_label); ?></option>
                     <?php endforeach; ?>
                 </select>
                 <p class="description">
@@ -53,7 +53,7 @@ if (!defined('ABSPATH')) {
                           id="cp_instructions" 
                           rows="10" 
                           class="large-text code"
-                          placeholder="<?php esc_attr_e('Enter assistant instructions...', 'chatprojects'); ?>"><?php echo esc_textarea($instructions); ?></textarea>
+                          placeholder="<?php esc_attr_e('Enter assistant instructions...', 'chatprojects'); ?>"><?php echo esc_textarea($chatprojects_instructions); ?></textarea>
                 <p class="description">
                     <?php esc_html_e('System instructions for the AI assistant. This defines the assistant\'s behavior and capabilities.', 'chatprojects'); ?>
                 </p>
@@ -61,7 +61,7 @@ if (!defined('ABSPATH')) {
         </tr>
     </table>
 
-    <?php if (empty($vector_store_id)) : ?>
+    <?php if (empty($chatprojects_vector_store_id)) : ?>
         <div class="notice notice-info inline">
             <p>
                 <?php esc_html_e('Vector Store will be created automatically when you publish this project.', 'chatprojects'); ?>

@@ -151,7 +151,7 @@ class Message_Store {
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_name_sql}
                  WHERE chat_id = %d
-                 ORDER BY created_at DESC
+                 ORDER BY id DESC
                  LIMIT %d",
                 absint($chat_id),
                 absint($limit)
@@ -209,6 +209,35 @@ class Message_Store {
         }
 
         return $api_messages;
+    }
+
+    /**
+     * Recent conversation as OpenAI Responses API input items, oldest first.
+     *
+     * Used when there is no previous_response_id to chain from (first turn, a
+     * failed turn, or an expired stored response) so the model still sees the
+     * conversation.
+     *
+     * @param int $chat_id Chat ID
+     * @param int $limit   Maximum number of messages
+     * @return array List of array('role' => ..., 'content' => ...)
+     */
+    public function get_responses_input($chat_id, $limit = 20) {
+        $input = array();
+        foreach ($this->get_recent_messages($chat_id, $limit) as $row) {
+            if (!in_array($row['role'], array('user', 'assistant'), true) || '' === (string) $row['content']) {
+                continue;
+            }
+            // The conversation sent to the API must start with a user turn.
+            if (empty($input) && 'assistant' === $row['role']) {
+                continue;
+            }
+            $input[] = array(
+                'role'    => $row['role'],
+                'content' => (string) $row['content'],
+            );
+        }
+        return $input;
     }
 
     /**

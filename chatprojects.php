@@ -2,8 +2,8 @@
 /**
  * Plugin Name: ChatProjects
  * Plugin URI: https://chatprojects.com/chatprojects
- * Description: AI-powered project management with multi-provider chat support. Vector store chat with OpenAI Responses API. Chat with GPT-5.6, Claude Opus 5, Gemini 3.8, DeepSeek V4 and more using your own API keys.
- * Version: 1.2.0
+ * Description: AI-powered project management with multi-provider chat support. Vector store chat with OpenAI Responses API. Chat with GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4 and more using your own API keys.
+ * Version: 1.3.0
  * Author: chatprojects.com
  * Author URI: https://chatprojects.com
  * License: GPL v2 or later
@@ -22,7 +22,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CHATPROJECTS_VERSION', '1.2.0');
+define('CHATPROJECTS_VERSION', '1.3.0');
 define('CHATPROJECTS_PLUGIN_FILE', __FILE__);
 define('CHATPROJECTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CHATPROJECTS_PLUGIN_URL', plugin_dir_url(__FILE__));

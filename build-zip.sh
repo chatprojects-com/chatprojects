@@ -20,8 +20,9 @@ rsync -a \
 	--exclude='*.zip' \
 	"$PLUGIN_DIR/" "$STAGE/$PLUGIN_NAME/"
 
-# Belt and braces: never ship PHP from the asset tree or debug views.
+# Belt and braces: never ship PHP from the asset tree, and drop any empty folders.
 find "$STAGE/$PLUGIN_NAME/assets/dist" -name '*.php' -delete 2>/dev/null || true
+find "$STAGE/$PLUGIN_NAME" -type d -empty -delete
 
 rm -f "$OUT"
 ( cd "$STAGE" && zip -qr "$OUT" "$PLUGIN_NAME" )

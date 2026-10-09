@@ -19,7 +19,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
 }
 
 // Define tabs.
-$tabs = array(
+$chatprojects_tabs = array(
 	'api'    => array(
 		'label' => __( 'API Keys', 'chatprojects' ),
 		'icon'  => 'dashicons-admin-network',
@@ -35,9 +35,9 @@ $tabs = array(
 );
 
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Tab display only, no form processing.
-$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'api';
-if ( ! isset( $tabs[ $active_tab ] ) ) {
-	$active_tab = 'api';
+$chatprojects_active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'api';
+if ( ! isset( $chatprojects_tabs[ $chatprojects_active_tab ] ) ) {
+	$chatprojects_active_tab = 'api';
 }
 ?>
 
@@ -277,12 +277,12 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 	<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
 
 	<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Settings tabs', 'chatprojects' ); ?>">
-		<?php foreach ( $tabs as $tab_key => $tab_data ) : ?>
-			<a href="<?php echo esc_url( add_query_arg( 'tab', $tab_key, admin_url( 'admin.php?page=chatprojects-settings' ) ) ); ?>"
-			   class="nav-tab <?php echo $active_tab === $tab_key ? 'nav-tab-active' : ''; ?>"
-			   aria-current="<?php echo $active_tab === $tab_key ? 'page' : 'false'; ?>">
-				<span class="dashicons <?php echo esc_attr( $tab_data['icon'] ); ?>"></span>
-				<?php echo esc_html( $tab_data['label'] ); ?>
+		<?php foreach ( $chatprojects_tabs as $chatprojects_tab_key => $chatprojects_tab_data ) : ?>
+			<a href="<?php echo esc_url( add_query_arg( 'tab', $chatprojects_tab_key, admin_url( 'admin.php?page=chatprojects-settings' ) ) ); ?>"
+			   class="nav-tab <?php echo $chatprojects_active_tab === $chatprojects_tab_key ? 'nav-tab-active' : ''; ?>"
+			   aria-current="<?php echo $chatprojects_active_tab === $chatprojects_tab_key ? 'page' : 'false'; ?>">
+				<span class="dashicons <?php echo esc_attr( $chatprojects_tab_data['icon'] ); ?>"></span>
+				<?php echo esc_html( $chatprojects_tab_data['label'] ); ?>
 			</a>
 		<?php endforeach; ?>
 	</nav>
@@ -292,13 +292,13 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 
 		<div class="chatpr-settings-content">
 			<?php
-			$tab_pages = array(
+			$chatprojects_tab_pages = array(
 				'api'    => 'chatprojects-tab-api',
 				'chat'   => 'chatprojects-tab-chat',
 				'widget' => 'chatprojects-tab-widget',
 			);
-			$page = isset( $tab_pages[ $active_tab ] ) ? $tab_pages[ $active_tab ] : 'chatprojects-tab-api';
-			do_settings_sections( $page );
+			$chatprojects_tab_page = isset( $chatprojects_tab_pages[ $chatprojects_active_tab ] ) ? $chatprojects_tab_pages[ $chatprojects_active_tab ] : 'chatprojects-tab-api';
+			do_settings_sections( $chatprojects_tab_page );
 			?>
 		</div>
 
@@ -307,7 +307,7 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 		</div>
 	</form>
 
-	<?php if ( 'api' === $active_tab ) : ?>
+	<?php if ( 'api' === $chatprojects_active_tab ) : ?>
 		<div class="chatpr-info-card">
 			<h3><?php esc_html_e( 'Quick Start Guide', 'chatprojects' ); ?></h3>
 			<ol>
@@ -340,7 +340,7 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 			<h3><?php esc_html_e( 'Available Features', 'chatprojects' ); ?></h3>
 			<div class="chatpr-features">
 				<?php
-				$features = array(
+				$chatprojects_features = array(
 					array( 'AI Chat', true ),
 					array( 'Vector Stores', true ),
 					array( 'Custom Instructions', true ),
@@ -358,14 +358,14 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 					array( 'More File Types', false ),
 					array( 'Cloud Import & Sync', false ),
 				);
-				foreach ( $features as $feature ) :
-					$class = $feature[1] ? 'chatpr-feature--free' : 'chatpr-feature--pro';
-					$icon  = $feature[1] ? 'dashicons-yes-alt' : 'dashicons-lock';
-					$badge = $feature[1] ? '' : ' (Pro)';
+				foreach ( $chatprojects_features as $chatprojects_feature ) :
+					$chatprojects_class = $chatprojects_feature[1] ? 'chatpr-feature--free' : 'chatpr-feature--pro';
+					$chatprojects_icon  = $chatprojects_feature[1] ? 'dashicons-yes-alt' : 'dashicons-lock';
+					$chatprojects_badge = $chatprojects_feature[1] ? '' : ' (Pro)';
 					?>
-					<span class="chatpr-feature <?php echo esc_attr( $class ); ?>">
-						<span class="dashicons <?php echo esc_attr( $icon ); ?>"></span>
-						<?php echo esc_html( $feature[0] . $badge ); ?>
+					<span class="chatpr-feature <?php echo esc_attr( $chatprojects_class ); ?>">
+						<span class="dashicons <?php echo esc_attr( $chatprojects_icon ); ?>"></span>
+						<?php echo esc_html( $chatprojects_feature[0] . $chatprojects_badge ); ?>
 					</span>
 				<?php endforeach; ?>
 			</div>
@@ -376,7 +376,7 @@ if ( ! isset( $tabs[ $active_tab ] ) ) {
 		</div>
 	<?php endif; ?>
 
-	<?php if ( 'widget' === $active_tab ) : ?>
+	<?php if ( 'widget' === $chatprojects_active_tab ) : ?>
 		<div class="chatpr-info-card">
 			<h3><?php esc_html_e( 'Two Ways to Display', 'chatprojects' ); ?></h3>
 			<div class="chatpr-widget-methods">

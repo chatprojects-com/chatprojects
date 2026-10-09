@@ -30,8 +30,9 @@ class OpenRouter_Provider extends Base_Provider {
         $this->name = 'OpenRouter';
         $this->identifier = 'openrouter';
         $this->api_base_url = self::API_BASE_URL;
+        // Fallback until the live model list is fetched: OpenRouter's auto router.
         $this->models = array(
-            'default' => 'OpenRouter Default Model',
+            'openrouter/auto' => 'OpenRouter Auto',
         );
 
         parent::__construct();
@@ -54,34 +55,7 @@ class OpenRouter_Provider extends Base_Provider {
             return $this->error('no_messages', __('No messages provided.', 'chatprojects'));
         }
 
-        // Format messages
-        $formatted_messages = array();
-        foreach ($messages as $msg) {
-            $role = isset($msg['role']) ? $msg['role'] : 'user';
-            $content = isset($msg['content']) ? $msg['content'] : '';
-
-            $formatted_messages[] = array(
-                'role' => $role,
-                'content' => $content,
-            );
-        }
-
-        // Prepare request data
-        $data = array(
-            'model' => $model,
-            'messages' => $formatted_messages,
-            'temperature' => isset($options['temperature']) ? $options['temperature'] : 0.7,
-            'max_tokens' => isset($options['max_tokens']) ? $options['max_tokens'] : 2000,
-        );
-
-        // Add system message if provided
-        if (!empty($options['instructions'])) {
-            // Prepend system message
-            array_unshift($data['messages'], array(
-                'role' => 'system',
-                'content' => $options['instructions'],
-            ));
-        }
+        $data = $this->chat_completions_body($model, $messages, $options, false);
 
         $headers = array(
             'Authorization' => 'Bearer ' . $this->api_key,
@@ -136,39 +110,6 @@ class OpenRouter_Provider extends Base_Provider {
             return;
         }
 
-        // Format messages
-        $formatted_messages = array();
-        foreach ( $messages as $msg ) {
-            $role    = isset( $msg['role'] ) ? $msg['role'] : 'user';
-            $content = isset( $msg['content'] ) ? $msg['content'] : '';
-            $formatted_messages[] = array(
-                'role'    => $role,
-                'content' => $content,
-            );
-        }
-
-        // Prepare request data (OpenAI-compatible format)
-        $data = array(
-            'model'       => $model,
-            'messages'    => $formatted_messages,
-            'temperature' => isset( $options['temperature'] ) ? $options['temperature'] : 0.7,
-            'max_tokens'  => isset( $options['max_tokens'] ) ? $options['max_tokens'] : 2000,
-            'stream'      => true,
-        );
-
-        // Add system message if provided
-        if ( ! empty( $options['instructions'] ) ) {
-            array_unshift(
-                $data['messages'],
-                array(
-                    'role'    => 'system',
-                    'content' => $options['instructions'],
-                )
-            );
-        }
-
-        $url = self::API_BASE_URL . 'chat/completions';
-
         // Headers for WordPress HTTP API (associative array format)
         $headers = array(
             'Authorization' => 'Bearer ' . $this->api_key,
@@ -178,41 +119,12 @@ class OpenRouter_Provider extends Base_Provider {
             'X-Title'       => get_bloginfo( 'name' ),
         );
 
-        // SSE parser for OpenAI-compatible format (same as OpenRouter uses)
-        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
-            $buffer .= $chunk;
-
-            // Process complete SSE events (separated by double newlines)
-            while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
-                $event  = substr( $buffer, 0, $pos );
-                $buffer = substr( $buffer, $pos + 2 );
-
-                // Parse data line using regex
-                if ( preg_match( '/^data: (.+)$/m', $event, $matches ) ) {
-                    $json_data = trim( $matches[1] );
-
-                    if ( '[DONE]' === $json_data ) {
-                        continue;
-                    }
-
-                    $parsed = json_decode( $json_data, true );
-                    if ( $parsed && isset( $parsed['choices'][0]['delta']['content'] ) ) {
-                        $content = $parsed['choices'][0]['delta']['content'];
-                        $callback( array( 'type' => 'content', 'content' => $content ) );
-                    }
-                }
-            }
-        };
-
-        // Execute streaming request using WordPress HTTP API
-        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
-
-        if ( true !== $result ) {
-            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
-            return;
-        }
-
-        $callback( array( 'type' => 'done' ) );
+        $this->stream_chat_completions(
+            self::API_BASE_URL . 'chat/completions',
+            $headers,
+            $this->chat_completions_body( $model, $messages, $options, true ),
+            $callback
+        );
     }
 
     /**

@@ -57,6 +57,13 @@ class Content_Indexer {
 	private $vector_store;
 
 	/**
+	 * Whether hooks were added (the class is also instantiated by AJAX handlers).
+	 *
+	 * @var bool
+	 */
+	private static $hooks_added = false;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
@@ -68,8 +75,120 @@ class Content_Indexer {
 	 * Initialize WordPress hooks.
 	 */
 	private function init_hooks() {
+		if ( self::$hooks_added ) {
+			return;
+		}
+		self::$hooks_added = true;
+
 		// Batch processing cron.
 		add_action( 'chatprojects_process_index_batch', array( $this, 'process_batch_cron' ) );
+
+		// Keep indexed content in step with the site: content that stops being
+		// public must leave the vector store (the public widget can query it),
+		// and edits should be re-indexed.
+		add_action( 'transition_post_status', array( $this, 'on_post_status_change' ), 10, 3 );
+		add_action( 'post_updated', array( $this, 'on_post_updated' ), 10, 1 );
+		add_action( 'before_delete_post', array( $this, 'on_post_deleted' ) );
+		add_action( 'chatprojects_sync_indexed_post', array( $this, 'sync_post' ) );
+	}
+
+	/**
+	 * Projects in which a post is indexed.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int[]
+	 */
+	private function projects_indexing_post( $post_id ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT DISTINCT project_id FROM %i WHERE post_id = %d',
+				$wpdb->prefix . 'chatprojects_indexed_content',
+				absint( $post_id )
+			)
+		);
+		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
+	 * A post changed status (published, unpublished, made private, trashed...).
+	 *
+	 * @param string   $new_status New status.
+	 * @param string   $old_status Old status.
+	 * @param \WP_Post $post       Post.
+	 */
+	public function on_post_status_change( $new_status, $old_status, $post ) {
+		if ( $new_status !== $old_status ) {
+			$this->handle_post_change( $post->ID );
+		}
+	}
+
+	/**
+	 * A post was saved (content, title, password...).
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function on_post_updated( $post_id ) {
+		$this->handle_post_change( $post_id );
+	}
+
+	/**
+	 * A post is being permanently deleted: remove it from every index now.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function on_post_deleted( $post_id ) {
+		foreach ( $this->projects_indexing_post( $post_id ) as $project_id ) {
+			$this->remove_post( $project_id, $post_id );
+		}
+	}
+
+	/**
+	 * Remove a no-longer-public post right away; queue re-indexing otherwise.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	private function handle_post_change( $post_id ) {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+
+		$projects = $this->projects_indexing_post( $post_id );
+		if ( empty( $projects ) ) {
+			return;
+		}
+
+		if ( is_wp_error( $this->extract_content( $post_id ) ) ) {
+			// Private, draft, password-protected or trashed: never leave it answerable.
+			foreach ( $projects as $project_id ) {
+				$this->remove_post( $project_id, $post_id );
+			}
+			return;
+		}
+
+		// Uploading is slow; re-index in the background (unchanged content is skipped).
+		$args = array( (int) $post_id );
+		if ( ! wp_next_scheduled( 'chatprojects_sync_indexed_post', $args ) ) {
+			wp_schedule_single_event( time() + 30, 'chatprojects_sync_indexed_post', $args );
+		}
+	}
+
+	/**
+	 * Cron: bring a post's index entries up to date in every project.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function sync_post( $post_id ) {
+		$indexable = ! is_wp_error( $this->extract_content( $post_id ) );
+		foreach ( $this->projects_indexing_post( $post_id ) as $project_id ) {
+			if ( $indexable ) {
+				$this->index_post( $project_id, $post_id );
+			} else {
+				$this->remove_post( $project_id, $post_id );
+			}
+		}
 	}
 
 	/**
@@ -202,7 +321,8 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$existing = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, file_id, content_hash, status FROM {$table} WHERE project_id = %d AND post_id = %d",
+				"SELECT id, file_id, content_hash, status FROM %i WHERE project_id = %d AND post_id = %d",
+				$table,
 				$project_id,
 				$post_id
 			)
@@ -272,7 +392,8 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$record = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, file_id FROM {$table} WHERE project_id = %d AND post_id = %d",
+				"SELECT id, file_id FROM %i WHERE project_id = %d AND post_id = %d",
+				$table,
 				$project_id,
 				$post_id
 			)
@@ -309,7 +430,8 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table aggregation
 		$results = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT status, COUNT(*) as count FROM {$table} WHERE project_id = %d GROUP BY status",
+				"SELECT status, COUNT(*) as count FROM %i WHERE project_id = %d GROUP BY status",
+				$table,
 				$project_id
 			)
 		);
@@ -329,18 +451,7 @@ class Content_Indexer {
 		}
 
 		// Count total indexable posts.
-		$post_types        = $this->get_indexable_post_types();
-		$placeholders      = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
-		$status['available'] = absint(
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Post count query
-			$wpdb->get_var(
-				// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Dynamic placeholder count
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'",
-					...$post_types
-				)
-			)
-		);
+		$status['available'] = $this->count_indexable_posts( $this->get_indexable_post_types() );
 
 		return $status;
 	}
@@ -551,7 +662,8 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
 		$records = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT file_id FROM {$table} WHERE project_id = %d AND file_id IS NOT NULL",
+				"SELECT file_id FROM %i WHERE project_id = %d AND file_id IS NOT NULL",
+				$table,
 				$project_id
 			)
 		);
@@ -593,11 +705,12 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT ic.*, p.post_title FROM {$table} ic
+				"SELECT ic.*, p.post_title FROM %i ic
 				LEFT JOIN {$wpdb->posts} p ON ic.post_id = p.ID
 				WHERE ic.project_id = %d
 				ORDER BY ic.indexed_at DESC
 				LIMIT %d OFFSET %d",
+				$table,
 				$project_id,
 				$limit,
 				$offset
@@ -626,7 +739,8 @@ class Content_Indexer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE project_id = %d AND post_id = %d",
+				"SELECT id FROM %i WHERE project_id = %d AND post_id = %d",
+				$table,
 				$project_id,
 				$post_id
 			)
@@ -697,24 +811,12 @@ class Content_Indexer {
 	 * @return int Total count.
 	 */
 	private function count_indexable_posts( $post_types ) {
-		global $wpdb;
-
-		if ( empty( $post_types ) ) {
-			return 0;
+		$total = 0;
+		foreach ( (array) $post_types as $post_type ) {
+			$counts = wp_count_posts( $post_type );
+			$total += isset( $counts->publish ) ? (int) $counts->publish : 0;
 		}
-
-		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Post count query
-		return absint(
-			$wpdb->get_var(
-				// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Dynamic placeholder count
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'",
-					...$post_types
-				)
-			)
-		);
+		return $total;
 	}
 
 	/**

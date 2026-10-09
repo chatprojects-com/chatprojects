@@ -384,10 +384,13 @@ document.addEventListener('alpine:init', () => {
                             showToast(parsed.content || 'An error occurred', 'error');
                             this.messages = this.messages.filter(m => m !== assistantMessage);
                             return;
-                        } else if (parsed.type === 'done') {
-                            done = true;
-                            break;
+                        } else if (parsed.type === 'title_update' && parsed.title) {
+                            window.dispatchEvent(new CustomEvent('chatpr:chat:title-updated', {
+                                detail: { chatId: parsed.chat_id, title: parsed.title }
+                            }));
                         }
+                        // 'done' is not the end of the stream: a title_update may
+                        // follow it, so keep reading until [DONE] / stream close.
                     } catch (e) {
                         // Ignore JSON parse errors for partial data
                     }

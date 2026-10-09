@@ -187,36 +187,7 @@ class Widget_Handler {
 			wp_send_json_error( array( 'message' => __( 'Project vector store not found.', 'chatprojects' ) ), 500 );
 		}
 
-		// Disable output buffering for SSE.
-		while ( ob_get_level() ) {
-			ob_end_clean();
-		}
-
-		// Set SSE headers.
-		header( 'Content-Type: text/event-stream; charset=utf-8' );
-		header( 'Cache-Control: no-cache, no-store, must-revalidate, private' );
-		header( 'Pragma: no-cache' );
-		header( 'Expires: 0' );
-		header( 'X-Accel-Buffering: no' );
-		header( 'Connection: keep-alive' );
-		header( 'X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off' );
-		header( 'X-CF-Buffering: off' );
-
-		if ( function_exists( 'apache_setenv' ) ) {
-			@apache_setenv( 'no-gzip', '1' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Required for SSE
-		}
-		if ( function_exists( 'ini_set' ) ) {
-			@ini_set( 'zlib.output_compression', '0' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE
-			@ini_set( 'implicit_flush', '1' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE
-			@ini_set( 'output_buffering', '0' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for SSE
-		}
-		@ob_implicit_flush( true ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Required for SSE
-
-		// SSE padding to fill server buffer.
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SSE padding with safe characters only
-		echo ':' . str_repeat( ' ', 8192 ) . "\n\n";
-		flush();
-
+		SSE_Stream_Manager::begin_response();
 
 		// Build system instructions that constrain the AI to site content.
 		$site_name    = get_bloginfo( 'name' );
@@ -235,8 +206,9 @@ class Widget_Handler {
 		// Update session message count.
 		$this->update_session_activity( $session->id );
 
-		// Get previous response ID for conversation continuity.
+		// Chain from the last reply when possible; otherwise send recent history.
 		$previous_response_id = $this->get_previous_response_id( $session->id );
+		$history_input        = $this->get_history_input( $session->id );
 
 		// Stream response.
 		$api             = new API_Handler();
@@ -256,7 +228,12 @@ class Widget_Handler {
 					break;
 
 				case 'sources':
-					$this->send_widget_sse( 'sources', '', $event['sources'] );
+					// Anonymous visitors only get filenames, never OpenAI file IDs.
+					$public_sources = array();
+					foreach ( (array) $event['sources'] as $source ) {
+						$public_sources[] = array( 'filename' => isset( $source['filename'] ) ? (string) $source['filename'] : '' );
+					}
+					$this->send_widget_sse( 'sources', '', array( 'sources' => $public_sources ) );
 					break;
 
 				case 'done':
@@ -270,12 +247,12 @@ class Widget_Handler {
 		};
 
 		$response_id = $api->stream_response_with_filesearch(
-			$message,
+			$previous_response_id ? $message : $history_input,
 			$vector_store_id,
 			$callback,
 			$model,
 			$instructions,
-			array(),
+			array( 'fallback_input' => $history_input ),
 			$previous_response_id
 		);
 
@@ -317,7 +294,8 @@ class Widget_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
 		$messages = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT role, content, created_at FROM {$table} WHERE session_id = %d ORDER BY id ASC",
+				"SELECT role, content, created_at FROM %i WHERE session_id = %d ORDER BY id ASC",
+				$table,
 				$session->id
 			)
 		);
@@ -343,36 +321,25 @@ class Widget_Handler {
 		$messages_table = $wpdb->prefix . 'chatprojects_widget_messages';
 		$now            = current_time( 'mysql' );
 
-		// Get expired session IDs.
+		// Messages of expired sessions, then the sessions themselves.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cleanup query
-		$expired_ids = $wpdb->get_col(
+		$wpdb->query(
 			$wpdb->prepare(
-				"SELECT id FROM {$sessions_table} WHERE expires_at < %s",
+				'DELETE FROM %i WHERE session_id IN (SELECT id FROM %i WHERE expires_at < %s)',
+				$messages_table,
+				$sessions_table,
 				$now
 			)
 		);
 
-		if ( ! empty( $expired_ids ) ) {
-			$placeholders = implode( ',', array_fill( 0, count( $expired_ids ), '%d' ) );
-
-			// Delete messages for expired sessions.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Dynamic placeholder count
-			$wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$messages_table} WHERE session_id IN ({$placeholders})",
-					...$expired_ids
-				)
-			);
-
-			// Delete expired sessions.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Dynamic placeholder count
-			$wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$sessions_table} WHERE id IN ({$placeholders})",
-					...$expired_ids
-				)
-			);
-		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cleanup query
+		$wpdb->query(
+			$wpdb->prepare(
+				'DELETE FROM %i WHERE expires_at < %s',
+				$sessions_table,
+				$now
+			)
+		);
 	}
 
 	// ==================== SESSION MANAGEMENT ====================
@@ -407,7 +374,7 @@ class Widget_Handler {
 				'user_agent'    => $user_agent,
 				'message_count' => 0,
 				'created_at'    => $now,
-				'expires_at'    => gmdate( 'Y-m-d H:i:s', time() + ( $session_hours * HOUR_IN_SECONDS ) ),
+				'expires_at'    => wp_date( 'Y-m-d H:i:s', time() + ( $session_hours * HOUR_IN_SECONDS ) ), // Site-local, like current_time( 'mysql' ) used for comparisons.
 			),
 			array( '%s', '%d', '%s', '%s', '%d', '%s', '%s' )
 		);
@@ -438,7 +405,8 @@ class Widget_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Session validation must be fresh
 		return $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE session_token = %s AND expires_at > %s",
+				"SELECT * FROM %i WHERE session_token = %s AND expires_at > %s",
+				$table,
 				$token,
 				$now
 			)
@@ -487,7 +455,8 @@ class Widget_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Session update
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table} SET message_count = message_count + 1, last_message_at = %s WHERE id = %d",
+				"UPDATE %i SET message_count = message_count + 1, last_message_at = %s WHERE id = %d",
+				$table,
 				current_time( 'mysql' ),
 				absint( $session_id )
 			)
@@ -508,7 +477,8 @@ class Widget_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$metadata = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT metadata FROM {$table} WHERE session_id = %d AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+				"SELECT metadata FROM %i WHERE session_id = %d AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+				$table,
 				absint( $session_id )
 			)
 		);
@@ -521,6 +491,45 @@ class Widget_Handler {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Recent session messages as Responses API input items, oldest first.
+	 *
+	 * @param int $session_id Session ID.
+	 * @param int $limit      Maximum number of messages.
+	 * @return array
+	 */
+	private function get_history_input( $session_id, $limit = 20 ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'chatprojects_widget_messages';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT role, content FROM %i WHERE session_id = %d ORDER BY id DESC LIMIT %d',
+				$table,
+				absint( $session_id ),
+				absint( $limit )
+			)
+		);
+
+		$input = array();
+		foreach ( array_reverse( (array) $rows ) as $row ) {
+			if ( ! in_array( $row->role, array( 'user', 'assistant' ), true ) || '' === (string) $row->content ) {
+				continue;
+			}
+			// The conversation sent to the API must start with a user turn.
+			if ( empty( $input ) && 'assistant' === $row->role ) {
+				continue;
+			}
+			$input[] = array(
+				'role'    => $row->role,
+				'content' => (string) $row->content,
+			);
+		}
+		return $input;
 	}
 
 	// ==================== VALIDATION ====================
@@ -634,7 +643,7 @@ class Widget_Handler {
 			'placeholder'     => get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ),
 			'primary_color'   => sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
 			'position'        => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
-			'show_branding'   => defined( 'CHATPROJECTS_PRO_VERSION' ) ? (bool) get_option( 'chatprojects_widget_show_branding', true ) : true,
+			'show_branding'   => (bool) get_option( 'chatprojects_widget_show_branding', false ),
 			'site_name'       => get_bloginfo( 'name' ),
 		);
 	}

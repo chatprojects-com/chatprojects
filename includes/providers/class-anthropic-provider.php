@@ -11,6 +11,7 @@
 namespace ChatProjects\Providers;
 
 use ChatProjects\Model_Registry;
+use ChatProjects\SSE_Stream_Manager;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -44,9 +45,20 @@ class Anthropic_Provider extends Base_Provider {
     }
 
     /**
-     * Default max_tokens when the caller does not specify one.
+     * Default max_tokens for non-streaming calls (keeps them under HTTP timeouts).
      */
     const DEFAULT_MAX_TOKENS = 16384;
+
+    /**
+     * Default max_tokens for streaming calls. Thinking counts toward the limit
+     * on current models, so leave room for it; clamped to the model's maximum.
+     */
+    const DEFAULT_STREAM_MAX_TOKENS = 64000;
+
+    /**
+     * Beta that enables server-side refusal fallbacks (fallbacks: "default").
+     */
+    const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
     /**
      * Build the Messages API request body for a model.
@@ -65,7 +77,8 @@ class Anthropic_Provider extends Base_Provider {
     private function build_request_body( $model, $messages, $options, $stream ) {
         $entry      = Model_Registry::get_model( 'anthropic', $model );
         $max_output = $entry ? (int) $entry['max_output'] : self::DEFAULT_MAX_TOKENS;
-        $max_tokens = isset( $options['max_tokens'] ) ? absint( $options['max_tokens'] ) : self::DEFAULT_MAX_TOKENS;
+        $default    = $stream ? self::DEFAULT_STREAM_MAX_TOKENS : self::DEFAULT_MAX_TOKENS;
+        $max_tokens = isset( $options['max_tokens'] ) ? absint( $options['max_tokens'] ) : $default;
 
         $data = array(
             'model'      => $model,
@@ -86,7 +99,35 @@ class Anthropic_Provider extends Base_Provider {
             $data['stream'] = true;
         }
 
+        // If a safety classifier declines, let Anthropic re-run the request on
+        // its recommended fallback model instead of returning the refusal.
+        if ( Model_Registry::uses_refusal_fallbacks( $model ) ) {
+            $data['fallbacks'] = 'default';
+        }
+
         return $data;
+    }
+
+    /**
+     * Request headers for a Messages API call.
+     *
+     * @param string $model  Model id.
+     * @param bool   $stream Whether this is a streaming request.
+     * @return array
+     */
+    private function request_headers( $model, $stream ) {
+        $headers = array(
+            'x-api-key'         => $this->api_key,
+            'anthropic-version' => self::API_VERSION,
+            'Content-Type'      => 'application/json',
+        );
+        if ( $stream ) {
+            $headers['Accept'] = 'text/event-stream';
+        }
+        if ( Model_Registry::uses_refusal_fallbacks( $model ) ) {
+            $headers['anthropic-beta'] = self::FALLBACK_BETA;
+        }
+        return $headers;
     }
 
     /**
@@ -112,11 +153,7 @@ class Anthropic_Provider extends Base_Provider {
         $data = $this->build_request_body( $model, $formatted_messages, $options, false );
 
         // Make API request
-        $headers = array(
-            'x-api-key' => $this->api_key,
-            'anthropic-version' => self::API_VERSION,
-            'Content-Type' => 'application/json',
-        );
+        $headers = $this->request_headers( $model, false );
 
         $response = $this->make_request(
             self::API_BASE_URL . 'messages',
@@ -143,6 +180,10 @@ class Anthropic_Provider extends Base_Provider {
 
         if ( 'refusal' === $stop_reason && '' === trim( $content ) ) {
             return $this->error( 'refusal', __( 'Claude declined to answer this request.', 'chatprojects' ) );
+        }
+
+        if ( 'max_tokens' === $stop_reason ) {
+            $content .= SSE_Stream_Manager::truncation_notice( 'max_tokens' );
         }
 
         if ( '' !== $content ) {
@@ -185,12 +226,7 @@ class Anthropic_Provider extends Base_Provider {
         $url = self::API_BASE_URL . 'messages';
 
         // Headers for WordPress HTTP API (associative array format).
-        $headers = array(
-            'x-api-key'         => $this->api_key,
-            'anthropic-version' => self::API_VERSION,
-            'Content-Type'      => 'application/json',
-            'Accept'            => 'text/event-stream',
-        );
+        $headers = $this->request_headers( $model, true );
 
         // SSE parser for Anthropic's response format.
         $parser = function ( $chunk, $callback, &$buffer, &$state ) {
@@ -235,9 +271,15 @@ class Anthropic_Provider extends Base_Provider {
                     $callback( array( 'type' => 'content', 'content' => $parsed['delta']['text'] ) );
                 }
 
-                // Safety classifiers can end the turn with stop_reason "refusal".
-                if ( 'message_delta' === $event_type && isset( $parsed['delta']['stop_reason'] ) && 'refusal' === $parsed['delta']['stop_reason'] ) {
-                    $callback( array( 'type' => 'error', 'content' => __( 'Claude declined to answer this request.', 'chatprojects' ) ) );
+                // A refusal (after any fallback) or hitting max_tokens ends the turn early.
+                if ( 'message_delta' === $event_type && isset( $parsed['delta']['stop_reason'] ) ) {
+                    $stop_reason = $parsed['delta']['stop_reason'];
+                    if ( 'refusal' === $stop_reason && empty( $state['has_text'] ) ) {
+                        $callback( array( 'type' => 'error', 'content' => __( 'Claude declined to answer this request.', 'chatprojects' ) ) );
+                    } elseif ( 'refusal' === $stop_reason || 'max_tokens' === $stop_reason ) {
+                        // Keep what was already shown, but mark it as incomplete.
+                        $callback( array( 'type' => 'content', 'content' => SSE_Stream_Manager::truncation_notice( $stop_reason ) ) );
+                    }
                 }
 
                 // Handle errors.
@@ -252,7 +294,7 @@ class Anthropic_Provider extends Base_Provider {
         $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
 
         if ( true !== $result ) {
-            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
+            $callback( array( 'type' => 'error', 'content' => $result ) );
             return;
         }
 

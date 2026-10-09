@@ -11,6 +11,7 @@
 namespace ChatProjects\Providers;
 
 use ChatProjects\Model_Registry;
+use ChatProjects\SSE_Stream_Manager;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -125,10 +126,26 @@ class Gemini_Provider extends Base_Provider {
             return $response;
         }
 
-        // Extract assistant's message
-        if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
-            $content = $response['candidates'][0]['content']['parts'][0]['text'];
+        if (!empty($response['promptFeedback']['blockReason'])) {
+            return $this->error('blocked', __('Gemini blocked this request because of its safety settings.', 'chatprojects'));
+        }
 
+        // Extract the reply text (skipping "thought" summary parts).
+        $content = '';
+        if (!empty($response['candidates'][0]['content']['parts']) && is_array($response['candidates'][0]['content']['parts'])) {
+            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                if (isset($part['text']) && empty($part['thought'])) {
+                    $content .= $part['text'];
+                }
+            }
+        }
+
+        $finish = isset($response['candidates'][0]['finishReason']) ? $response['candidates'][0]['finishReason'] : '';
+        if ('' !== $content && $this->is_early_finish($finish)) {
+            $content .= SSE_Stream_Manager::truncation_notice($this->finish_reason_key($finish));
+        }
+
+        if ('' !== $content) {
             return array(
                 'content' => $content,
                 'model' => $model,
@@ -221,12 +238,28 @@ class Gemini_Provider extends Base_Provider {
                         continue;
                     }
 
-                    // Extract text from Gemini's response.
+                    if ( ! empty( $parsed['promptFeedback']['blockReason'] ) ) {
+                        $callback( array( 'type' => 'error', 'content' => __( 'Gemini blocked this request because of its safety settings.', 'chatprojects' ) ) );
+                        continue;
+                    }
+
+                    // Extract text from Gemini's response (skipping "thought" summary parts).
                     if ( isset( $parsed['candidates'][0]['content']['parts'] ) ) {
                         foreach ( $parsed['candidates'][0]['content']['parts'] as $part ) {
-                            if ( isset( $part['text'] ) ) {
+                            if ( isset( $part['text'] ) && empty( $part['thought'] ) ) {
+                                $state['has_text'] = true;
                                 $callback( array( 'type' => 'content', 'content' => $part['text'] ) );
                             }
+                        }
+                    }
+
+                    // MAX_TOKENS, SAFETY, etc. end the reply early.
+                    $finish = isset( $parsed['candidates'][0]['finishReason'] ) ? $parsed['candidates'][0]['finishReason'] : '';
+                    if ( $this->is_early_finish( $finish ) ) {
+                        if ( empty( $state['has_text'] ) ) {
+                            $callback( array( 'type' => 'error', 'content' => __( 'Gemini stopped before producing a reply.', 'chatprojects' ) ) );
+                        } else {
+                            $callback( array( 'type' => 'content', 'content' => SSE_Stream_Manager::truncation_notice( $this->finish_reason_key( $finish ) ) ) );
                         }
                     }
                 }
@@ -237,11 +270,31 @@ class Gemini_Provider extends Base_Provider {
         $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
 
         if ( true !== $result ) {
-            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
+            $callback( array( 'type' => 'error', 'content' => $result ) );
             return;
         }
 
         $callback( array( 'type' => 'done' ) );
+    }
+
+    /**
+     * Whether a Gemini finishReason means the reply ended before it was complete.
+     *
+     * @param string $finish finishReason value.
+     * @return bool
+     */
+    private function is_early_finish( $finish ) {
+        return '' !== (string) $finish && ! in_array( $finish, array( 'STOP', 'FINISH_REASON_UNSPECIFIED' ), true );
+    }
+
+    /**
+     * Map a Gemini finishReason to a truncation_notice() reason.
+     *
+     * @param string $finish finishReason value.
+     * @return string
+     */
+    private function finish_reason_key( $finish ) {
+        return 'MAX_TOKENS' === $finish ? 'max_tokens' : 'safety';
     }
 
     /**

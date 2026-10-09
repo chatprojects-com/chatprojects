@@ -27,7 +27,7 @@ export class ChatWidget {
 			primaryColor: '#2563eb',
 			welcomeMessage: 'Hi! How can I help you today?',
 			placeholder: 'Type your message...',
-			showBranding: true,
+			showBranding: false,
 			siteName: '',
 			title: '',
 			height: 500,

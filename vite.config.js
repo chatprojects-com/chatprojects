@@ -2,18 +2,24 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  // The plugin's public/ folder holds PHP, not static assets; don't copy it into dist.
+  publicDir: false,
   build: {
     outDir: 'assets/dist',
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'assets/src/js/main.js'),
-        comparison: resolve(__dirname, 'assets/src/comparison.js'),
         admin: resolve(__dirname, 'assets/src/admin.js'),
+        // Stylesheet shared by the front-end pages and the admin screens.
+        'main-styles': resolve(__dirname, 'assets/src/main.css'),
       },
       output: {
         entryFileNames: 'js/[name].js',
         chunkFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
+          if (assetInfo.name === 'main-styles.css') {
+            return 'css/main.css';
+          }
           if (assetInfo.name.endsWith('.css')) {
             return 'css/[name].css';
           }

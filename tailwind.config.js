@@ -3,7 +3,8 @@ module.exports = {
   content: [
     "./public/**/*.php",
     "./admin/**/*.php",
-    "./assets/**/*.js",
+    "./assets/src/**/*.js",
+    "./assets/js/**/*.js",
   ],
   darkMode: 'class',
   theme: {

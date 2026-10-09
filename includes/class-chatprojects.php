@@ -80,7 +80,6 @@ class ChatProjects {
             'projects'   => apply_filters('chatprojects_slug_projects', 'chatprojects'),
             'settings'   => apply_filters('chatprojects_slug_settings', 'cp-settings'),
             'chat'       => apply_filters('chatprojects_slug_chat', 'cp-chat'),
-            'comparison' => apply_filters('chatprojects_slug_comparison', 'cp-chat/compare'),
         );
     }
 
@@ -111,6 +110,10 @@ class ChatProjects {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
         add_action('init', array($this, 'register_post_types'));
 
+        // Projects are private workspaces: keep them out of sitemaps and embeds.
+        add_filter('wp_sitemaps_post_types', array($this, 'exclude_projects_from_sitemaps'));
+        add_action('template_redirect', array($this, 'block_project_embeds'));
+
         // Add type="module" attribute to our scripts (must be registered early)
         add_filter('script_loader_tag', array($this, 'add_module_type_to_scripts'), 10, 2);
 
@@ -125,6 +128,30 @@ class ChatProjects {
 
         // Theme initialization is handled directly in project-shell-modern.php template
         // add_action('wp_head', array($this, 'output_theme_init_script'), 1);
+    }
+
+    /**
+     * Remove projects from the core XML sitemaps.
+     *
+     * @param array $post_types Post type objects keyed by name.
+     * @return array
+     */
+    public function exclude_projects_from_sitemaps($post_types) {
+        unset($post_types['chatpr_project']);
+        return $post_types;
+    }
+
+    /**
+     * Projects have no public embed; core's embed template would show their
+     * title and description to anyone.
+     */
+    public function block_project_embeds() {
+        if (is_embed() && is_singular('chatpr_project')) {
+            global $wp_query;
+            $wp_query->set_404(); // Also clears is_embed, so the theme's 404 template is used.
+            status_header(404);
+            nocache_headers();
+        }
     }
 
     /**
@@ -176,7 +203,6 @@ class ChatProjects {
             'chatprojects-admin',
             'chatprojects-frontend',
             'chatprojects-main',
-            'chatprojects-comparison',
         );
 
         $is_module = in_array($handle, $module_handles, true)
@@ -240,7 +266,6 @@ class ChatProjects {
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-content-indexer.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-rate-limiter.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-widget-handler.php';
-        // Note: REST_Stream_Endpoint is loaded via autoloader when first referenced.
 
         // Provider classes - All 5 providers available in Free version
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/providers/interface-ai-provider.php';
@@ -300,10 +325,6 @@ class ChatProjects {
 
         // Initialize frontend
         new Frontend();
-
-        // Initialize REST API stream endpoint
-        $rest_stream = new REST_Stream_Endpoint();
-        $rest_stream->init();
     }
 
     /**
@@ -405,16 +426,8 @@ class ChatProjects {
             'sanitize_callback' => array( Model_Registry::class, 'sanitize_openai_model' ),
             'default'           => Model_Registry::get_default( 'openai' ),
         ) );
-        register_setting( 'chatprojects_settings', 'chatprojects_max_file_size', array(
-            'type'              => 'integer',
-            'sanitize_callback' => 'absint',
-            'default'           => 50,
-        ) );
-        register_setting( 'chatprojects_settings', 'chatprojects_allowed_file_types', array(
-            'type'              => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-            'default'           => 'pdf,doc,docx,txt,md,csv,json,xml',
-        ) );
+        // chatprojects_max_file_size and chatprojects_allowed_file_types are
+        // registered (with their sanitizers) by Admin\Settings.
     }
 
     /**
@@ -436,6 +449,7 @@ class ChatProjects {
                 'not_found_in_trash' => __('No projects found in trash', 'chatprojects'),
             ),
             'public' => true,
+            'exclude_from_search' => true,
             'has_archive' => false,
             'show_in_menu' => false,
             'show_in_rest' => false, // Disable block editor to prevent canvas template
@@ -476,16 +490,16 @@ class ChatProjects {
 
         wp_enqueue_style(
             'chatprojects-admin',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/admin.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION
+            self::asset_version('assets/dist/css/main.css')
         );
 
         wp_enqueue_script(
             'chatprojects-admin',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/admin.js',
             array('jquery'),
-            CHATPROJECTS_VERSION,
+            self::asset_version('assets/dist/js/admin.js'),
             true
         );
 

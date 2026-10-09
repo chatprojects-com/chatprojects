@@ -49,8 +49,6 @@ class Settings {
      */
     public function __construct() {
         self::$instance = $this;
-        // Ensure encryption key exists BEFORE any settings can be saved
-        $this->ensure_encryption_key();
 
         // Intercept API key saves BEFORE WordPress Settings API processes them
         add_action('admin_init', array($this, 'intercept_api_key_save'), 1);
@@ -243,25 +241,6 @@ class Settings {
     }
 
     /**
-     * Ensure encryption key exists in database
-     *
-     * Must be called before any API keys are encrypted/decrypted
-     * to prevent race condition where key is generated during save
-     */
-    private function ensure_encryption_key() {
-        // Only generate fallback key if AUTH_KEY won't be used
-        if (defined('AUTH_KEY') && AUTH_KEY !== 'put your unique phrase here' && !empty(AUTH_KEY)) {
-            return; // AUTH_KEY will be used, no need for stored key
-        }
-
-        // Generate and store encryption key if it doesn't exist
-        if (get_option('chatprojects_encryption_key') === false) {
-            $key = bin2hex(random_bytes(16));
-            update_option('chatprojects_encryption_key', $key);
-        }
-    }
-
-    /**
      * Register settings
      */
     public function register_settings() {
@@ -340,7 +319,7 @@ class Settings {
             array(
                 'type' => 'array',
                 'sanitize_callback' => array($this, 'sanitize_file_types'),
-                'default' => array('pdf', 'doc', 'docx', 'txt', 'md', 'csv', 'json', 'xml'),
+                'default' => Security::default_allowed_file_types(),
             )
         );
 
@@ -577,11 +556,21 @@ class Settings {
 
         register_setting(
             'chatprojects_settings',
+            'chatprojects_widget_daily_limit',
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 500,
+            )
+        );
+
+        register_setting(
+            'chatprojects_settings',
             'chatprojects_widget_show_branding',
             array(
                 'type'              => 'boolean',
                 'sanitize_callback' => 'rest_sanitize_boolean',
-                'default'           => true,
+                'default'           => false,
             )
         );
 
@@ -688,13 +677,21 @@ class Settings {
             'chatprojects-tab-widget',
             'chatprojects_widget_limits'
         );
+
+        add_settings_field(
+            'chatprojects_widget_daily_limit',
+            __( 'Daily Limit', 'chatprojects' ),
+            array( $this, 'render_widget_daily_limit_field' ),
+            'chatprojects-tab-widget',
+            'chatprojects_widget_limits'
+        );
     }
 
     /**
      * Render providers settings section
      */
     public function render_providers_settings_section() {
-        echo '<p>' . esc_html__('Configure API keys for AI providers. OpenAI API key is required for core functionality (Projects, Vector Stores, Transcription). Other provider keys are optional.', 'chatprojects') . '</p>';
+        echo '<p>' . esc_html__('Configure API keys for AI providers. OpenAI API key is required for core functionality (Projects, Vector Stores, Auto-RAG and chat titles). Other provider keys are optional.', 'chatprojects') . '</p>';
     }
 
     /**
@@ -742,7 +739,7 @@ class Settings {
                 </label><br>
             <?php endif; ?>
             <strong style="color: #dc2626;"><?php esc_html_e('Required.', 'chatprojects'); ?></strong>
-            <?php esc_html_e('Needed for Projects, Vector Stores, and Transcription features.', 'chatprojects'); ?>
+            <?php esc_html_e('Needed for Projects, Vector Stores, Auto-RAG and the chat widget.', 'chatprojects'); ?>
             <?php
             printf(
                 /* translators: %s: Link to provider API keys page */
@@ -1063,7 +1060,7 @@ class Settings {
      * Render file types field
      */
     public function render_file_types_field() {
-        $types = get_option('chatprojects_allowed_file_types', array('pdf', 'doc', 'docx', 'txt', 'md', 'csv', 'json', 'xml'));
+        $types = get_option('chatprojects_allowed_file_types', Security::default_allowed_file_types());
         $types_string = is_array($types) ? implode(', ', $types) : '';
         ?>
         <input type="text" 
@@ -1281,26 +1278,41 @@ class Settings {
     }
 
     /**
+     * Render widget site-wide daily message limit field
+     */
+    public function render_widget_daily_limit_field() {
+        $limit = get_option( 'chatprojects_widget_daily_limit', 500 );
+        ?>
+        <input type="number"
+               id="chatprojects_widget_daily_limit"
+               name="chatprojects_widget_daily_limit"
+               value="<?php echo esc_attr( $limit ); ?>"
+               min="0"
+               class="small-text" />
+        <span><?php esc_html_e( 'messages per day, all visitors combined', 'chatprojects' ); ?></span>
+        <p class="description">
+            <?php esc_html_e( 'Caps your OpenAI spend from the public widget, however many visitors or IP addresses send messages. 0 means no limit.', 'chatprojects' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
      * Render widget branding toggle
      */
     public function render_widget_branding_field() {
-        $show_branding = get_option( 'chatprojects_widget_show_branding', true );
-        $is_pro        = defined( 'CHATPROJECTS_PRO' ) && CHATPROJECTS_PRO;
+        $show_branding = get_option( 'chatprojects_widget_show_branding', false );
         ?>
         <label>
             <input type="checkbox"
                    id="chatprojects_widget_show_branding"
                    name="chatprojects_widget_show_branding"
                    value="1"
-                   <?php checked( $show_branding ); ?>
-                   <?php disabled( ! $is_pro ); ?> />
+                   <?php checked( $show_branding ); ?> />
             <?php esc_html_e( 'Display "Powered by ChatProjects" in the widget', 'chatprojects' ); ?>
         </label>
-        <?php if ( ! $is_pro ) : ?>
-            <p class="description">
-                <?php esc_html_e( 'Branding is always shown in the free version. Upgrade to Pro to remove it.', 'chatprojects' ); ?>
-            </p>
-        <?php endif; ?>
+        <p class="description">
+            <?php esc_html_e( 'Optional credit link. Off by default.', 'chatprojects' ); ?>
+        </p>
         <?php
     }
 
@@ -1390,9 +1402,10 @@ class Settings {
     /**
      * Get and validate decrypted API key
      *
-     * Handles decryption failures by clearing corrupted values.
-     * This fixes the race condition where first-save encryption key
-     * differs from subsequent decryption key.
+     * A value that can't be decrypted (for example after the site's security
+     * keys changed) is treated as "not set" so the field shows empty and the
+     * key can be re-entered. It is not deleted: restoring the old security
+     * keys makes it readable again.
      *
      * @param string $option_name The option name storing the encrypted key
      * @return string Decrypted API key or empty string if invalid
@@ -1406,38 +1419,9 @@ class Settings {
 
         $decrypted = Security::decrypt($encrypted);
 
-        // Check for decryption failure
-        if ($decrypted === false) {
-            // Clear corrupted value
-            delete_option($option_name);
+        // Decryption failure, or a legacy value decrypted with the wrong key (binary garbage).
+        if ($decrypted === false || preg_match('/[^\x20-\x7E]/', (string) $decrypted)) {
             return '';
-        }
-
-        // Check for obvious garbage - if decryption used wrong key, result is binary/unprintable
-        // Valid API keys should only contain printable ASCII characters
-        if (!empty($decrypted) && preg_match('/[^\x20-\x7E]/', $decrypted)) {
-            // Clear corrupted value
-            delete_option($option_name);
-            return '';
-        }
-
-        // Validate that decrypted value looks like a valid API key
-        // When decrypting with wrong key, OpenSSL may return printable garbage
-        if (!empty($decrypted)) {
-            $valid_prefixes = array('sk-', 'sk-proj-', 'AIza', 'sk-ant-', 'cpat_', 'cpk_', 'sk-or-');
-            $has_valid_prefix = false;
-            foreach ($valid_prefixes as $prefix) {
-                if (strpos($decrypted, $prefix) === 0) {
-                    $has_valid_prefix = true;
-                    break;
-                }
-            }
-
-            if (!$has_valid_prefix) {
-                // Clear corrupted value
-                delete_option($option_name);
-                return '';
-            }
         }
 
         return $decrypted;

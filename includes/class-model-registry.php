@@ -50,6 +50,9 @@ final class Model_Registry {
 		'max_output'           => 16384,
 		'context'              => 128000,
 		'tier'                 => 'standard',
+		'note'                 => '',
+		'vision'               => true,
+		'fallbacks'            => false,
 	);
 
 	/**
@@ -135,7 +138,8 @@ final class Model_Registry {
 		return array(
 			'openai'     => array(
 				'gpt-5.6-sol'   => array(
-					'label'                => 'GPT-5.6 Sol (Recommended)',
+					'label'                => 'GPT-5.6 Sol',
+					'note'                 => 'recommended',
 					'default'              => true,
 					'supports_temperature' => false,
 					'reasoning'            => true,
@@ -145,7 +149,8 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'gpt-5.6-terra' => array(
-					'label'                => 'GPT-5.6 Terra (Balanced)',
+					'label'                => 'GPT-5.6 Terra',
+					'note'                 => 'balanced',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -154,7 +159,8 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'gpt-5.6-luna'  => array(
-					'label'                => 'GPT-5.6 Luna (Fast & Low Cost)',
+					'label'                => 'GPT-5.6 Luna',
+					'note'                 => 'fast_low_cost',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -190,7 +196,8 @@ final class Model_Registry {
 					'tier'                 => 'fast',
 				),
 				'gpt-5.4-nano'  => array(
-					'label'                => 'GPT-5.4 Nano (Cheapest)',
+					'label'                => 'GPT-5.4 Nano',
+					'note'                 => 'cheapest',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'reasoning_efforts'    => $openai_efforts,
@@ -200,22 +207,45 @@ final class Model_Registry {
 				),
 			),
 			'anthropic'  => array(
-				'claude-opus-5'     => array(
-					'label'                => 'Claude Opus 5 (Recommended)',
+				'claude-opus-5-5'   => array(
+					'label'                => 'Claude Opus 5.5',
+					'note'                 => 'recommended',
 					'default'              => true,
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
 					'context'              => 1000000,
 					'tier'                 => 'flagship',
+					'fallbacks'            => true,
 				),
 				'claude-fable-5-1'  => array(
-					'label'                => 'Claude Fable 5.1 (Most Capable)',
+					'label'                => 'Claude Fable 5.1',
+					'note'                 => 'most_capable',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
 					'context'              => 1000000,
 					'tier'                 => 'flagship',
+					'fallbacks'            => true,
+				),
+				'claude-sonnet-5-5' => array(
+					'label'                => 'Claude Sonnet 5.5',
+					'note'                 => 'balanced',
+					'supports_temperature' => false,
+					'reasoning'            => true,
+					'max_output'           => 128000,
+					'context'              => 1000000,
+					'tier'                 => 'balanced',
+					'fallbacks'            => true,
+				),
+				'claude-opus-5'     => array(
+					'label'                => 'Claude Opus 5',
+					'supports_temperature' => false,
+					'reasoning'            => true,
+					'max_output'           => 128000,
+					'context'              => 1000000,
+					'tier'                 => 'flagship',
+					'fallbacks'            => true,
 				),
 				'claude-opus-4-8'   => array(
 					'label'                => 'Claude Opus 4.8',
@@ -226,7 +256,7 @@ final class Model_Registry {
 					'tier'                 => 'flagship',
 				),
 				'claude-sonnet-5'   => array(
-					'label'                => 'Claude Sonnet 5 (Balanced)',
+					'label'                => 'Claude Sonnet 5',
 					'supports_temperature' => false,
 					'reasoning'            => true,
 					'max_output'           => 128000,
@@ -242,7 +272,8 @@ final class Model_Registry {
 					'tier'                 => 'balanced',
 				),
 				'claude-haiku-4-5'  => array(
-					'label'                => 'Claude Haiku 4.5 (Fast)',
+					'label'                => 'Claude Haiku 4.5',
+					'note'                 => 'fast',
 					'supports_temperature' => true,
 					'reasoning'            => false,
 					'max_output'           => 64000,
@@ -252,7 +283,8 @@ final class Model_Registry {
 			),
 			'gemini'     => array(
 				'gemini-3.8-flash'      => array(
-					'label'      => 'Gemini 3.8 Flash (Recommended)',
+					'label'      => 'Gemini 3.8 Flash',
+					'note'       => 'recommended',
 					'default'    => true,
 					'max_output' => 65536,
 					'context'    => 1048576,
@@ -271,13 +303,15 @@ final class Model_Registry {
 					'tier'       => 'balanced',
 				),
 				'gemini-3.5-flash-lite' => array(
-					'label'      => 'Gemini 3.5 Flash Lite (Fast)',
+					'label'      => 'Gemini 3.5 Flash Lite',
+					'note'       => 'fast',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'fast',
 				),
 				'gemini-3.1-pro-preview' => array(
-					'label'      => 'Gemini 3.1 Pro (Preview)',
+					'label'      => 'Gemini 3.1 Pro',
+					'note'       => 'preview',
 					'max_output' => 65536,
 					'context'    => 1048576,
 					'tier'       => 'flagship',
@@ -287,17 +321,20 @@ final class Model_Registry {
 			// replaces this fallback whenever a key is configured.
 			'chutes'     => array(
 				'deepseek-ai/DeepSeek-V4-Flash-0731-TEE' => array(
-					'label'      => 'DeepSeek V4 Flash (Recommended)',
+					'label'      => 'DeepSeek V4 Flash',
+					'note'       => 'recommended',
 					'default'    => true,
 					'max_output' => 65536,
 					'context'    => 1000000,
 					'tier'       => 'balanced',
+					'vision'     => false,
 				),
 				'deepseek-ai/DeepSeek-V3.2-TEE'          => array(
 					'label'      => 'DeepSeek V3.2',
 					'max_output' => 65536,
 					'context'    => 128000,
 					'tier'       => 'balanced',
+					'vision'     => false,
 				),
 			),
 			'openrouter' => array(),
@@ -337,12 +374,12 @@ final class Model_Registry {
 			'claude-haiku-4-5-20251001' => 'claude-haiku-4-5',
 			'claude-3-5-haiku*'     => 'claude-haiku-4-5',
 			'claude-3-haiku*'       => 'claude-haiku-4-5',
-			'claude-sonnet-4-*'     => 'claude-sonnet-5',
-			'claude-opus-4-*'       => 'claude-opus-5',
-			'/^claude-3(-\d)?-sonnet/' => 'claude-sonnet-5',
-			'/^claude-3-7-sonnet/'  => 'claude-sonnet-5',
-			'/^claude-3-opus/'      => 'claude-opus-5',
-			'/^claude-2/'           => 'claude-sonnet-5',
+			'claude-sonnet-4-*'     => 'claude-sonnet-5-5',
+			'claude-opus-4-*'       => 'claude-opus-5-5',
+			'/^claude-3(-\d)?-sonnet/' => 'claude-sonnet-5-5',
+			'/^claude-3-7-sonnet/'  => 'claude-sonnet-5-5',
+			'/^claude-3-opus/'      => 'claude-opus-5-5',
+			'/^claude-2/'           => 'claude-sonnet-5-5',
 			// Gemini.
 			'gemini-2.5-pro'        => 'gemini-3.1-pro-preview',
 			'gemini-3-pro-preview'  => 'gemini-3.1-pro-preview',
@@ -437,17 +474,48 @@ final class Model_Registry {
 	}
 
 	/**
-	 * Translate a catalogue label. Only safe after the init hook.
+	 * Display label: the product name plus an optional note, e.g.
+	 * "Claude Opus 5.5 (Recommended)". Product names are not translated; notes
+	 * are, but only after init (WordPress 6.7+ warns about earlier loading).
 	 *
-	 * @param string $label Untranslated label.
+	 * @param array $entry Catalogue entry.
 	 * @return string
 	 */
-	private static function translate_label( $label ) {
-		if ( did_action( 'init' ) ) {
-			// phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- Catalogue labels are literal strings in definition().
-			return __( $label, 'chatprojects' );
+	private static function display_label( $entry ) {
+		$note = self::note_text( isset( $entry['note'] ) ? $entry['note'] : '' );
+		return '' === $note ? $entry['label'] : $entry['label'] . ' (' . $note . ')';
+	}
+
+	/**
+	 * Human-readable text for a catalogue note key.
+	 *
+	 * @param string $note Note key.
+	 * @return string
+	 */
+	private static function note_text( $note ) {
+		if ( '' === (string) $note ) {
+			return '';
 		}
-		return $label;
+		if ( ! did_action( 'init' ) ) {
+			return ucwords( str_replace( '_', ' ', $note ) );
+		}
+		switch ( $note ) {
+			case 'recommended':
+				return __( 'Recommended', 'chatprojects' );
+			case 'balanced':
+				return __( 'Balanced', 'chatprojects' );
+			case 'fast':
+				return __( 'Fast', 'chatprojects' );
+			case 'fast_low_cost':
+				return __( 'Fast & Low Cost', 'chatprojects' );
+			case 'cheapest':
+				return __( 'Cheapest', 'chatprojects' );
+			case 'most_capable':
+				return __( 'Most Capable', 'chatprojects' );
+			case 'preview':
+				return __( 'Preview', 'chatprojects' );
+		}
+		return '';
 	}
 
 	/**
@@ -463,7 +531,7 @@ final class Model_Registry {
 			return null;
 		}
 		$entry          = $models[ $model ];
-		$entry['label'] = self::translate_label( $entry['label'] );
+		$entry['label'] = self::display_label( $entry );
 		return $entry;
 	}
 
@@ -488,7 +556,7 @@ final class Model_Registry {
 		if ( null !== $provider ) {
 			$labels = array();
 			foreach ( self::get_models( $provider ) as $id => $entry ) {
-				$labels[ $id ] = self::translate_label( $entry['label'] );
+				$labels[ $id ] = self::display_label( $entry );
 			}
 			return $labels;
 		}
@@ -535,9 +603,56 @@ final class Model_Registry {
 			return true;
 		}
 		if ( self::is_dynamic_provider( $provider ) ) {
-			return (bool) preg_match( self::DYNAMIC_ID_PATTERN, $model );
+			// Another provider's catalogue id (e.g. an OpenAI fallback) is never valid here.
+			$owner = self::find_provider( $model );
+			if ( null !== $owner && $owner !== $provider ) {
+				return false;
+			}
+			if ( ! preg_match( self::DYNAMIC_ID_PATTERN, $model ) ) {
+				return false;
+			}
+
+			/**
+			 * Filter whether users may chat with a runtime-listed (Chutes /
+			 * OpenRouter) model. Return false to restrict expensive models.
+			 *
+			 * @param bool   $allowed  Default true.
+			 * @param string $model    Model id.
+			 * @param string $provider Provider id.
+			 */
+			return (bool) apply_filters( 'chatprojects_dynamic_model_allowed', true, $model, $provider );
 		}
 		return false;
+	}
+
+	/**
+	 * Whether a model accepts image input.
+	 *
+	 * Chutes and OpenRouter requests are sent as text only, so their models
+	 * are treated as text-only here.
+	 *
+	 * @param string $provider Provider id.
+	 * @param string $model    Model id.
+	 * @return bool
+	 */
+	public static function supports_vision( $provider, $model ) {
+		if ( self::is_dynamic_provider( $provider ) ) {
+			return false;
+		}
+		$entry = self::get_model( $provider, $model );
+		return $entry ? ! empty( $entry['vision'] ) : false;
+	}
+
+	/**
+	 * Whether Claude requests for this model should opt into server-side
+	 * refusal fallbacks (fallbacks: "default").
+	 *
+	 * @param string $model Model id.
+	 * @return bool
+	 */
+	public static function uses_refusal_fallbacks( $model ) {
+		$entry = self::get_model( 'anthropic', $model );
+		return $entry ? ! empty( $entry['fallbacks'] ) : false;
 	}
 
 	/**
@@ -601,7 +716,7 @@ final class Model_Registry {
 	/**
 	 * Validate / repair a model id coming from user input or storage.
 	 *
-	 * Order: known -> legacy remap -> fallback -> provider default.
+	 * Order: legacy remap -> known -> fallback -> provider default.
 	 *
 	 * @param string      $provider Provider id.
 	 * @param string      $model    Candidate model id.
@@ -611,15 +726,17 @@ final class Model_Registry {
 	public static function resolve( $provider, $model, $fallback = null ) {
 		$model = is_string( $model ) ? trim( $model ) : '';
 
-		if ( self::is_known( $provider, $model ) ) {
-			return $model;
-		}
-
+		// Retired ids first: dynamic providers accept any plausible id, so a
+		// legacy id would otherwise be passed through unchanged.
 		if ( '' !== $model ) {
 			$remapped = self::remap_legacy( $model );
 			if ( $remapped !== $model && self::is_known( $provider, $remapped ) ) {
 				return $remapped;
 			}
+		}
+
+		if ( self::is_known( $provider, $model ) ) {
+			return $model;
 		}
 
 		if ( null !== $fallback && '' !== $fallback && $fallback !== $model ) {

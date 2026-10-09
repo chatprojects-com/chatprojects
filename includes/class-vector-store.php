@@ -206,6 +206,24 @@ class Vector_Store {
             return new \WP_Error('permission_denied', __('You do not have permission to delete files from this project.', 'chatprojects'));
         }
 
+        // Only files recorded on this project may be deleted. The site's OpenAI
+        // key is shared by every project, so an unchecked ID would let a user
+        // delete any file on the account.
+        $file_id = (string) $file_id;
+        $files   = get_post_meta($project_id, '_cp_files', true);
+        $owned   = false;
+        if (preg_match('/^file-[A-Za-z0-9_-]+$/', $file_id) && is_array($files)) {
+            foreach ($files as $file) {
+                if (isset($file['file_id']) && $file['file_id'] === $file_id) {
+                    $owned = true;
+                    break;
+                }
+            }
+        }
+        if (!$owned) {
+            return new \WP_Error('invalid_file', __('File not found in this project.', 'chatprojects'));
+        }
+
         // Get vector store ID to remove file reference
         $vector_store_id = get_post_meta($project_id, '_cp_vector_store_id', true);
 
@@ -228,13 +246,10 @@ class Vector_Store {
         }
 
         // Remove from metadata
-        $files = get_post_meta($project_id, '_cp_files', true);
-        if (is_array($files)) {
-            $files = array_filter($files, function($file) use ($file_id) {
-                return $file['file_id'] !== $file_id;
-            });
-            update_post_meta($project_id, '_cp_files', array_values($files));
-        }
+        $files = array_filter($files, function($file) use ($file_id) {
+            return $file['file_id'] !== $file_id;
+        });
+        update_post_meta($project_id, '_cp_files', array_values($files));
 
         return true;
     }
@@ -282,76 +297,6 @@ class Vector_Store {
     }
 
     /**
-     * Convert Excel file to TXT (comma-separated text format).
-     *
-     * @param string $excel_path Path to Excel file (.xls or .xlsx).
-     * @return string|\WP_Error Path to converted TXT file or error.
-     */
-    private function convert_excel_to_txt($excel_path) {
-        // Check if PhpSpreadsheet is available
-        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
-            $vendor_path = CHATPROJECTS_PLUGIN_DIR . 'vendor/autoload.php';
-            if (file_exists($vendor_path)) {
-                require_once $vendor_path;
-            }
-        }
-
-        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
-            return new \WP_Error('library_missing', __('PhpSpreadsheet library is not installed.', 'chatprojects'));
-        }
-
-        try {
-            // Temporarily increase memory limit for large files
-            $original_limit = ini_get('memory_limit');
-            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large Excel file processing
-            ini_set('memory_limit', '512M');
-
-            // Load the Excel file
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($excel_path);
-
-            // Get the first worksheet (ignore other sheets)
-            $worksheet = $spreadsheet->getActiveSheet();
-
-            // Check if worksheet is empty
-            if ($worksheet->getHighestRow() < 1) {
-                // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Restoring original memory limit
-                ini_set('memory_limit', $original_limit);
-                return new \WP_Error('empty_sheet', __('Excel file is empty.', 'chatprojects'));
-            }
-
-            // Create TXT file path (replace .xlsx/.xls with .txt)
-            $txt_path = preg_replace('/\.(xlsx?|xls)$/i', '.txt', $excel_path);
-
-            // Create CSV writer (outputs comma-separated text)
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Csv($spreadsheet);
-            $writer->setDelimiter(',');           // Comma delimiter
-            $writer->setEnclosure('"');           // Double-quote enclosure
-            $writer->setSheetIndex(0);            // First sheet only
-
-            // Save as TXT with CSV format (OpenAI compatible)
-            $writer->save($txt_path);
-
-            // Restore original memory limit
-            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Restoring original memory limit
-            ini_set('memory_limit', $original_limit);
-            return $txt_path;
-
-        } catch (\Exception $e) {
-            // Restore memory limit on error
-            if (isset($original_limit)) {
-                // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Restoring original memory limit
-                ini_set('memory_limit', $original_limit);
-            }
-            /* translators: %s: Error message from Excel conversion */
-            $conversion_error = __('Failed to convert Excel file: %s', 'chatprojects');
-            return new \WP_Error(
-                'conversion_failed',
-                sprintf($conversion_error, $e->getMessage())
-            );
-        }
-    }
-
-    /**
      * Handle WordPress file upload
      *
      * @param int   $project_id Project ID
@@ -378,48 +323,18 @@ class Vector_Store {
         $filename = Security::sanitize_filename($file_data['name']);
         $tmp_file = $file_data['tmp_name'];
 
-        // Check if file is Excel and convert to TXT
-        $original_file_path = null;
-        $file_ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-
-        if (in_array($file_ext, array('xls', 'xlsx'))) {
-            $original_file_path = $tmp_file; // Store original path for deletion later
-
-            // Convert Excel to TXT
-            $txt_path = $this->convert_excel_to_txt($tmp_file);
-
-            if (is_wp_error($txt_path)) {
-                wp_delete_file($tmp_file);
-                return $txt_path;
-            }
-
-            // Use TXT file for upload instead of Excel
-            $tmp_file = $txt_path;
-            // Change filename extension to .txt
-            $filename = preg_replace('/\.(xlsx?|xls)$/i', '.txt', $filename);
-        }
-
         // Upload to vector store
         $result = $this->upload_file($project_id, $tmp_file, $filename);
 
+        // Clean up the temp upload either way
+        wp_delete_file($tmp_file);
+
         if (is_wp_error($result)) {
-            wp_delete_file($tmp_file);
-            if ($original_file_path && file_exists($original_file_path)) {
-                wp_delete_file($original_file_path);
-            }
             return $result;
         }
 
         // Update filename in result
         $result['filename'] = $filename;
-
-        // Clean up temp file(s)
-        wp_delete_file($tmp_file);
-
-        // If we converted from Excel, also delete the original Excel file
-        if ($original_file_path && file_exists($original_file_path)) {
-            wp_delete_file($original_file_path);
-        }
 
         return $result;
     }
@@ -519,7 +434,7 @@ class Vector_Store {
         }
 
         // Allowed document types for vector store
-        $allowed_types = array('pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'json', 'md', 'markdown');
+        $allowed_types = array('pdf', 'doc', 'docx', 'txt', 'csv', 'json', 'md', 'markdown');
 
         foreach ($attachment_ids as $attachment_id) {
             $attachment_id = absint($attachment_id);
@@ -529,8 +444,10 @@ class Vector_Store {
                 'success' => false,
             );
 
-            // Check if user can read this attachment
-            if (!current_user_can('read_post', $attachment_id)) {
+            // Only the uploader, or someone allowed to edit the attachment, may
+            // send it to the AI ('read_post' is granted to every user for most media).
+            $attachment_author = (int) get_post_field('post_author', $attachment_id);
+            if ($attachment_author !== $user_id && !current_user_can('edit_post', $attachment_id)) {
                 $result['error'] = __('You do not have permission to access this file.', 'chatprojects');
                 $results[] = $result;
                 continue;
@@ -574,45 +491,8 @@ class Vector_Store {
                 continue;
             }
 
-            // Handle Excel conversion for XLS/XLSX files
-            $upload_path = $file_path;
-            $upload_filename = $filename;
-            $temp_file = null;
-            $converted_file = null;
-
-            if (in_array($file_ext, array('xls', 'xlsx'), true)) {
-                // Copy to temp location for conversion (don't modify original)
-                $temp_file = wp_tempnam($filename);
-                if (!copy($file_path, $temp_file)) {
-                    $result['error'] = __('Failed to create temporary file.', 'chatprojects');
-                    $results[] = $result;
-                    continue;
-                }
-
-                $txt_path = $this->convert_excel_to_txt($temp_file);
-
-                if (is_wp_error($txt_path)) {
-                    wp_delete_file($temp_file);
-                    $result['error'] = $txt_path->get_error_message();
-                    $results[] = $result;
-                    continue;
-                }
-
-                $upload_path = $txt_path;
-                $converted_file = $txt_path;
-                $upload_filename = preg_replace('/\.(xlsx?|xls)$/i', '.txt', $filename);
-            }
-
             // Upload to vector store
-            $upload_result = $this->upload_file($project_id, $upload_path, $upload_filename);
-
-            // Clean up temp files
-            if ($temp_file && file_exists($temp_file)) {
-                wp_delete_file($temp_file);
-            }
-            if ($converted_file && file_exists($converted_file)) {
-                wp_delete_file($converted_file);
-            }
+            $upload_result = $this->upload_file($project_id, $file_path, $filename);
 
             if (is_wp_error($upload_result)) {
                 $result['error'] = $upload_result->get_error_message();

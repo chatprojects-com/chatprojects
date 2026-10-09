@@ -411,10 +411,10 @@ class Project_Manager {
             case 'widget_shortcode':
                 $vector_store_id = get_post_meta($post_id, '_cp_vector_store_id', true);
                 if ($vector_store_id) {
-                    $shortcode = '[chatprojects_widget project=&quot;' . absint($post_id) . '&quot;]';
+                    $shortcode = '[chatprojects_widget project="' . absint($post_id) . '"]';
                     echo '<span class="cpw-shortcode-cell">';
-                    echo '<code class="cpw-shortcode-code">' . $shortcode . '</code>';
-                    echo ' <button type="button" class="cpw-copy-btn" data-shortcode="[chatprojects_widget project=&quot;' . absint($post_id) . '&quot;]" title="' . esc_attr__('Copy shortcode', 'chatprojects') . '">';
+                    echo '<code class="cpw-shortcode-code">' . esc_html($shortcode) . '</code>';
+                    echo ' <button type="button" class="cpw-copy-btn" data-shortcode="' . esc_attr($shortcode) . '" title="' . esc_attr__('Copy shortcode', 'chatprojects') . '">';
                     echo '<span class="dashicons dashicons-clipboard"></span>';
                     echo '</button>';
                     echo '</span>';
