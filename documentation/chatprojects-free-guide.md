@@ -1203,7 +1203,7 @@ See `readme.txt` for the full changelog.
 - Real-time response streaming
 - Dark/Light theme support
 - Shortcode embedding `[chatprojects_main]`
-- AES-256 API key encryption
+- API keys encrypted with libsodium (authenticated encryption)
 - Local chat history storage
 - Custom assistant instructions
 - Configurable file upload limits
