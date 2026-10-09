@@ -75,3 +75,4 @@ vendor/
 vite.widget.config.js
 build-zip.sh
 deploy.sh
+svn-prepare.sh
