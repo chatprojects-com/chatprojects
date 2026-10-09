@@ -64,6 +64,18 @@ class Installer {
         // Create / upgrade database tables and migrate stored data
         self::run_upgrade_steps();
 
+        self::complete_activation();
+        update_option(self::VERSION_OPTION, self::DB_VERSION);
+    }
+
+    /**
+     * Activation steps beyond the schema: options, roles, rewrite rules, slugs.
+     *
+     * Also run late on init by maybe_upgrade() when Free starts on a site
+     * where its activation hook never ran (activated while Pro was loaded,
+     * so Free stood down in that request).
+     */
+    public static function complete_activation() {
         // Set default options
         self::set_default_options();
 
@@ -87,7 +99,6 @@ class Installer {
 
         // Store activation time
         update_option('chatprojects_activated', time());
-        update_option(self::VERSION_OPTION, self::DB_VERSION);
     }
 
     /**
@@ -375,6 +386,11 @@ class Installer {
         set_transient('chatprojects_upgrade_lock', 1, MINUTE_IN_SECONDS);
 
         self::run_upgrade_steps();
+
+        if ('0' === $installed) {
+            // Never activated on this site: finish once post types are registered.
+            add_action('init', array(__CLASS__, 'complete_activation'), 99);
+        }
 
         update_option(self::VERSION_OPTION, self::DB_VERSION);
         delete_transient('chatprojects_upgrade_lock');
