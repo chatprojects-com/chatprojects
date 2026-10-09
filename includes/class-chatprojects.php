@@ -208,13 +208,22 @@ class ChatProjects {
         $is_module = in_array($handle, $module_handles, true)
             || 'module' === wp_scripts()->get_data($handle, 'type');
 
-        if ($is_module && strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-            // Drop any existing type attribute, then mark as module.
-            $tag = preg_replace('/\stype=([\'"])[^\'"]*\1/', '', $tag);
-            $tag = preg_replace('/<script\s/', '<script type="module" ', $tag, 1);
+        if (!$is_module) {
+            return $tag;
         }
 
-        return $tag;
+        // $tag can also contain the handle's inline "before"/"after" scripts and
+        // translations. Only the external <script src> is the module; marking the
+        // first <script> instead leaves main.js as a classic script, which then
+        // fails on its import statements.
+        $processor = new \WP_HTML_Tag_Processor($tag);
+        while ($processor->next_tag('script')) {
+            if (null !== $processor->get_attribute('src')) {
+                $processor->set_attribute('type', 'module');
+            }
+        }
+
+        return $processor->get_updated_html();
     }
 
     /**
