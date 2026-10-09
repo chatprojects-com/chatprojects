@@ -1,0 +1,239 @@
+<?php
+/**
+ * ChatProjects bootstrap: requirement checks, autoloader, init and
+ * activation hooks.
+ *
+ * Loaded from chatprojects.php only when ChatProjects Pro is not active.
+ * The functions are kept out of the main file because PHP declares a file's
+ * top-level functions when it compiles the file, before any early return;
+ * Pro declares the same names.
+ *
+ * @package ChatProjects
+ */
+
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+/**
+ * Check if requirements are met
+ */
+function chatprojects_requirements_met() {
+    global $wp_version;
+
+    if (version_compare(PHP_VERSION, CHATPROJECTS_MIN_PHP_VERSION, '<')) {
+        add_action('admin_notices', 'chatprojects_php_version_notice');
+        return false;
+    }
+
+    if (version_compare($wp_version, CHATPROJECTS_MIN_WP_VERSION, '<')) {
+        add_action('admin_notices', 'chatprojects_wp_version_notice');
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * PHP version notice
+ */
+function chatprojects_php_version_notice() {
+    ?>
+    <div class="notice notice-error">
+        <p>
+            <?php
+            printf(
+                /* translators: %1$s: Required PHP version, %2$s: Current PHP version */
+                esc_html__('ChatProjects requires PHP version %1$s or higher. You are running version %2$s.', 'chatprojects'),
+                esc_html(CHATPROJECTS_MIN_PHP_VERSION),
+                esc_html(PHP_VERSION)
+            );
+            ?>
+        </p>
+    </div>
+    <?php
+}
+
+/**
+ * WordPress version notice
+ */
+function chatprojects_wp_version_notice() {
+    global $wp_version;
+    ?>
+    <div class="notice notice-error">
+        <p>
+            <?php
+            printf(
+                /* translators: %1$s: Required WordPress version, %2$s: Current WordPress version */
+                esc_html__('ChatProjects requires WordPress version %1$s or higher. You are running version %2$s.', 'chatprojects'),
+                esc_html(CHATPROJECTS_MIN_WP_VERSION),
+                esc_html($wp_version)
+            );
+            ?>
+        </p>
+    </div>
+    <?php
+}
+
+// Check requirements before loading
+if (!chatprojects_requirements_met()) {
+    return;
+}
+
+// Autoloader
+spl_autoload_register(function ($class) {
+    $prefix = 'ChatProjects\\';
+    $base_dir = CHATPROJECTS_PLUGIN_DIR . 'includes/';
+
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $base_dir . 'class-' . str_replace('\\', '/', strtolower(str_replace('_', '-', $relative_class))) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+
+// Include core files
+require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-chatprojects.php';
+require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-installer.php';
+
+/**
+ * Initialize the plugin
+ */
+function chatprojects_init() {
+    // Check for capability migration (cp_ to chatpr_ prefix change)
+    chatprojects_maybe_migrate_capabilities();
+
+    ChatProjects\ChatProjects::get_instance();
+
+    // Schema / data upgrades when the plugin was updated in place.
+    ChatProjects\Installer::maybe_upgrade();
+}
+add_action('plugins_loaded', 'chatprojects_init');
+
+/**
+ * Migrate capabilities from old cp_ prefix to new chatpr_ prefix
+ * This runs once after the prefix update
+ */
+function chatprojects_maybe_migrate_capabilities() {
+    $migration_version = get_option('chatprojects_capability_migration', '0');
+
+    // Force re-run for 1.0.3 migration (can be removed after migration is confirmed)
+    if ($migration_version === '1.0.1' || $migration_version === '1.0.2') {
+        delete_option('chatprojects_capability_migration');
+        $migration_version = '0';
+    }
+
+    // Version 1.0.3 = capability prefix migration + chatpr_projects_user role
+    if (version_compare($migration_version, '1.0.3', '<')) {
+        // Add new capabilities directly (don't call Installer::activate which registers post types too early)
+        $new_caps = array(
+            'edit_chatpr_project', 'read_chatpr_project', 'delete_chatpr_project',
+            'edit_chatpr_projects', 'edit_others_chatpr_projects', 'publish_chatpr_projects',
+            'read_private_chatpr_projects', 'delete_chatpr_projects', 'delete_others_chatpr_projects',
+            'delete_published_chatpr_projects', 'delete_private_chatpr_projects',
+            'edit_published_chatpr_projects', 'edit_private_chatpr_projects',
+            'manage_chatprojects_settings',
+        );
+
+        // Add to administrator
+        $admin = get_role('administrator');
+        if ($admin) {
+            foreach ($new_caps as $cap) {
+                $admin->add_cap($cap);
+            }
+        }
+
+        // Add to editor (subset)
+        $editor = get_role('editor');
+        if ($editor) {
+            $editor->add_cap('edit_chatpr_project');
+            $editor->add_cap('read_chatpr_project');
+            $editor->add_cap('delete_chatpr_project');
+            $editor->add_cap('edit_chatpr_projects');
+            $editor->add_cap('edit_others_chatpr_projects');
+            $editor->add_cap('publish_chatpr_projects');
+            $editor->add_cap('read_private_chatpr_projects');
+        }
+
+        // Add to author (own posts only)
+        $author = get_role('author');
+        if ($author) {
+            $author->add_cap('edit_chatpr_project');
+            $author->add_cap('read_chatpr_project');
+            $author->add_cap('delete_chatpr_project');
+            $author->add_cap('edit_chatpr_projects');
+            $author->add_cap('publish_chatpr_projects');
+        }
+
+        // Add to custom project user roles (including variants from different versions)
+        $custom_roles = array('chatpr_projects_user', 'chatbot_project_user', 'cp_projects_user');
+        foreach ($custom_roles as $role_name) {
+            $projects_user = get_role($role_name);
+            if ($projects_user) {
+                $projects_user->add_cap('edit_chatpr_project');
+                $projects_user->add_cap('read_chatpr_project');
+                $projects_user->add_cap('delete_chatpr_project');
+                $projects_user->add_cap('edit_chatpr_projects');
+                $projects_user->add_cap('publish_chatpr_projects');
+            }
+        }
+
+        // Remove old capabilities from roles
+        $old_caps = array(
+            'edit_cp_project', 'read_cp_project', 'delete_cp_project',
+            'edit_cp_projects', 'edit_others_cp_projects', 'publish_cp_projects',
+            'read_private_cp_projects', 'delete_cp_projects', 'delete_others_cp_projects',
+            'delete_published_cp_projects', 'delete_private_cp_projects',
+            'edit_published_cp_projects', 'edit_private_cp_projects',
+        );
+
+        $roles = array('administrator', 'editor', 'author', 'cp_projects_user');
+        foreach ($roles as $role_name) {
+            $role = get_role($role_name);
+            if ($role) {
+                foreach ($old_caps as $cap) {
+                    $role->remove_cap($cap);
+                }
+            }
+        }
+
+        // Remove old role if exists
+        remove_role('cp_projects_user');
+
+        update_option('chatprojects_capability_migration', '1.0.3');
+    }
+}
+
+/**
+ * Plugin activation hook
+ */
+function chatprojects_activate() {
+    if (!chatprojects_requirements_met()) {
+        wp_die(
+            esc_html__('ChatProjects could not be activated due to unmet requirements.', 'chatprojects'),
+            esc_html__('Plugin Activation Error', 'chatprojects'),
+            array('back_link' => true)
+        );
+    }
+
+    ChatProjects\Installer::activate();
+
+    // Set activation flag
+    update_option('chatprojects_activated', time());
+}
+register_activation_hook(CHATPROJECTS_PLUGIN_FILE, 'chatprojects_activate');
+
+/**
+ * Plugin deactivation hook
+ */
+function chatprojects_deactivate() {
+    ChatProjects\Installer::deactivate();
+}
+register_deactivation_hook(CHATPROJECTS_PLUGIN_FILE, 'chatprojects_deactivate');

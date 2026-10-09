@@ -2,126 +2,167 @@
 /**
  * Uninstall ChatProjects
  *
- * Cleans up all plugin data when the plugin is deleted.
- * This file is called automatically by WordPress when the plugin is deleted.
+ * Runs when the plugin is deleted from the Plugins screen. Removes every
+ * option, transient, table, post, capability and role the plugin created,
+ * unless the administrator enabled "Keep data on uninstall" in Settings.
  *
  * @package ChatProjects
  */
 
-// Exit if not called by WordPress uninstall
-if (!defined('WP_UNINSTALL_PLUGIN')) {
-    exit;
+// Exit if not called by WordPress uninstall.
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+	exit;
 }
 
-call_user_func(function () {
-    global $wpdb;
+/**
+ * Whether ChatProjects Pro is installed (active or not).
+ *
+ * Pro uses the same options, tables, post type and capabilities, so removing
+ * Free must leave all of that in place while Pro is present.
+ *
+ * @return bool
+ */
+function chatprojects_uninstall_pro_installed() {
+	if ( defined( 'CHATPROJECTS_PRO_VERSION' ) ) {
+		return true;
+	}
+	if ( ! function_exists( 'get_plugins' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+	foreach ( get_plugins() as $plugin_file => $plugin_data ) {
+		if ( 0 === strpos( $plugin_file, 'chatprojects-pro/' ) || 'ChatProjects Pro' === $plugin_data['Name'] ) {
+			return true;
+		}
+	}
+	return false;
+}
 
-    /**
-     * Delete all plugin options
-     */
-    $options_to_delete = array(
-        'chatprojects_openai_key',
-        'chatprojects_gemini_key',
-        'chatprojects_anthropic_key',
-        'chatprojects_chutes_key',
-        'chatprojects_general_chat_provider',
-        'chatprojects_general_chat_model',
-        'chatprojects_assistant_instructions',
-        'chatprojects_default_model',
-        'chatprojects_max_file_size',
-        'chatprojects_allowed_file_types',
-        'chatprojects_db_version',
-        'chatprojects_activated',
-        'chatprojects_encryption_key',
-        'chatprojects_rewrites_flushed',
-    );
+/**
+ * Remove the plugin's data from the current site.
+ */
+function chatprojects_uninstall_site() {
+	global $wpdb;
 
-    foreach ($options_to_delete as $option_name) {
-        delete_option($option_name);
-    }
+	// Respect the administrator's choice to keep data for a reinstall.
+	if ( get_option( 'chatprojects_keep_data_on_uninstall' ) ) {
+		return;
+	}
 
-    // Delete any transients
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cleanup on uninstall
-    $wpdb->query(
-        $wpdb->prepare(
-            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-            '%chatprojects%'
-        )
-    );
+	// Cron hooks. wp_unschedule_hook() also clears events scheduled with arguments
+	// (indexing batches are scheduled per project ID).
+	wp_unschedule_hook( 'chatprojects_cleanup_transients' );
+	wp_unschedule_hook( 'chatprojects_process_index_batch' );
+	wp_unschedule_hook( 'chatprojects_cleanup_widget_sessions' );
+	wp_unschedule_hook( 'chatprojects_sync_indexed_post' );
 
-    /**
-     * Drop custom database tables
-     */
-    $tables_to_drop = array(
-        esc_sql($wpdb->prefix . 'chatprojects_chats'),
-        esc_sql($wpdb->prefix . 'chatprojects_messages'),
-    );
+	/**
+	 * Options and transients.
+	 *
+	 * Every option the plugin writes is prefixed chatprojects_ and every
+	 * transient chatpr_ / chatprojects_. The LIKE patterns are anchored so
+	 * unrelated plugins are never touched (Pro is handled above).
+	 */
+	$patterns = array(
+		$wpdb->esc_like( 'chatprojects_' ) . '%',
+		$wpdb->esc_like( '_transient_chatprojects_' ) . '%',
+		$wpdb->esc_like( '_transient_timeout_chatprojects_' ) . '%',
+		$wpdb->esc_like( '_transient_chatpr_' ) . '%',
+		$wpdb->esc_like( '_transient_timeout_chatpr_' ) . '%',
+	);
+	foreach ( $patterns as $pattern ) {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cleanup on uninstall.
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $pattern ) );
+	}
 
-    foreach ($tables_to_drop as $table_name) {
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Table name from $wpdb->prefix, DROP TABLE required for uninstall cleanup
-        $wpdb->query("DROP TABLE IF EXISTS {$table_name}");
-    }
+	// Legacy option names from early versions.
+	foreach ( array( 'cp_openai_api_key', 'cp_gemini_api_key', 'cp_anthropic_api_key', 'cp_chutes_api_key' ) as $legacy ) {
+		delete_option( $legacy );
+	}
 
-    /**
-     * Delete all custom post types and their meta
-     */
-    $post_types = array('chatpr_project');
+	/**
+	 * Custom tables.
+	 */
+	$tables = array(
+		'chatprojects_chats',
+		'chatprojects_messages',
+		'chatprojects_indexed_content',
+		'chatprojects_widget_visitor_sessions',
+		'chatprojects_widget_visitor_messages',
+		// Pre-1.3.0 names (Pro isn't installed, or we wouldn't be here).
+		'chatprojects_widget_sessions',
+		'chatprojects_widget_messages',
+	);
+	foreach ( $tables as $table ) {
+		$table_name = esc_sql( $wpdb->prefix . $table );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Table name from $wpdb->prefix; DROP required on uninstall.
+		$wpdb->query( "DROP TABLE IF EXISTS {$table_name}" );
+	}
 
-    foreach ($post_types as $post_type) {
-        // Get all posts of this type
-        $posts = get_posts(array(
-            'post_type' => $post_type,
-            'post_status' => 'any',
-            'numberposts' => -1,
-            'fields' => 'ids',
-        ));
+	/**
+	 * Custom post type content (posts + meta).
+	 */
+	$post_ids = get_posts(
+		array(
+			'post_type'   => 'chatpr_project',
+			'post_status' => 'any',
+			'numberposts' => -1,
+			'fields'      => 'ids',
+		)
+	);
+	foreach ( $post_ids as $post_id ) {
+		wp_delete_post( $post_id, true );
+	}
 
-        // Delete each post and its meta
-        foreach ($posts as $post_id) {
-            wp_delete_post($post_id, true);
-        }
-    }
+	// Per-user preferences.
+	delete_metadata( 'user', 0, 'cp_theme_preference', '', true );
 
-    /**
-     * Remove custom capabilities from roles
-     */
-    $capabilities_to_remove = array(
-        // Project capabilities
-        'edit_chatpr_project',
-        'read_chatpr_project',
-        'delete_chatpr_project',
-        'edit_chatpr_projects',
-        'edit_others_chatpr_projects',
-        'publish_chatpr_projects',
-        'read_private_chatpr_projects',
-        'delete_chatpr_projects',
-        'delete_others_chatpr_projects',
-        'delete_published_chatpr_projects',
-        'delete_private_chatpr_projects',
-        'edit_published_chatpr_projects',
-        'edit_private_chatpr_projects',
-        // Settings capability
-        'manage_chatprojects_settings',
-    );
+	/**
+	 * Capabilities and role.
+	 */
+	$capabilities = array(
+		'edit_chatpr_project',
+		'read_chatpr_project',
+		'delete_chatpr_project',
+		'edit_chatpr_projects',
+		'edit_others_chatpr_projects',
+		'publish_chatpr_projects',
+		'read_private_chatpr_projects',
+		'delete_chatpr_projects',
+		'delete_others_chatpr_projects',
+		'delete_published_chatpr_projects',
+		'delete_private_chatpr_projects',
+		'edit_published_chatpr_projects',
+		'edit_private_chatpr_projects',
+		'read_chatpr_prompt',
+		'read_private_chatpr_prompts',
+		'edit_chatpr_prompt',
+		'edit_chatpr_prompts',
+		'edit_others_chatpr_prompts',
+		'edit_published_chatpr_prompts',
+		'publish_chatpr_prompts',
+		'delete_chatpr_prompt',
+		'delete_chatpr_prompts',
+		'delete_others_chatpr_prompts',
+		'delete_published_chatpr_prompts',
+		'manage_chatprojects_settings',
+	);
+	foreach ( wp_roles()->role_objects as $role ) {
+		foreach ( $capabilities as $capability ) {
+			$role->remove_cap( $capability );
+		}
+	}
+	remove_role( 'chatpr_projects_user' );
+}
 
-    $roles = array('administrator', 'editor', 'author');
-
-    foreach ($roles as $role_name) {
-        $role = get_role($role_name);
-        if ($role) {
-            foreach ($capabilities_to_remove as $capability) {
-                $role->remove_cap($capability);
-            }
-        }
-    }
-
-    /**
-     * Remove custom user role
-     */
-    remove_role('chatpr_projects_user');
-
-    /**
-     * Clear any cached data
-     */
-    wp_cache_flush();
-});
+if ( ! chatprojects_uninstall_pro_installed() ) {
+	if ( is_multisite() ) {
+		foreach ( get_sites( array( 'fields' => 'ids', 'number' => 0 ) ) as $chatprojects_site_id ) {
+			switch_to_blog( $chatprojects_site_id );
+			chatprojects_uninstall_site();
+			restore_current_blog();
+		}
+	} else {
+		chatprojects_uninstall_site();
+	}
+	wp_cache_flush();
+}

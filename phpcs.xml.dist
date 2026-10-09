@@ -37,7 +37,25 @@
 	</rule>
 
 	<!-- Set minimum supported WordPress version -->
-	<config name="minimum_wp_version" value="6.0"/>
+	<config name="minimum_wp_version" value="6.6"/>
+
+	<!-- Capabilities registered by User_Roles -->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="publish_chatpr_projects"/>
+				<element value="publish_chatpr_prompts"/>
+				<element value="manage_chatprojects_settings"/>
+				<element value="edit_chatpr_project"/>
+				<element value="read_chatpr_project"/>
+				<element value="delete_chatpr_project"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- PHP compatibility: plugin supports PHP 8.0 and newer -->
+	<config name="testVersion" value="8.0-"/>
+	<rule ref="PHPCompatibilityWP"/>
 
 	<!-- Set text domain for i18n -->
 	<rule ref="WordPress.WP.I18n">

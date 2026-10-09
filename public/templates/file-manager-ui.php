@@ -41,7 +41,7 @@ call_user_func(function () {
                 x-ref="fileInput"
                 @change="handleFileSelect($event)"
                 multiple
-                accept=".pdf,.docx,.doc,.txt,.xls,.xlsx,.md,.csv,.json,.xml,.html,.css,.js,.py,.php,.java,.cpp"
+                accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.xml,.css,.py,.java,.cpp"
                 class="hidden"
             />
 
@@ -67,7 +67,10 @@ call_user_func(function () {
                 ?>
             </p>
             <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                <?php esc_html_e('Supported: PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP', 'chatprojects'); ?>
+                <?php
+                /* translators: %s: comma-separated list of file extensions, e.g. "PDF, DOCX, TXT" */
+                printf(esc_html__('Supported: %s', 'chatprojects'), esc_html(strtoupper(implode(', ', \ChatProjects\Security::allowed_file_types()))));
+                ?>
             </p>
             <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
                 <?php esc_html_e('Spreadsheets (XLS, XLSX) available in Pro', 'chatprojects'); ?>

@@ -35,8 +35,13 @@ class Frontend {
         add_filter('the_content', array($this, 'inject_project_workspace'));
         add_shortcode('chatprojects_workspace', array($this, 'render_workspace'));
         add_shortcode('chatprojects_main', array($this, 'render_main_app'));
+        add_shortcode('chatprojects_widget', array($this, 'render_widget_shortcode'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_enqueue_scripts', array($this, 'dequeue_conflicting_scripts'), 999);
+        add_action('wp_enqueue_scripts', array($this, 'maybe_enqueue_widget_assets'));
+
+        // Widget auto-inject via wp_footer.
+        add_action('wp_footer', array($this, 'maybe_inject_widget'));
 
         // Hide admin bar on ChatProjects frontend pages
         add_filter('show_admin_bar', array($this, 'maybe_hide_admin_bar'));
@@ -228,7 +233,6 @@ class Frontend {
         add_rewrite_rule('^' . $slugs['projects'] . '/?$', 'index.php?chatpr_page=projects', 'top');
         add_rewrite_rule('^' . $slugs['settings'] . '/?$', 'index.php?chatpr_page=settings', 'top');
         add_rewrite_rule('^' . $slugs['chat'] . '/?$', 'index.php?chatpr_page=pro_chat', 'top');
-        add_rewrite_rule('^' . $slugs['comparison'] . '/?$', 'index.php?chatpr_page=pro_comparison', 'top');
 
         // Add query var
         add_filter('query_vars', function($vars) {
@@ -245,15 +249,6 @@ class Frontend {
      * Ensures backwards compatibility for bookmarks and external links
      */
     public function redirect_old_slugs() {
-        // One-time cleanup: remove generic slugs that hijack other sites' pages
-        if (get_option('chatprojects_slug_cleanup_version', '') !== '1.1.4') {
-            $old_slugs = get_option('chatprojects_old_slugs', array());
-            unset($old_slugs['settings']);
-            unset($old_slugs['projects']);
-            update_option('chatprojects_old_slugs', $old_slugs);
-            update_option('chatprojects_slug_cleanup_version', '1.1.4');
-        }
-
         $old_slugs = get_option('chatprojects_old_slugs', array());
         $new_slugs = get_option('chatprojects_new_slugs', array());
 
@@ -262,8 +257,8 @@ class Frontend {
         }
 
         $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
-        $request_path = parse_url($request_uri, PHP_URL_PATH);
-        $request_path = rtrim($request_path, '/');
+        $request_path = wp_parse_url($request_uri, PHP_URL_PATH);
+        $request_path = rtrim(is_string($request_path) ? $request_path : '', '/');
 
         foreach ($old_slugs as $key => $old_slug) {
             // Only match exact root-level paths to avoid hijacking other pages
@@ -287,8 +282,8 @@ class Frontend {
                 exit;
             }
 
-            // Check if user has ChatProjects permissions
-            if (!User_Roles::can_use_chatprojects()) {
+            // Check if user has ChatProjects permissions, and may open this project
+            if (!User_Roles::can_use_chatprojects() || !Access::can_access_project(get_queried_object_id())) {
                 $this->render_access_denied_page();
                 exit;
             }
@@ -334,9 +329,6 @@ class Frontend {
             case 'pro_chat':
                 $this->load_pro_chat_page();
                 break;
-            case 'pro_comparison':
-                $this->load_pro_comparison_page();
-                break;
         }
     }
 
@@ -362,33 +354,24 @@ class Frontend {
             'chatprojects-frontend',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/main.css')
+            \ChatProjects\ChatProjects::asset_version('assets/dist/css/main.css')
         );
 
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
         wp_enqueue_script(
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . time(),
+            \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js'),
             true // Load in footer
         );
-        // Add type="module" attribute
-        // The main plugin class filter doesn't fire because wp_enqueue_scripts was manually triggered
-        add_filter('script_loader_tag', function($tag, $handle) {
-            if ('chatprojects-main' === $handle) {
-                if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                    $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
-                }
-            }
-            return $tag;
-        }, 10, 2);
+        wp_script_add_data('chatprojects-main', 'type', 'module');
         // Localize script for AJAX
         wp_localize_script('chatprojects-main', 'chatprAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -414,6 +397,11 @@ class Frontend {
         // Prevent browser caching to ensure fresh nonces and scripts
         nocache_headers();
 
+        // Link from the email-change confirmation message.
+        if (isset($_GET['chatpr_confirm_email'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The secret hash in the link is the check, as in core.
+            $this->confirm_pending_email(sanitize_text_field(wp_unslash($_GET['chatpr_confirm_email']))); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        }
+
         // Ensure jQuery is loaded
         wp_enqueue_script('jquery');
 
@@ -422,35 +410,26 @@ class Frontend {
             'chatprojects-frontend',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/main.css')
+            \ChatProjects\ChatProjects::asset_version('assets/dist/css/main.css')
         );
 
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
 
         wp_enqueue_script(
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . time(),
+            \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js'),
             true
         );
 
-        // Add type="module" attribute
-        // The main plugin class filter doesn't fire because wp_enqueue_scripts was manually triggered
-        add_filter('script_loader_tag', function($tag, $handle) {
-            if ('chatprojects-main' === $handle) {
-                if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                    $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
-                }
-            }
-            return $tag;
-        }, 10, 2);
+        wp_script_add_data('chatprojects-main', 'type', 'module');
 
         // Localize script
         wp_localize_script('chatprojects-main', 'chatprData', array(
@@ -482,34 +461,26 @@ class Frontend {
             'chatprojects-frontend',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/main.css')
+            \ChatProjects\ChatProjects::asset_version('assets/dist/css/main.css')
         );
 
         // Enqueue mobile responsive CSS
         wp_enqueue_style(
             'chatprojects-mobile',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/mobile-responsive.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/css/mobile-responsive.css',
             array('chatprojects-frontend'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/mobile-responsive.css')
+            \ChatProjects\ChatProjects::asset_version('assets/css/mobile-responsive.css')
         );
 
         wp_enqueue_script(
             'chatprojects-main',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . time(),
+            \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js'),
             true
         );
 
-        // Add type="module" attribute
-        add_filter('script_loader_tag', function($tag, $handle) {
-            if ('chatprojects-main' === $handle) {
-                if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                    $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
-                }
-            }
-            return $tag;
-        }, 10, 2);
+        wp_script_add_data('chatprojects-main', 'type', 'module');
 
         // Localize script
         wp_localize_script('chatprojects-main', 'chatprData', array(
@@ -517,7 +488,7 @@ class Frontend {
             'nonce' => wp_create_nonce('chatpr_ajax_nonce'),
             'current_user' => wp_get_current_user()->display_name,
             'default_provider' => get_option('chatprojects_general_chat_provider', 'openai'),
-            'default_model' => get_option('chatprojects_general_chat_model', 'gpt-5.2-chat-latest'),
+            'default_model' => get_option('chatprojects_general_chat_model', \ChatProjects\Model_Registry::get_default(get_option('chatprojects_general_chat_provider', 'openai'))),
             // Image upload settings (Free version: 1 image per message)
             'is_pro_user' => false,
             'max_images_per_message' => 1,
@@ -546,85 +517,33 @@ class Frontend {
     }
 
     /**
-     * Load Pro Comparison page
+     * Complete a pending email change for the current user.
+     *
+     * Same checks as core's profile.php?newuseremail=: the hash must match the
+     * _new_email meta stored when the change was requested.
+     *
+     * @param string $hash Hash from the confirmation link.
      */
-    private function load_pro_comparison_page() {
-        // Prevent browser caching to ensure fresh nonces and scripts
-        nocache_headers();
+    private function confirm_pending_email($hash) {
+        $user_id = get_current_user_id();
+        $pending = get_user_meta($user_id, '_new_email', true);
+        $ok      = false;
 
-        // Pro-only feature: redirect Free users to Pro Chat
-        if (!defined('CHATPROJECTS_PRO_VERSION')) {
-            $slugs = \ChatProjects\ChatProjects::get_slugs();
-            wp_safe_redirect(home_url('/' . $slugs['chat'] . '/'));
-            exit;
+        if (is_array($pending) && !empty($pending['hash']) && is_string($hash) && hash_equals($pending['hash'], $hash)
+            && is_email($pending['newemail']) && !email_exists($pending['newemail'])) {
+            $result = wp_update_user(array(
+                'ID'         => $user_id,
+                'user_email' => $pending['newemail'],
+            ));
+            $ok = !is_wp_error($result);
+        }
+        if ($ok) {
+            delete_user_meta($user_id, '_new_email');
         }
 
-        // Ensure jQuery is loaded
-        wp_enqueue_script('jquery');
-
-        // Manually enqueue scripts directly
-        wp_enqueue_style(
-            'chatprojects-frontend',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
-            array(),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/main.css')
-        );
-
-        // Enqueue main JS first (for Alpine)
-        wp_enqueue_script(
-            'chatprojects-main',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
-            array('jquery'),
-            CHATPROJECTS_VERSION . '-' . time(),
-            true
-        );
-
-        // Enqueue comparison-specific JavaScript (depends on main.js for Alpine)
-        // Note: This file may not exist in Free version
-        $comparison_js = CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/comparison.js';
-        if (file_exists($comparison_js)) {
-            wp_enqueue_script(
-                'chatprojects-comparison',
-                CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/comparison.js',
-                array('chatprojects-main'),
-                CHATPROJECTS_VERSION . '-' . filemtime($comparison_js),
-                true
-            );
-        }
-
-        // Add type="module" attribute to main and comparison scripts
-        add_filter('script_loader_tag', function($tag, $handle) {
-            if ('chatprojects-main' === $handle || 'chatprojects-comparison' === $handle) {
-                if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                    $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
-                }
-            }
-            return $tag;
-        }, 10, 2);
-
-        // Localize script data for comparison page
-        wp_localize_script('chatprojects-comparison', 'chatprComparisonData', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('chatpr_ajax_nonce'),
-            'current_user' => wp_get_current_user()->display_name,
-            'default_provider' => get_option('chatprojects_general_chat_provider', 'openai'),
-            'default_model' => get_option('chatprojects_general_chat_model', 'gpt-5.2-chat-latest'),
-            'strings' => array(
-                'sending' => __('Sending...', 'chatprojects'),
-                'error' => __('An error occurred. Please try again.', 'chatprojects'),
-                'creating_comparison' => __('Creating comparison...', 'chatprojects'),
-                'select_providers' => __('Please select providers and models for both sides.', 'chatprojects'),
-                'comparison_created' => __('Comparison created successfully.', 'chatprojects'),
-                'delete_confirm' => __('Are you sure you want to delete this comparison?', 'chatprojects'),
-            ),
-        ));
-
-        $template = CHATPROJECTS_PLUGIN_DIR . 'public/templates/pro-comparison.php';
-
-        if (file_exists($template)) {
-            include $template;
-            exit;
-        }
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
+        wp_safe_redirect(add_query_arg('email_change', $ok ? 'confirmed' : 'failed', home_url('/' . $slugs['settings'] . '/')));
+        exit;
     }
 
     /**
@@ -690,7 +609,7 @@ class Frontend {
      */
     public function render_workspace() {
         if (!is_user_logged_in()) {
-            return '<div class="vp-notice">Please log in to access the workspace.</div>';
+            return '<div class="vp-notice">' . esc_html__('Please log in to access the workspace.', 'chatprojects') . '</div>';
         }
 
         $user_id = get_current_user_id();
@@ -816,7 +735,8 @@ class Frontend {
             });
         });";
 
-        wp_add_inline_script('jquery', $modal_script);
+        // Shortcodes render after wp_head(), so print the script inline instead of attaching it to a head handle.
+        wp_print_inline_script_tag($modal_script, array('id' => 'chatprojects-create-project-modal'));
     }
 
     /**
@@ -855,7 +775,15 @@ class Frontend {
             'settings' => home_url('/' . $slugs['settings'] . '/'),
         );
 
-        $redirect_url = isset($redirect_urls[ $default_tab ]) ? $redirect_urls[ $default_tab ] : $redirect_urls['projects'];
+        if (!isset($redirect_urls[ $default_tab ])) {
+            $default_tab = 'projects';
+        }
+        $redirect_url = $redirect_urls[ $default_tab ];
+        $open_labels  = array(
+            'projects' => __('Open Projects', 'chatprojects'),
+            'chat'     => __('Open Chat', 'chatprojects'),
+            'settings' => __('Open Settings', 'chatprojects'),
+        );
 
         // Render navigation hub
         ob_start();
@@ -870,6 +798,11 @@ class Frontend {
                 </h2>
                 <p style="margin: 0; color: #6b7280;">
                     <?php esc_html_e('AI-powered project management', 'chatprojects'); ?>
+                </p>
+                <p style="margin: 1.25rem 0 0;">
+                    <a href="<?php echo esc_url($redirect_url); ?>" style="display: inline-block; padding: 0.625rem 1.25rem; background: #2563eb; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                        <?php echo esc_html($open_labels[ $default_tab ]); ?>
+                    </a>
                 </p>
             </div>
 
@@ -891,7 +824,8 @@ class Frontend {
                     box-shadow: 0 4px 12px rgba(37,99,235,0.15);
                 }
             ';
-            wp_add_inline_style('chatprojects-frontend', $dashboard_css);
+            // Rendered inside a shortcode (after wp_head), so print the style inline.
+            echo '<style id="chatprojects-dashboard-css">' . wp_strip_all_tags($dashboard_css) . '</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static CSS, tags stripped.
             ?>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                 <!-- Projects -->
@@ -1027,5 +961,228 @@ class Frontend {
         </body>
         </html>
         <?php
+    }
+
+    // ==================== CHAT WIDGET ====================
+
+    /**
+     * Inline widget instances registered by shortcodes on the current page.
+     *
+     * @var array
+     */
+    private static $widget_instances = array();
+
+    /**
+     * Whether a floating widget override has been set by a shortcode on this page.
+     *
+     * @var array|null
+     */
+    private static $floating_override = null;
+
+    /**
+     * Render the widget shortcode.
+     *
+     * Usage:
+     *   [chatprojects_widget]                                → floating, global settings (backward compat)
+     *   [chatprojects_widget project="123"]                  → inline chat panel for project 123
+     *   [chatprojects_widget project="123" mode="floating"]  → floating bubble for project 123
+     *   [chatprojects_widget project="123" color="#e11d48" title="Support" welcome_message="Hi!" height="500"]
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string HTML output (empty for floating, container div for inline).
+     */
+    public function render_widget_shortcode( $atts ) {
+        $atts = shortcode_atts(
+            array(
+                'project'         => '',
+                'mode'            => '', // 'inline' or 'floating'. Auto-detected if empty.
+                'color'           => '',
+                'title'           => '',
+                'welcome_message' => '',
+                'placeholder'     => '',
+                'height'          => '500',
+            ),
+            $atts,
+            'chatprojects_widget'
+        );
+
+        $project_id = absint( $atts['project'] );
+
+        // Only projects explicitly exposed to the widget may be embedded.
+        if ( ! empty( $project_id ) && ! Widget_Handler::is_project_public( $project_id ) ) {
+            if ( current_user_can( 'edit_post', $project_id ) ) {
+                return '<p class="cpw-embed-notice">' . esc_html__( 'ChatProjects: enable "Allow public chat widget" on this project to embed it.', 'chatprojects' ) . '</p>';
+            }
+            return '';
+        }
+
+        // Determine mode: default to 'inline' when project is specified, 'floating' otherwise.
+        $mode = sanitize_key( $atts['mode'] );
+        if ( ! in_array( $mode, array( 'inline', 'floating' ), true ) ) {
+            $mode = ! empty( $project_id ) ? 'inline' : 'floating';
+        }
+
+        $this->enqueue_widget_scripts();
+
+        // Two-step color validation: sanitize_hex_color() returns null on invalid input.
+        $color = ! empty( $atts['color'] ) ? sanitize_hex_color( $atts['color'] ) : '';
+
+        // Build per-instance config (shortcode overrides, with global defaults as fallback).
+        $instance_config = array(
+            'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+            'projectId'      => ! empty( $project_id ) ? $project_id : absint( get_option( 'chatprojects_widget_project_id', 0 ) ),
+            'mode'           => $mode,
+            'primaryColor'   => ! empty( $color ) ? $color : sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
+            'title'          => ! empty( $atts['title'] ) ? sanitize_text_field( $atts['title'] ) : get_bloginfo( 'name' ),
+            'welcomeMessage' => ! empty( $atts['welcome_message'] ) ? wp_kses_post( $atts['welcome_message'] ) : wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
+            'placeholder'    => ! empty( $atts['placeholder'] ) ? esc_attr( $atts['placeholder'] ) : esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
+            'showBranding'   => (bool) get_option( 'chatprojects_widget_show_branding', false ),
+            'siteName'       => get_bloginfo( 'name' ),
+            'height'         => absint( $atts['height'] ),
+            'position'       => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
+        );
+
+        if ( 'inline' === $mode ) {
+            // Register inline instance.
+            $instance_id                    = count( self::$widget_instances );
+            $instance_config['instanceId']  = $instance_id;
+            self::$widget_instances[]       = $instance_config;
+
+            return '<div class="cpw-inline-mount" data-cpw-instance="' . esc_attr( $instance_id ) . '"></div>';
+        }
+
+        // Floating mode with project override — store for use in enqueue_widget_scripts.
+        if ( ! empty( $project_id ) ) {
+            self::$floating_override = $instance_config;
+        }
+
+        return '';
+    }
+
+    /**
+     * Conditionally enqueue widget assets on frontend pages.
+     *
+     * Only loads when the widget is enabled and should appear on the current page.
+     */
+    public function maybe_enqueue_widget_assets() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        // Auto-inject mode: enqueue on all frontend pages if globally enabled.
+        if ( get_option( 'chatprojects_widget_enabled', false ) && get_option( 'chatprojects_widget_auto_inject', false ) ) {
+            $this->enqueue_widget_scripts();
+            return;
+        }
+
+        // Shortcode mode: check if current post has the shortcode.
+        global $post;
+        if ( $post && has_shortcode( $post->post_content, 'chatprojects_widget' ) ) {
+            $this->enqueue_widget_scripts();
+        }
+    }
+
+    /**
+     * Auto-inject widget HTML into wp_footer when auto-inject is enabled.
+     */
+    public function maybe_inject_widget() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        if ( ! get_option( 'chatprojects_widget_enabled', false ) ) {
+            return;
+        }
+
+        if ( ! get_option( 'chatprojects_widget_auto_inject', false ) ) {
+            return;
+        }
+
+        // The widget div is created by the JS bundle, so we just need
+        // to ensure the scripts are enqueued (handled by maybe_enqueue_widget_assets).
+    }
+
+    /**
+     * Enqueue widget JavaScript and CSS.
+     *
+     * Config data is NOT output here — it is deferred to a wp_footer callback
+     * so that all shortcodes on the page have been processed first.
+     */
+    private function enqueue_widget_scripts() {
+        static $enqueued = false;
+        if ( $enqueued ) {
+            return;
+        }
+        $enqueued = true;
+
+        $widget_js_path  = CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/widget.js';
+        $widget_css_path = CHATPROJECTS_PLUGIN_DIR . 'assets/css/widget.css';
+
+        // Widget CSS (standalone, no build processing needed).
+        if ( file_exists( $widget_css_path ) ) {
+            wp_enqueue_style(
+                'chatprojects-widget',
+                CHATPROJECTS_PLUGIN_URL . 'assets/css/widget.css',
+                array(),
+                \ChatProjects\ChatProjects::asset_version( 'assets/css/widget.css' )
+            );
+        }
+
+        // Widget JS.
+        if ( file_exists( $widget_js_path ) ) {
+            wp_enqueue_script(
+                'chatprojects-widget',
+                CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/widget.js',
+                array(),
+                \ChatProjects\ChatProjects::asset_version( 'assets/dist/js/widget.js' ),
+                true
+            );
+        }
+
+        // Add defer strategy for non-blocking load.
+        wp_script_add_data( 'chatprojects-widget', 'strategy', 'defer' );
+
+        // Defer config output to wp_footer so all shortcodes have been processed.
+        add_action( 'wp_footer', array( __CLASS__, 'output_widget_configs' ), 5 );
+    }
+
+    /**
+     * Output widget configuration data in wp_footer.
+     *
+     * Runs after all shortcodes have been processed, ensuring:
+     * - All inline instances are registered.
+     * - Floating override (if any) has been captured.
+     * - No phantom floating widget appears when only inline shortcodes are used.
+     */
+    public static function output_widget_configs() {
+        // Floating config: only when a shortcode override was set or global widget is enabled.
+        $floating_config = self::$floating_override;
+        if ( ! $floating_config && get_option( 'chatprojects_widget_enabled', false ) ) {
+            // Global floating widget (auto-inject or bare shortcode).
+            $floating_config = array(
+                'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+                'projectId'      => absint( get_option( 'chatprojects_widget_project_id', 0 ) ),
+                'mode'           => 'floating',
+                'position'       => sanitize_key( get_option( 'chatprojects_widget_position', 'bottom-right' ) ),
+                'primaryColor'   => sanitize_hex_color( get_option( 'chatprojects_widget_primary_color', '#2563eb' ) ),
+                'welcomeMessage' => wp_kses_post( get_option( 'chatprojects_widget_welcome_message', __( 'Hi! How can I help you today?', 'chatprojects' ) ) ),
+                'placeholder'    => esc_attr( get_option( 'chatprojects_widget_placeholder', __( 'Type your message...', 'chatprojects' ) ) ),
+                'showBranding'   => (bool) get_option( 'chatprojects_widget_show_branding', false ),
+                'siteName'       => get_bloginfo( 'name' ),
+            );
+        }
+
+        if ( $floating_config ) {
+            wp_localize_script( 'chatprojects-widget', 'chatprWidgetConfig', $floating_config );
+        }
+
+        // Inline instances: output all registered instances.
+        if ( ! empty( self::$widget_instances ) ) {
+            wp_add_inline_script(
+                'chatprojects-widget',
+                'window.chatprWidgetInstances = ' . wp_json_encode( self::$widget_instances ) . ';',
+                'before'
+            );
+        }
     }
 }

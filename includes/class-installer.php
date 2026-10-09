@@ -24,7 +24,31 @@ class Installer {
      *
      * @var string
      */
-    const DB_VERSION = '1.1.0';
+    const DB_VERSION = '1.3.1';
+
+    /**
+     * Option holding Free's schema version. Pro keeps its own (2.x) version in
+     * chatprojects_db_version, so Free must not read or overwrite that one.
+     */
+    const VERSION_OPTION = 'chatprojects_free_db_version';
+
+    /**
+     * Free's installed schema version.
+     *
+     * Before 1.3.0 Free stored it in the shared chatprojects_db_version
+     * option; a value of 2.0+ there belongs to Pro and means "unknown", so
+     * every (idempotent) upgrade step runs.
+     *
+     * @return string
+     */
+    private static function installed_version() {
+        $version = get_option(self::VERSION_OPTION, '');
+        if ('' !== $version) {
+            return (string) $version;
+        }
+        $shared = (string) get_option('chatprojects_db_version', '0');
+        return version_compare($shared, '2.0', '<') ? $shared : '0';
+    }
 
     /**
      * Plugin activation
@@ -37,9 +61,21 @@ class Installer {
         // Register post types first (needed for flush_rewrite_rules)
         self::register_post_types_for_activation();
 
-        // Create database tables
-        self::create_tables();
+        // Create / upgrade database tables and migrate stored data
+        self::run_upgrade_steps();
 
+        self::complete_activation();
+        update_option(self::VERSION_OPTION, self::DB_VERSION);
+    }
+
+    /**
+     * Activation steps beyond the schema: options, roles, rewrite rules, slugs.
+     *
+     * Also run late on init by maybe_upgrade() when Free starts on a site
+     * where its activation hook never ran (activated while Pro was loaded,
+     * so Free stood down in that request).
+     */
+    public static function complete_activation() {
         // Set default options
         self::set_default_options();
 
@@ -63,7 +99,6 @@ class Installer {
 
         // Store activation time
         update_option('chatprojects_activated', time());
-        update_option('chatprojects_db_version', self::DB_VERSION);
     }
 
     /**
@@ -85,8 +120,7 @@ class Installer {
         // Store old slugs for redirect mapping
         // Only include slugs that were actually renamed (not generic ones like 'settings' or 'projects')
         $old_slugs = array(
-            'chat'       => 'pro-chat',
-            'comparison' => 'pro-chat/compare',
+            'chat' => 'pro-chat',
         );
 
         update_option('chatprojects_old_slugs', $old_slugs);
@@ -199,6 +233,9 @@ class Installer {
     public static function deactivate() {
         flush_rewrite_rules();
         wp_clear_scheduled_hook('chatprojects_cleanup_transients');
+        wp_unschedule_hook('chatprojects_process_index_batch');
+        wp_clear_scheduled_hook('chatprojects_cleanup_widget_sessions');
+        wp_unschedule_hook('chatprojects_sync_indexed_post');
 
         // Delete rewrite flush flag so reinstall triggers a fresh flush
         delete_option('chatprojects_rewrites_flushed');
@@ -220,62 +257,294 @@ class Installer {
 
         // Chat threads table (thread_id kept for backward compat but no longer used)
         $chats_table = esc_sql($wpdb->prefix . 'chatprojects_chats');
-        $chats_sql = "CREATE TABLE IF NOT EXISTS {$chats_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            chat_mode VARCHAR(20) DEFAULT 'project',
-            provider VARCHAR(50) DEFAULT 'openai',
-            model VARCHAR(100) DEFAULT 'gpt-4o',
-            project_id BIGINT UNSIGNED DEFAULT NULL,
-            thread_id VARCHAR(255) DEFAULT NULL,
-            user_id BIGINT UNSIGNED NOT NULL,
-            title VARCHAR(255) DEFAULT NULL,
-            instructions TEXT DEFAULT NULL,
-            message_count INT DEFAULT 0,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            INDEX project_idx (project_id),
-            INDEX user_idx (user_id),
-            INDEX thread_idx (thread_id),
-            INDEX mode_idx (chat_mode),
-            INDEX provider_idx (provider)
+        $chats_sql = "CREATE TABLE {$chats_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            chat_mode varchar(20) DEFAULT 'project',
+            provider varchar(50) DEFAULT 'openai',
+            model varchar(100) DEFAULT NULL,
+            project_id bigint(20) unsigned DEFAULT NULL,
+            thread_id varchar(255) DEFAULT NULL,
+            user_id bigint(20) unsigned NOT NULL,
+            title varchar(255) DEFAULT NULL,
+            instructions text DEFAULT NULL,
+            message_count int(11) DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY project_idx (project_id),
+            KEY user_idx (user_id),
+            KEY thread_idx (thread_id),
+            KEY mode_idx (chat_mode),
+            KEY provider_idx (provider)
         ) $charset_collate;";
 
         // Messages table for Responses API
         $messages_table = esc_sql($wpdb->prefix . 'chatprojects_messages');
-        $messages_sql = "CREATE TABLE IF NOT EXISTS {$messages_table} (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            chat_id BIGINT UNSIGNED NOT NULL,
-            role VARCHAR(20) NOT NULL,
-            content LONGTEXT NOT NULL,
-            metadata TEXT DEFAULT NULL,
-            created_at DATETIME NOT NULL,
-            INDEX chat_idx (chat_id),
-            INDEX role_idx (role),
-            INDEX created_idx (created_at)
+        $messages_sql = "CREATE TABLE {$messages_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            chat_id bigint(20) unsigned NOT NULL,
+            role varchar(20) NOT NULL,
+            content longtext NOT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY chat_idx (chat_id),
+            KEY role_idx (role),
+            KEY created_idx (created_at)
+        ) $charset_collate;";
+
+        // Indexed content tracking table for Auto-RAG
+        $indexed_table = esc_sql( $wpdb->prefix . 'chatprojects_indexed_content' );
+        $indexed_sql   = "CREATE TABLE {$indexed_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            project_id bigint(20) unsigned NOT NULL,
+            post_id bigint(20) unsigned NOT NULL,
+            post_type varchar(50) NOT NULL,
+            file_id varchar(255) DEFAULT NULL,
+            content_hash varchar(64) NOT NULL,
+            status varchar(20) DEFAULT 'pending',
+            error_message text DEFAULT NULL,
+            indexed_at datetime DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY project_post (project_id, post_id),
+            KEY status_idx (status)
+        ) $charset_collate;";
+
+        // Widget sessions table
+        $widget_sessions_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_visitor_sessions' );
+        $widget_sessions_sql   = "CREATE TABLE {$widget_sessions_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_token varchar(64) NOT NULL,
+            project_id bigint(20) unsigned DEFAULT NULL,
+            ip_address varchar(45) NOT NULL,
+            user_agent varchar(255) DEFAULT NULL,
+            message_count int(11) DEFAULT 0,
+            last_message_at datetime DEFAULT NULL,
+            lead_email varchar(255) DEFAULT NULL,
+            lead_name varchar(255) DEFAULT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            expires_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY session_idx (session_token),
+            KEY ip_idx (ip_address),
+            KEY expires_idx (expires_at)
+        ) $charset_collate;";
+
+        // Widget messages table
+        $widget_messages_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_visitor_messages' );
+        $widget_messages_sql   = "CREATE TABLE {$widget_messages_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_id bigint(20) unsigned NOT NULL,
+            role varchar(20) NOT NULL,
+            content longtext NOT NULL,
+            metadata text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY session_idx (session_id),
+            KEY created_idx (created_at)
         ) $charset_collate;";
 
         // Execute table creation
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($chats_sql);
         dbDelta($messages_sql);
+        dbDelta($indexed_sql);
+        dbDelta($widget_sessions_sql);
+        dbDelta($widget_messages_sql);
 
         // Note: Transcriptions, Comparisons, and Licenses tables not created in Free version
 
         if (!empty($wpdb->last_error)) {
+            Security::debug_log('create_tables: ' . $wpdb->last_error);
         }
+    }
+
+    /**
+     * Run schema/data upgrades when the stored DB version is behind the code.
+     *
+     * Hooked on plugins_loaded, so in-place plugin updates (which never fire
+     * the activation hook) still get new tables and model remaps.
+     */
+    public static function maybe_upgrade() {
+        $installed = self::installed_version();
+
+        if (version_compare($installed, self::DB_VERSION, '>=')) {
+            // Up to date via the old shared option: record it in Free's own option.
+            if ('' === get_option(self::VERSION_OPTION, '')) {
+                update_option(self::VERSION_OPTION, $installed);
+            }
+            return;
+        }
+
+        // Guard against concurrent requests running the upgrade twice.
+        if (get_transient('chatprojects_upgrade_lock')) {
+            return;
+        }
+        set_transient('chatprojects_upgrade_lock', 1, MINUTE_IN_SECONDS);
+
+        self::run_upgrade_steps();
+
+        if ('0' === $installed) {
+            // Never activated on this site: finish once post types are registered.
+            add_action('init', array(__CLASS__, 'complete_activation'), 99);
+        }
+
+        update_option(self::VERSION_OPTION, self::DB_VERSION);
+        delete_transient('chatprojects_upgrade_lock');
+    }
+
+    /**
+     * Idempotent upgrade steps shared by activation and maybe_upgrade().
+     */
+    private static function run_upgrade_steps() {
+        self::create_tables();
+        self::migrate_widget_tables();
+        self::migrate_models();
+
+        // Daily cleanup of expired widget sessions.
+        if (!wp_next_scheduled('chatprojects_cleanup_widget_sessions')) {
+            wp_schedule_event(time(), 'daily', 'chatprojects_cleanup_widget_sessions');
+        }
+
+        // One-time slug cleanup previously done on every front-end request.
+        if (get_option('chatprojects_slug_cleanup_version', '') !== '1.1.4') {
+            $old_slugs = get_option('chatprojects_old_slugs', array());
+            if (is_array($old_slugs)) {
+                unset($old_slugs['settings'], $old_slugs['projects']);
+                update_option('chatprojects_old_slugs', $old_slugs);
+            }
+            update_option('chatprojects_slug_cleanup_version', '1.1.4');
+        }
+
+        // 1.3.0: re-encrypt stored API keys with the authenticated scheme.
+        self::reencrypt_api_keys();
+        // Generated by older versions but never used for encryption.
+        delete_option('chatprojects_encryption_key');
+
+        // 1.3.0: the widget credit link is opt-in (WordPress.org guideline 10).
+        // Free used to force it on, so reset the stored value once; Pro users
+        // could already choose, so their setting is kept.
+        if (!get_option('chatprojects_branding_optin_done')) {
+            if (!defined('CHATPROJECTS_PRO_VERSION')) {
+                update_option('chatprojects_widget_show_branding', false);
+            }
+            update_option('chatprojects_branding_optin_done', 1);
+        }
+    }
+
+    /**
+     * Remap retired model IDs stored in options, project meta and chat rows.
+     *
+     * Safe to run repeatedly: Model_Registry::remap_legacy() returns current
+     * IDs unchanged, so a second pass finds nothing to update.
+     */
+    private static function migrate_models() {
+        global $wpdb;
+
+        $summary = array(
+            'options'   => 0,
+            'post_meta' => 0,
+            'chats'     => 0,
+            'map'       => array(),
+        );
+
+        // 1. Options.
+        $option_providers = array(
+            'chatprojects_default_model'      => 'openai',
+            'chatprojects_general_chat_model' => get_option('chatprojects_general_chat_provider', 'openai'),
+        );
+        foreach ($option_providers as $option => $provider) {
+            $old = get_option($option, '');
+            if (!is_string($old) || '' === $old) {
+                continue;
+            }
+            $new = self::migrated_model($provider, $old);
+            if ($new !== $old) {
+                update_option($option, $new);
+                $summary['options']++;
+                $summary['map'][ $old ] = $new;
+            }
+        }
+
+        // 2. Project meta (_cp_model is always an OpenAI model).
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off migration.
+        $meta_values = $wpdb->get_col(
+            $wpdb->prepare("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s", '_cp_model')
+        );
+        foreach ((array) $meta_values as $old) {
+            if (!is_string($old) || '' === $old) {
+                continue;
+            }
+            $new = self::migrated_model('openai', $old);
+            if ($new === $old) {
+                continue;
+            }
+            $updated = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_key = %s AND meta_value = %s",
+                    $new,
+                    '_cp_model',
+                    $old
+                )
+            );
+            $summary['post_meta'] += (int) $updated;
+            $summary['map'][ $old ] = $new;
+        }
+
+        // 3. Chat rows (provider-aware).
+        $chats_table = $wpdb->prefix . 'chatprojects_chats';
+        $table_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $chats_table));
+        if ($table_exists) {
+            $rows = $wpdb->get_results($wpdb->prepare("SELECT DISTINCT provider, model FROM %i WHERE model IS NOT NULL AND model <> ''", $chats_table));
+            foreach ((array) $rows as $row) {
+                $provider = !empty($row->provider) ? $row->provider : 'openai';
+                $old      = (string) $row->model;
+                $new      = self::migrated_model($provider, $old);
+                if ($new === $old) {
+                    continue;
+                }
+                if (empty($row->provider)) {
+                    // Rows from early versions have no provider; they were OpenAI.
+                    $updated = $wpdb->query(
+                        $wpdb->prepare(
+                            "UPDATE %i SET model = %s WHERE (provider IS NULL OR provider = '') AND model = %s",
+                            $chats_table,
+                            $new,
+                            $old
+                        )
+                    );
+                } else {
+                    $updated = $wpdb->query(
+                        $wpdb->prepare(
+                            'UPDATE %i SET model = %s WHERE provider = %s AND model = %s',
+                            $chats_table,
+                            $new,
+                            $row->provider,
+                            $old
+                        )
+                    );
+                }
+                $summary['chats'] += (int) $updated;
+                $summary['map'][ $old ] = $new;
+            }
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+        if (!empty($summary['map'])) {
+            wp_cache_flush();
+            set_transient('chatprojects_model_migration_notice', $summary, WEEK_IN_SECONDS);
+        }
+
+        return $summary;
     }
 
     /**
      * Set default options
      */
     private static function set_default_options() {
-        // Initialize encryption key BEFORE any API keys can be saved
-        // This prevents the race condition where key is generated during first save
-        if (get_option('chatprojects_encryption_key') === false) {
-            $key = bin2hex(random_bytes(16));
-            update_option('chatprojects_encryption_key', $key);
-        }
-
         // Only set if not already set
         if (get_option('chatprojects_openai_key') === false) {
             update_option('chatprojects_openai_key', '');
@@ -298,7 +567,7 @@ class Installer {
         }
 
         if (get_option('chatprojects_general_chat_model') === false) {
-            update_option('chatprojects_general_chat_model', 'gpt-5.2-chat-latest');
+            update_option('chatprojects_general_chat_model', Model_Registry::get_default('openai'));
         }
 
         if (get_option('chatprojects_assistant_instructions') === false) {
@@ -306,7 +575,7 @@ class Installer {
         }
 
         if (get_option('chatprojects_default_model') === false) {
-            update_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+            update_option('chatprojects_default_model', Model_Registry::get_default('openai'));
         }
 
         if (get_option('chatprojects_max_file_size') === false) {
@@ -314,9 +583,145 @@ class Installer {
         }
 
         if (get_option('chatprojects_allowed_file_types') === false) {
-            update_option('chatprojects_allowed_file_types', array(
-                'pdf', 'doc', 'docx', 'txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py', 'php'
-            ));
+            update_option('chatprojects_allowed_file_types', Security::default_allowed_file_types());
+        }
+
+        // Widget defaults.
+        if ( get_option( 'chatprojects_widget_enabled' ) === false ) {
+            update_option( 'chatprojects_widget_enabled', false );
+        }
+
+        if ( get_option( 'chatprojects_widget_project_id' ) === false ) {
+            update_option( 'chatprojects_widget_project_id', 0 );
+        }
+
+        if ( get_option( 'chatprojects_widget_position' ) === false ) {
+            update_option( 'chatprojects_widget_position', 'bottom-right' );
+        }
+
+        if ( get_option( 'chatprojects_widget_primary_color' ) === false ) {
+            update_option( 'chatprojects_widget_primary_color', '#2563eb' );
+        }
+
+        if ( get_option( 'chatprojects_widget_welcome_message' ) === false ) {
+            update_option( 'chatprojects_widget_welcome_message', 'Hello! How can I help you today?' );
+        }
+
+        if ( get_option( 'chatprojects_widget_placeholder' ) === false ) {
+            update_option( 'chatprojects_widget_placeholder', 'Type your message...' );
+        }
+
+        if ( get_option( 'chatprojects_widget_auto_inject' ) === false ) {
+            update_option( 'chatprojects_widget_auto_inject', false );
+        }
+
+        if ( get_option( 'chatprojects_widget_rate_limit_msgs' ) === false ) {
+            update_option( 'chatprojects_widget_rate_limit_msgs', 20 );
+        }
+
+        if ( get_option( 'chatprojects_widget_rate_limit_sessions' ) === false ) {
+            update_option( 'chatprojects_widget_rate_limit_sessions', 5 );
+        }
+
+        if ( get_option( 'chatprojects_widget_daily_limit' ) === false ) {
+            update_option( 'chatprojects_widget_daily_limit', 500 );
+        }
+
+    }
+
+    /**
+     * 1.3.1: Free's widget tables got their own names.
+     *
+     * ChatProjects Pro uses chatprojects_widget_messages with a different
+     * schema (widget_chat_id), so Free's tables are now
+     * chatprojects_widget_visitor_sessions / _messages. Rows are copied from
+     * the old Free tables into the new ones (created by create_tables()), and
+     * an old table is dropped only after its rows were copied. The old
+     * widget_messages is only touched when it has Free's session_id column.
+     */
+    private static function migrate_widget_tables() {
+        global $wpdb;
+
+        $moves = array(
+            'chatprojects_widget_sessions' => array(
+                'new'      => 'chatprojects_widget_visitor_sessions',
+                'requires' => 'session_token',
+                'columns'  => 'id, session_token, project_id, ip_address, user_agent, message_count, last_message_at, lead_email, lead_name, metadata, created_at, expires_at',
+            ),
+            'chatprojects_widget_messages' => array(
+                'new'      => 'chatprojects_widget_visitor_messages',
+                'requires' => 'session_id',
+                'columns'  => 'id, session_id, role, content, metadata, created_at',
+            ),
+        );
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- One-off migration; column lists are constants above.
+        foreach ($moves as $old => $move) {
+            $old_table = $wpdb->prefix . $old;
+            $new_table = $wpdb->prefix . $move['new'];
+
+            if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $old_table))
+                || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $new_table))) {
+                continue;
+            }
+            // Only Free's own table (Pro's widget_messages has widget_chat_id instead).
+            if (!$wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM %i LIKE %s', $old_table, $move['requires']))) {
+                continue;
+            }
+
+            $copied = $wpdb->query(
+                $wpdb->prepare("INSERT INTO %i ({$move['columns']}) SELECT {$move['columns']} FROM %i", $new_table, $old_table)
+            );
+            if (false !== $copied) {
+                $wpdb->query($wpdb->prepare('DROP TABLE %i', $old_table));
+            }
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+    }
+
+    /**
+     * Current replacement for a retired model id, or the id unchanged.
+     *
+     * Only ids in the legacy map are rewritten. Unknown ids are left alone:
+     * models added through the chatprojects_models filter (e.g. by a theme)
+     * aren't registered yet when upgrades run on plugins_loaded.
+     *
+     * @param string $provider Provider id.
+     * @param string $old      Stored model id.
+     * @return string
+     */
+    private static function migrated_model($provider, $old) {
+        $new = Model_Registry::remap_legacy($old);
+        return ($new !== $old && Model_Registry::is_known($provider, $new)) ? $new : $old;
+    }
+
+    /**
+     * Re-encrypt API keys stored with the pre-1.3.0 scheme.
+     *
+     * Runs from maybe_upgrade() on plugins_loaded, before the settings
+     * sanitize callbacks are registered, so the value is stored as given.
+     */
+    private static function reencrypt_api_keys() {
+        $options = array(
+            'chatprojects_openai_key',
+            'chatprojects_gemini_key',
+            'chatprojects_anthropic_key',
+            'chatprojects_chutes_key',
+            'chatprojects_openrouter_key',
+        );
+        foreach ($options as $option_name) {
+            $value = get_option($option_name, '');
+            if ('' === $value || Security::is_current_format($value)) {
+                continue;
+            }
+            $plain = Security::decrypt($value);
+            if (false === $plain || '' === $plain || preg_match('/[^\x20-\x7E]/', $plain)) {
+                continue; // Unreadable: leave it for the administrator to re-enter.
+            }
+            $encrypted = Security::encrypt($plain);
+            if ($encrypted) {
+                update_option($option_name, $encrypted);
+            }
         }
     }
 
@@ -328,6 +733,10 @@ class Installer {
      * that pollutes the form fields.
      */
     private static function cleanup_corrupted_keys() {
+        // Stored API keys are never deleted here: a key that can't be decrypted
+        // (e.g. after the site's security keys changed) becomes readable again
+        // if the old keys are restored, and the settings page simply shows it
+        // as not set until it is re-entered.
         $api_key_options = array(
             'chatprojects_openai_key',
             'chatprojects_gemini_key',
@@ -335,43 +744,6 @@ class Installer {
             'chatprojects_chutes_key',
             'chatprojects_openrouter_key',
         );
-
-        foreach ($api_key_options as $option_name) {
-            $value = get_option($option_name, '');
-            if (empty($value)) {
-                continue;
-            }
-
-            // Try to decrypt
-            $decrypted = Security::decrypt($value);
-
-            // Check if decryption failed or produced garbage
-            $is_garbage = false;
-
-            if ($decrypted === false) {
-                $is_garbage = true;
-            } elseif (!empty($decrypted)) {
-                // Valid API keys start with known prefixes
-                $valid_prefixes = array('sk-', 'sk-proj-', 'AIza', 'sk-ant-', 'cpat_', 'cpk_', 'sk-or-');
-                $has_valid_prefix = false;
-                foreach ($valid_prefixes as $prefix) {
-                    if (strpos($decrypted, $prefix) === 0) {
-                        $has_valid_prefix = true;
-                        break;
-                    }
-                }
-
-                // If it doesn't start with a valid prefix and is longer than 20 chars,
-                // it's likely garbage from a failed decryption
-                if (!$has_valid_prefix && strlen($decrypted) > 20) {
-                    $is_garbage = true;
-                }
-            }
-
-            if ($is_garbage) {
-                delete_option($option_name);
-            }
-        }
 
         // Clean up debug options from previous debugging sessions
         delete_option('chatprojects_last_encrypt_fingerprint');

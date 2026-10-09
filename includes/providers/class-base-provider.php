@@ -173,6 +173,20 @@ abstract class Base_Provider implements AI_Provider_Interface {
     }
 
     /**
+     * HTTP status of the last streaming request (0 on connection failure).
+     *
+     * @var int
+     */
+    protected $last_stream_status = 0;
+
+    /**
+     * Provider error code from the last failed streaming request, if any.
+     *
+     * @var string
+     */
+    protected $last_stream_error_code = '';
+
+    /**
      * Execute a streaming request using WordPress HTTP API.
      *
      * Uses the SSE_Stream_Manager to handle streaming via the http_api_curl hook.
@@ -184,25 +198,142 @@ abstract class Base_Provider implements AI_Provider_Interface {
      * @param callable $callback Callback for each parsed event: function(array $event).
      * @param callable $parser   Provider-specific SSE parser: function($chunk, $callback, &$buffer, &$state).
      * @param array    $state    Optional state to pass to parser.
-     * @return bool|string True on success, error message on failure.
+     * @return bool|string True on success, user-facing error message on failure.
      */
     protected function make_streaming_request( $url, $data, $headers, $callback, $parser, $state = array() ) {
         $manager  = SSE_Stream_Manager::get_instance();
         $response = $manager->stream_request( $url, $data, $headers, $callback, $parser, $state );
 
+        $this->last_stream_status     = 0;
+        $this->last_stream_error_code = '';
+
         if ( is_wp_error( $response ) ) {
-            return $response->get_error_message();
+            /* translators: %s: connection error message */
+            return sprintf( __( 'Connection error: %s', 'chatprojects' ), $response->get_error_message() );
         }
 
-        // Note: With streaming, the response body will be empty since we processed chunks.
-        // We check for connection/HTTP errors here.
-        $status_code = wp_remote_retrieve_response_code( $response );
-        if ( $status_code >= 400 ) {
-            /* translators: %d: HTTP status code */
-            return sprintf( __( 'HTTP error: %d', 'chatprojects' ), $status_code );
+        // On success the body was consumed by the parser; on failure the
+        // stream manager keeps the provider's JSON error body for us.
+        $this->last_stream_status = (int) wp_remote_retrieve_response_code( $response );
+        if ( $this->last_stream_status >= 400 ) {
+            $this->last_stream_error_code = SSE_Stream_Manager::error_code( $response );
+            return SSE_Stream_Manager::error_message( $response );
         }
 
         return true;
+    }
+
+    /**
+     * Request body for an OpenAI-compatible /chat/completions call.
+     *
+     * The system prompt goes first in messages (there is no top-level
+     * "system" field in this API). temperature and max_tokens are sent only
+     * when the caller sets them, so each model's own defaults apply.
+     *
+     * @param string $model    Model id.
+     * @param array  $messages Messages with 'role' and 'content'.
+     * @param array  $options  Caller options (instructions, temperature, max_tokens).
+     * @param bool   $stream   Whether to stream.
+     * @return array
+     */
+    protected function chat_completions_body( $model, $messages, $options, $stream ) {
+        $formatted = array();
+        if ( ! empty( $options['instructions'] ) ) {
+            $formatted[] = array(
+                'role'    => 'system',
+                'content' => $options['instructions'],
+            );
+        }
+        foreach ( $messages as $msg ) {
+            $formatted[] = array(
+                'role'    => isset( $msg['role'] ) ? $msg['role'] : 'user',
+                'content' => isset( $msg['content'] ) ? $msg['content'] : '',
+            );
+        }
+
+        $data = array(
+            'model'    => $model,
+            'messages' => $formatted,
+        );
+        if ( isset( $options['temperature'] ) ) {
+            $data['temperature'] = (float) $options['temperature'];
+        }
+        if ( isset( $options['max_tokens'] ) ) {
+            $data['max_tokens'] = absint( $options['max_tokens'] );
+        }
+        if ( $stream ) {
+            $data['stream'] = true;
+        }
+        return $data;
+    }
+
+    /**
+     * Stream an OpenAI-compatible /chat/completions request.
+     *
+     * Emits content chunks, reports errors sent inside the stream, and marks
+     * replies that stop early (finish_reason "length" / "content_filter").
+     *
+     * @param string   $url      Endpoint URL.
+     * @param array    $headers  Request headers.
+     * @param array    $data     Body from chat_completions_body( ..., true ).
+     * @param callable $callback Event callback.
+     * @return void
+     */
+    protected function stream_chat_completions( $url, $headers, $data, $callback ) {
+        $parser = function ( $chunk, $callback, &$buffer, &$state ) {
+            $buffer .= $chunk;
+
+            // Process complete SSE events (separated by a blank line).
+            while ( ( $pos = strpos( $buffer, "\n\n" ) ) !== false ) {
+                $event  = substr( $buffer, 0, $pos );
+                $buffer = substr( $buffer, $pos + 2 );
+
+                foreach ( explode( "\n", $event ) as $line ) {
+                    // Lines starting with ":" are keep-alive comments.
+                    if ( 0 !== strpos( $line, 'data:' ) ) {
+                        continue;
+                    }
+                    $json_data = trim( substr( $line, 5 ) );
+                    if ( '' === $json_data || '[DONE]' === $json_data ) {
+                        continue;
+                    }
+
+                    $parsed = json_decode( $json_data, true );
+                    if ( ! is_array( $parsed ) ) {
+                        continue;
+                    }
+
+                    if ( isset( $parsed['error'] ) ) {
+                        $error_msg = isset( $parsed['error']['message'] ) ? $parsed['error']['message'] : __( 'The AI provider reported an error while generating the reply.', 'chatprojects' );
+                        $callback( array( 'type' => 'error', 'content' => $error_msg ) );
+                        continue;
+                    }
+
+                    if ( isset( $parsed['choices'][0]['delta']['content'] ) && '' !== $parsed['choices'][0]['delta']['content'] ) {
+                        $state['has_text'] = true;
+                        $callback( array( 'type' => 'content', 'content' => $parsed['choices'][0]['delta']['content'] ) );
+                    }
+
+                    $finish = isset( $parsed['choices'][0]['finish_reason'] ) ? $parsed['choices'][0]['finish_reason'] : '';
+                    if ( 'length' === $finish || 'content_filter' === $finish ) {
+                        if ( empty( $state['has_text'] ) ) {
+                            $callback( array( 'type' => 'error', 'content' => __( 'The model stopped before producing a reply.', 'chatprojects' ) ) );
+                        } else {
+                            $callback( array( 'type' => 'content', 'content' => SSE_Stream_Manager::truncation_notice( 'length' === $finish ? 'max_tokens' : 'content_filter' ) ) );
+                        }
+                    }
+                }
+            }
+        };
+
+        $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+
+        if ( true !== $result ) {
+            $callback( array( 'type' => 'error', 'content' => $result ) );
+            return;
+        }
+
+        $callback( array( 'type' => 'done' ) );
     }
 
     /**

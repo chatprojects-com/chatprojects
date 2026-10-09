@@ -60,6 +60,28 @@ class Chat_Interface {
     }
 
     /**
+     * Provider id => provider class (short name, namespace ChatProjects\Providers).
+     *
+     * @return array
+     */
+    public static function provider_class_map() {
+        $map = array(
+            'openai' => 'OpenAI_Provider',
+            'gemini' => 'Gemini_Provider',
+            'anthropic' => 'Anthropic_Provider',
+            'chutes' => 'Chutes_Provider',
+            'openrouter' => 'OpenRouter_Provider',
+        );
+
+        /**
+         * Filter the provider class map (for providers added via chatprojects_providers).
+         *
+         * @param array $map provider id => class short name.
+         */
+        return apply_filters('chatprojects_provider_classes', $map);
+    }
+
+    /**
      * Provider factory
      * Returns appropriate provider instance
      *
@@ -67,13 +89,7 @@ class Chat_Interface {
      * @return Providers\AI_Provider_Interface|WP_Error
      */
     private function get_provider($provider) {
-        $provider_map = array(
-            'openai' => 'OpenAI_Provider',
-            'gemini' => 'Gemini_Provider',
-            'anthropic' => 'Anthropic_Provider',
-            'chutes' => 'Chutes_Provider',
-            'openrouter' => 'OpenRouter_Provider',
-        );
+        $provider_map = self::provider_class_map();
 
         if (!isset($provider_map[ $provider ])) {
             return new \WP_Error('invalid_provider', __('Invalid AI provider.', 'chatprojects'));
@@ -125,7 +141,7 @@ class Chat_Interface {
         $result = $wpdb->insert($table, array(
             'chat_mode' => 'general',
             'provider' => $provider,
-            'model' => $model,
+            'model' => Model_Registry::resolve($provider, $model),
             'project_id' => null,
             'thread_id' => null, // No longer used
             'user_id' => $user_id,
@@ -175,6 +191,10 @@ class Chat_Interface {
         $provider_instance = $this->get_provider($chat->provider);
         if (is_wp_error($provider_instance)) {
             return $provider_instance;
+        }
+
+        if (!empty($images) && !Model_Registry::supports_vision($chat->provider, $chat->model)) {
+            return new \WP_Error('no_vision', __('The selected model cannot read images. Choose a vision-capable model or remove the image.', 'chatprojects'));
         }
 
         // Save user message to database
@@ -358,13 +378,15 @@ class Chat_Interface {
         $result = $wpdb->insert($table, array(
             'chat_mode' => 'project',
             'provider' => 'openai',
+            // chats.model has no column default (CONTRACT.md §3): always set it.
+            'model' => Model_Registry::resolve('openai', get_post_meta($project_id, '_cp_model', true), get_option('chatprojects_default_model')),
             'project_id' => $project_id,
             'user_id' => get_current_user_id(),
             'title' => sanitize_text_field($title),
             'message_count' => 0,
             'created_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
-        ), array('%s', '%s', '%d', '%d', '%s', '%d', '%s', '%s'));
+        ), array('%s', '%s', '%s', '%d', '%d', '%s', '%d', '%s', '%s'));
 
         if ($result === false) {
             return new \WP_Error('db_error', __('Failed to create chat record.', 'chatprojects'));
@@ -415,10 +437,7 @@ class Chat_Interface {
         }
 
         // Get model from project or use default
-        $model = get_post_meta($chat->project_id, '_cp_model', true);
-        if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
-        }
+        $model = Model_Registry::resolve('openai', get_post_meta($chat->project_id, '_cp_model', true), get_option('chatprojects_default_model'));
 
         // Save user message to local storage
         $this->message_store->save_message($chat_id, 'user', $message);
@@ -523,14 +542,14 @@ class Chat_Interface {
      * @param int $limit Number of messages to retrieve
      * @return array|WP_Error Messages or error
      */
-    public function get_messages($chat_id, $limit = 20) {
+    public function get_messages($chat_id, $limit = 200) {
         // Check permissions
         if (!Access::can_access_chat($chat_id)) {
             return new \WP_Error('permission_denied', __('You do not have permission to access this chat.', 'chatprojects'));
         }
 
-        // Get messages from local storage
-        $messages = $this->message_store->get_messages($chat_id, $limit);
+        // The most recent messages, oldest first (the first N would hide new replies).
+        $messages = $this->message_store->get_recent_messages($chat_id, $limit);
 
         // Format for frontend
         $formatted = array();

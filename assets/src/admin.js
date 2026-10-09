@@ -4,12 +4,10 @@
  */
 
 import Alpine from 'alpinejs';
-import './main.css';
 
 // Admin-specific Alpine components
 Alpine.data('settingsForm', () => ({
   saving: false,
-  testingConnection: false,
   apiKey: '',
   provider: 'openai',
 
@@ -38,43 +36,6 @@ Alpine.data('settingsForm', () => ({
       window.VPToast?.error('Failed to save settings');
     } finally {
       this.saving = false;
-    }
-  },
-
-  async testConnection() {
-    if (!this.apiKey) {
-      window.VPToast?.warning('Please enter an API key first');
-      return;
-    }
-
-    this.testingConnection = true;
-
-    try {
-      const response = await fetch(chatprData.ajax_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'chatpr_test_connection',
-          nonce: chatprData.nonce,
-          api_key: this.apiKey,
-          provider: this.provider
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        window.VPToast?.success('Connection successful!');
-      } else {
-        window.VPToast?.error(data.data || 'Connection failed');
-      }
-    } catch (error) {
-      console.error('Error testing connection:', error);
-      window.VPToast?.error('Connection test failed');
-    } finally {
-      this.testingConnection = false;
     }
   }
 }));

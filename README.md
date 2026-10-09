@@ -2,14 +2,14 @@
 
 # ChatProjects - AI Chat for WordPress
 
-[![WordPress Plugin Version](https://img.shields.io/badge/version-1.1.4-blue)](https://wordpress.org/plugins/chatprojects/)
-[![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-21759b)](https://wordpress.org/plugins/chatprojects/)
-[![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)](https://wordpress.org/plugins/chatprojects/)
+[![WordPress Plugin Version](https://img.shields.io/badge/version-1.3.0-blue)](https://wordpress.org/plugins/chatprojects/)
+[![WordPress](https://img.shields.io/badge/WordPress-6.6%2B-21759b)](https://wordpress.org/plugins/chatprojects/)
+[![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4)](https://wordpress.org/plugins/chatprojects/)
 [![License](https://img.shields.io/badge/license-GPL--2.0%2B-green)](https://www.gnu.org/licenses/gpl-2.0.html)
 
 **ChatProjects** is the easiest way to chat with your files and documents in WordPress. AI-powered project chat with OpenAI Responses API vector store backend for intelligent file search.
 
-Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.2), Anthropic (Claude), Google (Gemini 3 Pro), Chutes (DeepSeek), and OpenRouter.
+Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5.6), Anthropic (Claude Opus 5.5), Google (Gemini 3.8), Chutes (DeepSeek V4), and OpenRouter.
 
 ## Demo
 
@@ -19,11 +19,12 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 
 ## Key Features
 
-- **Multi-Provider Chat** - Chat with GPT-5.2, Claude 4.5, Gemini 3, DeepSeek, and 100+ models via OpenRouter
+- **Multi-Provider Chat** - Chat with GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
 - **Project Management** - Create projects with OpenAI's file search capability
 - **File Upload** - Upload documents (PDF, TXT, DOC) to your project's vector store
 - **Custom Instructions** - Set custom assistant instructions for each project
-- **Shared Chatbots** - Create project-based chatbots that can be shared with your team
+- **Website Chat Widget** - Put a project-powered assistant on any page with `[chatprojects_widget]`
+- **Auto-RAG** - Index your published posts and pages into a project so the assistant can answer from your site's content
 - **Modern Interface** - Clean, responsive chat interface with dark mode support
 - **Embeddable** - Use shortcodes to embed the full application on any page
 - **Privacy First** - Your API keys stay on your server, not ours
@@ -52,10 +53,10 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 
 | Provider | Models |
 |----------|--------|
-| **OpenAI** | GPT-5.2, GPT-5 Mini, GPT-4.1, GPT-4o, o4-mini, o3-mini |
-| **Anthropic** | Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.5 |
-| **Google Gemini** | Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 Pro, Gemini 2.5 Flash |
-| **Chutes** | DeepSeek V3, DeepSeek R1, Qwen, Mistral, Llama |
+| **OpenAI** | GPT-5.6 Sol / Terra / Luna, GPT-5.5, GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano |
+| **Anthropic** | Claude Opus 5.5, Claude Fable 5.1, Claude Sonnet 5.5, Claude Opus 5, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5 |
+| **Google Gemini** | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.5 Flash, Gemini 3.5 Flash Lite, Gemini 3.1 Pro (Preview) |
+| **Chutes** | DeepSeek V4 Flash, DeepSeek V3.2, plus every model Chutes hosts |
 | **OpenRouter** | 100+ models from various providers |
 
 ## Installation
@@ -70,13 +71,16 @@ Use your own API keys to chat with multiple AI providers including OpenAI (GPT-5
 
 ```
 [chatprojects_main]
-[chatprojects_main default_tab="chat" height="80vh"]
+[chatprojects_main default_tab="chat"]
+[chatprojects_widget project="123"]
 ```
+
+`default_tab` sets which section the hub's main button opens: `projects` (default), `chat` or `settings`. The widget shortcode needs "Allow public chat widget" ticked on the project.
 
 ## Requirements
 
-- WordPress 5.8 or higher
-- PHP 7.4 or higher
+- WordPress 6.6 or higher
+- PHP 8.0 or higher
 - At least one API key (OpenAI, Anthropic, Gemini, Chutes, or OpenRouter)
 
 > **Note:** An OpenAI API key is required for Projects and document chat (vector store) features.
@@ -90,7 +94,7 @@ No! You only need one API key to start chatting. Add more providers as needed.
 Your API keys are stored encrypted in your WordPress database. They never leave your server.
 
 **What file types can I upload?**
-PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP
+PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, JAVA, CPP. Executable and script types (such as PHP, JS, HTML and SVG) are always refused.
 
 **Can I use this on a client site?**
 Yes! ChatProjects is GPL licensed. You can use it on any WordPress site.

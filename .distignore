@@ -31,6 +31,11 @@ build-zip.ps1
 # Documentation (not needed in distribution)
 WIKI.md
 CLAUDE.md
+CONTRACT.md
+RELEASE.md
+bin/
+README.md
+documentation/
 .claude/
 
 # IDE / Editor
@@ -66,3 +71,9 @@ vendor/
 
 # ZIP files
 *.zip
+
+# Widget build config (source only)
+vite.widget.config.js
+build-zip.sh
+deploy.sh
+svn-prepare.sh

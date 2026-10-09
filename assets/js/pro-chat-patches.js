@@ -76,7 +76,8 @@
 
                                 if (data.success && data.data && data.data.providers) {
                                     this.availableProviders = Object.entries(data.data.providers).map(function(entry) {
-                                        return { id: entry[0], name: entry[1].name, models: entry[1].models };
+                                        var models = (entry[1].models || []).map(function(m) { return typeof m === 'string' ? { id: m, label: m } : m; });
+                                        return { id: entry[0], name: entry[1].name, defaultModel: entry[1].default || '', models: models };
                                     });
 
                                     if (this.availableProviders.length > 0) {
@@ -86,9 +87,10 @@
 
                                         var self = this;
                                         var currentProvider = this.availableProviders.find(function(p) { return p.id === self.selectedProvider; });
-                                        if (currentProvider) {
-                                            var defaultModel = chatprData.default_model || currentProvider.models[0];
-                                            this.selectedModel = currentProvider.models.includes(defaultModel) ? defaultModel : currentProvider.models[0];
+                                        if (currentProvider && currentProvider.models.length > 0) {
+                                            var candidates = [chatprData.default_model, currentProvider.defaultModel, currentProvider.models[0].id];
+                                            var chosen = candidates.find(function(id) { return id && currentProvider.models.some(function(m) { return m.id === id; }); });
+                                            this.selectedModel = chosen || currentProvider.models[0].id;
                                         }
                                     }
                                 }
@@ -263,9 +265,14 @@
                                                     window.dispatchEvent(new CustomEvent('chatpr:chat:updated', { detail: { threadId: self.threadId } }));
                                                 } else if (parsed.type === 'sources' && parsed.sources) {
                                                     assistantMessage.sources = parsed.sources;
+                                                    var sIdx = self.messages.findIndex(function(m) { return m.streaming && m.role === 'assistant'; });
+                                                    if (sIdx !== -1) {
+                                                        self.messages[sIdx] = Object.assign({}, self.messages[sIdx], { sources: parsed.sources });
+                                                        self.messages = self.messages.slice();
+                                                    }
                                                 } else if (parsed.type === 'error') {
                                                     if (window.VPToast) window.VPToast.error(parsed.content || 'An error occurred');
-                                                    self.messages = self.messages.filter(function(m) { return m !== assistantMessage; });
+                                                    self.messages = self.messages.filter(function(m) { return !(m.role === "assistant" && m.streaming); });
                                                     return;
                                                 } else if (parsed.type === 'title_update') {
                                                     if (parsed.title) {
@@ -278,8 +285,14 @@
                                                         }));
                                                     }
                                                 } else if (parsed.type === 'done') {
-                                                    // Don't break here - wait for [DONE] signal
-                                                    // The provider sends {type: 'done'} but we still need to receive title_update
+                                                    // The reply is complete: unlock the UI now. Keep reading
+                                                    // until [DONE] for a title_update (title generation can be slow).
+                                                    var dIdx = self.messages.findIndex(function(m) { return m.streaming && m.role === 'assistant'; });
+                                                    if (dIdx !== -1) {
+                                                        self.messages[dIdx] = Object.assign({}, self.messages[dIdx], { streaming: false });
+                                                        self.messages = self.messages.slice();
+                                                    }
+                                                    self.streaming = false;
                                                 }
                                             } catch (parseErr) {
                                                 // Ignore JSON parse errors for incomplete chunks
@@ -304,7 +317,7 @@
                                         ? 'Server error: ' + err.message
                                         : 'Failed to get response: ' + (err.message || err.name || 'unknown error');
                                     if (window.VPToast) window.VPToast.error(errorMsg);
-                                    self.messages = self.messages.filter(function(m) { return m !== assistantMessage; });
+                                    self.messages = self.messages.filter(function(m) { return !(m.role === "assistant" && m.streaming); });
                                 }
                             } finally {
                                 self.streaming = false;

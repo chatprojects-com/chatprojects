@@ -11,21 +11,8 @@
  * @version 1.0.0
  */
 
-import { marked } from 'marked';
-import hljs from 'highlight.js';
 import { showToast } from './index.js';
-
-// Configure marked with syntax highlighting
-marked.setOptions({
-    highlight: function(code, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            return hljs.highlight(code, { language: lang }).value;
-        }
-        return hljs.highlightAuto(code).value;
-    },
-    breaks: true,
-    gfm: true
-});
+import { renderMarkdownSync } from '../utils/markdown.js';
 
 /**
  * Chat Component
@@ -40,7 +27,7 @@ document.addEventListener('alpine:init', () => {
 
         // Provider settings
         provider: 'openai',
-        model: 'gpt-4o',
+        model: '',
         availableProviders: [],
         selectedProvider: null,
         selectedModel: null,
@@ -227,7 +214,7 @@ document.addEventListener('alpine:init', () => {
                         ? 'Server error: ' + error.message
                         : 'Failed to get response: ' + (error.message || error.name || 'unknown error');
                     showToast(msg, 'error');
-                    this.messages = this.messages.filter(m => m !== assistantMessage);
+                    this.messages = this.messages.filter(m => !(m.role === 'assistant' && m.streaming));
                 }
             } finally {
                 this.streaming = false;
@@ -388,6 +375,11 @@ document.addEventListener('alpine:init', () => {
                             this.scrollToBottom();
                         } else if (parsed.type === 'sources' && parsed.sources) {
                             assistantMessage.sources = parsed.sources;
+                            const sIdx = this.messages.findIndex(m => m.streaming && m.role === 'assistant');
+                            if (sIdx !== -1) {
+                                this.messages[sIdx] = { ...this.messages[sIdx], sources: parsed.sources };
+                                this.messages = [...this.messages];
+                            }
                         } else if (parsed.type === 'chat_id' && parsed.chat_id) {
                             this.threadId = parsed.chat_id;
                             window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
@@ -395,11 +387,21 @@ document.addEventListener('alpine:init', () => {
                             }));
                         } else if (parsed.type === 'error') {
                             showToast(parsed.content || 'An error occurred', 'error');
-                            this.messages = this.messages.filter(m => m !== assistantMessage);
+                            this.messages = this.messages.filter(m => !(m.role === 'assistant' && m.streaming));
                             return;
+                        } else if (parsed.type === 'title_update' && parsed.title) {
+                            window.dispatchEvent(new CustomEvent('chatpr:chat:title-updated', {
+                                detail: { chatId: parsed.chat_id, title: parsed.title }
+                            }));
                         } else if (parsed.type === 'done') {
-                            done = true;
-                            break;
+                            // The reply is complete: unlock the UI now, but keep reading
+                            // until [DONE] / stream close for a title_update.
+                            const dIdx = this.messages.findIndex(m => m.streaming && m.role === 'assistant');
+                            if (dIdx !== -1) {
+                                this.messages[dIdx] = { ...this.messages[dIdx], streaming: false };
+                                this.messages = [...this.messages];
+                            }
+                            this.streaming = false;
                         }
                     } catch (e) {
                         // Ignore JSON parse errors for partial data
@@ -459,7 +461,7 @@ document.addEventListener('alpine:init', () => {
          * @returns {string} HTML content
          */
         renderMarkdown(content) {
-            return marked.parse(content);
+            return renderMarkdownSync(content);
         },
 
         /**
@@ -589,10 +591,12 @@ document.addEventListener('alpine:init', () => {
                 const data = await response.json();
 
                 if (data.success) {
+                    // models arrive as [{ id, label }]; normalise older string-only payloads too.
                     this.availableProviders = Object.entries(data.data.providers).map(([id, provider]) => ({
                         id: id,
                         name: provider.name,
-                        models: provider.models
+                        defaultModel: provider.default || '',
+                        models: (provider.models || []).map(m => (typeof m === 'string' ? { id: m, label: m } : m))
                     }));
 
                     if (this.availableProviders.length > 0) {
@@ -603,9 +607,9 @@ document.addEventListener('alpine:init', () => {
 
                         // Set default model
                         const provider = this.availableProviders.find(p => p.id === this.selectedProvider);
-                        if (provider) {
-                            const defaultModel = chatprData.default_model || provider.models[0];
-                            this.selectedModel = provider.models.includes(defaultModel) ? defaultModel : provider.models[0];
+                        if (provider && provider.models.length > 0) {
+                            const candidates = [chatprData.default_model, provider.defaultModel, provider.models[0].id];
+                            this.selectedModel = candidates.find(id => id && provider.models.some(m => m.id === id)) || provider.models[0].id;
                         }
                     }
                 }
@@ -623,12 +627,32 @@ document.addEventListener('alpine:init', () => {
         },
 
         /**
+         * Friendly label for the selected model (falls back to the raw id)
+         */
+        get selectedModelLabel() {
+            const match = this.currentProviderModels.find(m => m.id === this.selectedModel);
+            return match ? match.label : (this.selectedModel || '');
+        },
+
+        /**
+         * Models matching the filter box (by label or id)
+         */
+        get filteredProviderModels() {
+            const needle = (this.modelFilter || '').toLowerCase();
+            if (!needle) return this.currentProviderModels;
+            return this.currentProviderModels.filter(m =>
+                m.label.toLowerCase().includes(needle) || m.id.toLowerCase().includes(needle)
+            );
+        },
+
+        /**
          * Handle provider change
          */
         async handleProviderChange() {
             const provider = this.availableProviders.find(p => p.id === this.selectedProvider);
             if (provider && provider.models.length > 0) {
-                this.selectedModel = provider.models[0];
+                const preferred = provider.models.find(m => m.id === provider.defaultModel);
+                this.selectedModel = preferred ? preferred.id : provider.models[0].id;
             }
 
             // Confirm if switching mid-conversation
@@ -660,7 +684,7 @@ document.addEventListener('alpine:init', () => {
             const providerName = this.availableProviders.find(p => p.id === this.selectedProvider)?.name;
 
             const confirmed = confirm(
-                `Switching to ${providerName} (${this.selectedModel}) will create a new conversation. ` +
+                `Switching to ${providerName} (${this.selectedModelLabel}) will create a new conversation. ` +
                 `Your current chat history will be preserved in the sidebar.\n\nContinue?`
             );
 

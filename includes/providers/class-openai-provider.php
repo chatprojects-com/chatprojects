@@ -10,7 +10,9 @@
 
 namespace ChatProjects\Providers;
 
+use ChatProjects\Model_Registry;
 use ChatProjects\Security;
+use ChatProjects\SSE_Stream_Manager;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -33,16 +35,7 @@ class OpenAI_Provider extends Base_Provider {
         $this->name = 'OpenAI';
         $this->identifier = 'openai';
         $this->api_base_url = self::API_BASE_URL;
-        $this->models = array(
-            'gpt-5.2-chat-latest' => 'GPT-5.2 Instant (Recommended)',
-            'gpt-5-mini' => 'GPT-5 Mini',
-            'gpt-4.1' => 'GPT-4.1',
-            'gpt-4.1-mini' => 'GPT-4.1 Mini',
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-            'o4-mini' => 'o4-mini (Reasoning)',
-            'o3-mini' => 'o3-mini (Reasoning)',
-        );
+        $this->models = Model_Registry::get_labels( 'openai' );
 
         parent::__construct();
     }
@@ -75,20 +68,8 @@ class OpenAI_Provider extends Base_Provider {
             $data['instructions'] = $options['instructions'];
         }
 
-        // Handle model-specific options
-        $is_newer_model = $this->is_newer_model($model);
-
-        if (!$is_newer_model && isset($options['temperature'])) {
-            $data['temperature'] = $options['temperature'];
-        }
-
-        if (isset($options['max_tokens'])) {
-            if ($is_newer_model) {
-                $data['max_output_tokens'] = $options['max_tokens'];
-            } else {
-                $data['max_output_tokens'] = $options['max_tokens'];
-            }
-        }
+        // Model-specific parameters (temperature / reasoning effort / output cap).
+        $data = array_merge( $data, Model_Registry::openai_request_params( $model, $options ) );
 
         $headers = array(
             'Authorization' => 'Bearer ' . $this->api_key,
@@ -168,16 +149,8 @@ class OpenAI_Provider extends Base_Provider {
             $data['instructions'] = $options['instructions'];
         }
 
-        // Handle model-specific options.
-        $is_newer_model = $this->is_newer_model( $model );
-
-        if ( ! $is_newer_model && isset( $options['temperature'] ) ) {
-            $data['temperature'] = $options['temperature'];
-        }
-
-        if ( isset( $options['max_tokens'] ) ) {
-            $data['max_output_tokens'] = $options['max_tokens'];
-        }
+        // Model-specific parameters (temperature / reasoning effort / output cap).
+        $data = array_merge( $data, Model_Registry::openai_request_params( $model, $options ) );
 
         // Headers for WordPress HTTP API.
         $headers = array(
@@ -216,6 +189,10 @@ class OpenAI_Provider extends Base_Provider {
                     continue;
                 }
 
+                if ( '' === $event_type && isset( $parsed['type'] ) ) {
+                    $event_type = $parsed['type'];
+                }
+
                 // Handle different event types from Responses API.
                 switch ( $event_type ) {
                     case 'response.output_text.delta':
@@ -232,9 +209,27 @@ class OpenAI_Provider extends Base_Provider {
                         }
                         break;
 
+                    case 'response.incomplete':
+                        // Cut short (e.g. max_output_tokens): say so, and keep the ID for the next turn.
+                        $reason = isset( $parsed['response']['incomplete_details']['reason'] ) ? $parsed['response']['incomplete_details']['reason'] : '';
+                        $callback( array( 'type' => 'content', 'content' => SSE_Stream_Manager::truncation_notice( $reason ) ) );
+                        if ( isset( $parsed['response']['id'] ) ) {
+                            $callback( array( 'type' => 'response_id', 'response_id' => $parsed['response']['id'] ) );
+                        }
+                        break;
+
+                    case 'response.failed':
                     case 'error':
-                        // API error during streaming.
-                        $error_msg = isset( $parsed['error']['message'] ) ? $parsed['error']['message'] : __( 'Unknown streaming error', 'chatprojects' );
+                        // Stream "error" events carry message at the top level; response.failed nests it.
+                        if ( isset( $parsed['response']['error']['message'] ) ) {
+                            $error_msg = $parsed['response']['error']['message'];
+                        } elseif ( isset( $parsed['message'] ) ) {
+                            $error_msg = $parsed['message'];
+                        } elseif ( isset( $parsed['error']['message'] ) ) {
+                            $error_msg = $parsed['error']['message'];
+                        } else {
+                            $error_msg = __( 'The AI provider reported an error while generating the reply.', 'chatprojects' );
+                        }
                         $callback( array( 'type' => 'error', 'content' => $error_msg ) );
                         break;
                 }
@@ -244,8 +239,15 @@ class OpenAI_Provider extends Base_Provider {
         // Execute streaming request using WordPress HTTP API.
         $result = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
 
+        // The stored conversation expired or was never stored: resend the full history once.
+        if ( true !== $result && ! empty( $data['previous_response_id'] ) && $this->is_stale_previous_response( $result ) ) {
+            unset( $data['previous_response_id'] );
+            $data['input'] = $this->format_messages_for_api( $messages );
+            $result        = $this->make_streaming_request( $url, $data, $headers, $callback, $parser );
+        }
+
         if ( true !== $result ) {
-            $callback( array( 'type' => 'error', 'content' => __( 'Connection error: ', 'chatprojects' ) . $result ) );
+            $callback( array( 'type' => 'error', 'content' => $result ) );
             return;
         }
 
@@ -253,10 +255,25 @@ class OpenAI_Provider extends Base_Provider {
     }
 
     /**
+     * Whether the last streaming request failed because previous_response_id is gone.
+     *
+     * @param string $error Error message returned by make_streaming_request().
+     * @return bool
+     */
+    private function is_stale_previous_response( $error ) {
+        if ( ! in_array( $this->last_stream_status, array( 400, 404 ), true ) ) {
+            return false;
+        }
+        return 'previous_response_not_found' === $this->last_stream_error_code
+            || false !== stripos( (string) $error, 'previous response' )
+            || false !== stripos( (string) $error, 'previous_response_id' );
+    }
+
+    /**
      * Get the latest user message from messages array
      *
      * @param array $messages Array of message objects
-     * @return string The content of the latest user message
+     * @return string|array Text of the latest user message, or a one-message input list when it has images
      */
     private function get_latest_user_message( $messages ) {
         // Iterate backwards to find the last user message.
@@ -282,7 +299,13 @@ class OpenAI_Provider extends Base_Provider {
                         );
                     }
 
-                    return $content_parts;
+                    // Content parts must be wrapped in a message item.
+                    return array(
+                        array(
+                            'role'    => 'user',
+                            'content' => $content_parts,
+                        ),
+                    );
                 }
 
                 return $content;
@@ -445,18 +468,5 @@ class OpenAI_Provider extends Base_Provider {
         }
 
         return $text;
-    }
-
-    /**
-     * Check if model is a newer model with different parameter requirements
-     *
-     * @param string $model Model identifier
-     * @return bool True if newer model
-     */
-    private function is_newer_model($model) {
-        return (
-            strpos($model, 'gpt-5') === 0 ||
-            strpos($model, 'o1') === 0
-        );
     }
 }

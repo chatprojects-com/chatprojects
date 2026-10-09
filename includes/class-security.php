@@ -19,59 +19,89 @@ if (!defined('ABSPATH')) {
  */
 class Security {
     /**
-     * Encryption method
+     * Cipher used by values stored before 1.3.0 (read-only; see decrypt()).
      */
     const ENCRYPTION_METHOD = 'AES-256-CBC';
 
     /**
-     * Cached encryption key for request consistency
+     * Prefix of values encrypted with the current scheme (libsodium secretbox:
+     * XSalsa20-Poly1305, so tampered values fail to decrypt).
+     */
+    const ENCRYPTION_PREFIX = 'cpv2:';
+
+    /**
+     * Cached legacy key for request consistency
      *
      * @var string|null
      */
     private static $cached_encryption_key = null;
 
     /**
-     * Get encryption key
+     * Secret the encryption keys are derived from.
      *
-     * Uses a deterministic key derived from WordPress constants to ensure
-     * consistency across all requests without any database/cache dependencies.
+     * CHATPROJECTS_ENCRYPTION_KEY if defined, else the site's AUTH_KEY /
+     * SECURE_AUTH_KEY, else (sites without salts only) ABSPATH + DB_NAME, which
+     * ChatProjects Pro derives identically. The pre-1.3.0 scheme used the plugin
+     * path instead, so legacy values pass $legacy = true.
+     * Changing it makes stored API keys unreadable; they must be re-entered.
+     *
+     * @param bool $legacy Seed for the pre-1.3.0 AES scheme.
+     * @return string
+     */
+    private static function get_key_seed($legacy = false) {
+        if (defined('CHATPROJECTS_ENCRYPTION_KEY') && '' !== (string) CHATPROJECTS_ENCRYPTION_KEY) {
+            return (string) CHATPROJECTS_ENCRYPTION_KEY;
+        }
+        if (defined('AUTH_KEY') && !empty(AUTH_KEY) && AUTH_KEY !== 'put your unique phrase here') {
+            return AUTH_KEY;
+        }
+        if (defined('SECURE_AUTH_KEY') && !empty(SECURE_AUTH_KEY) && SECURE_AUTH_KEY !== 'put your unique phrase here') {
+            return SECURE_AUTH_KEY;
+        }
+        $db_name = defined('DB_NAME') ? DB_NAME : 'chatprojects';
+        if ($legacy) {
+            $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
+            return $plugin_path . $db_name;
+        }
+        return ABSPATH . $db_name;
+    }
+
+    /**
+     * 32-byte key for the current scheme.
+     *
+     * @return string Raw binary key.
+     */
+    private static function get_secretbox_key() {
+        return hash('sha256', 'chatprojects_v2|' . self::get_key_seed(), true);
+    }
+
+    /**
+     * Key used by the pre-1.3.0 scheme, kept so old values can still be read.
      *
      * @return string
      */
     private static function get_encryption_key() {
-        // Return cached key if available (ensures consistency within request)
         if (self::$cached_encryption_key !== null) {
             return self::$cached_encryption_key;
         }
 
-        // Allow override via constant
         if (defined('CHATPROJECTS_ENCRYPTION_KEY')) {
             self::$cached_encryption_key = CHATPROJECTS_ENCRYPTION_KEY;
-            return self::$cached_encryption_key;
+        } else {
+            self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . self::get_key_seed(true)), 0, 32);
         }
-
-        // Use deterministic key derived from WordPress constants
-        // This ensures the same key is always generated without any database dependency
-        $seed = '';
-
-        // Use AUTH_KEY if available (most reliable)
-        if (defined('AUTH_KEY') && !empty(AUTH_KEY) && AUTH_KEY !== 'put your unique phrase here') {
-            $seed = AUTH_KEY;
-        }
-        // Fallback to SECURE_AUTH_KEY
-        elseif (defined('SECURE_AUTH_KEY') && !empty(SECURE_AUTH_KEY) && SECURE_AUTH_KEY !== 'put your unique phrase here') {
-            $seed = SECURE_AUTH_KEY;
-        }
-        // Last resort: use plugin directory + DB_NAME (location-agnostic)
-        else {
-            $plugin_path = defined('CHATPROJECTS_PLUGIN_FILE') ? plugin_dir_path(CHATPROJECTS_PLUGIN_FILE) : __DIR__;
-            $seed = $plugin_path . (defined('DB_NAME') ? DB_NAME : 'chatprojects');
-        }
-
-        // Generate a consistent 32-character key
-        self::$cached_encryption_key = substr(hash('sha256', 'chatprojects_' . $seed), 0, 32);
 
         return self::$cached_encryption_key;
+    }
+
+    /**
+     * Whether a stored value already uses the current encryption scheme.
+     *
+     * @param string $value Stored value.
+     * @return bool
+     */
+    public static function is_current_format($value) {
+        return is_string($value) && 0 === strpos($value, self::ENCRYPTION_PREFIX);
     }
 
     /**
@@ -85,17 +115,15 @@ class Security {
             return '';
         }
 
-        $key = self::get_encryption_key();
-        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length(self::ENCRYPTION_METHOD));
-
-        $encrypted = openssl_encrypt($data, self::ENCRYPTION_METHOD, $key, 0, $iv);
-
-        if ($encrypted === false) {
+        try {
+            $nonce  = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+            $cipher = sodium_crypto_secretbox((string) $data, $nonce, self::get_secretbox_key());
+        } catch (\Exception $e) {
             return false;
         }
 
-        // Combine IV and encrypted data
-        return base64_encode($iv . $encrypted);
+        // base64 keeps the binary value safe in wp_options.
+        return self::ENCRYPTION_PREFIX . base64_encode($nonce . $cipher); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Binary ciphertext stored as text.
     }
 
     /**
@@ -109,8 +137,35 @@ class Security {
             return '';
         }
 
+        if (self::is_current_format($encrypted_data)) {
+            $raw = base64_decode(substr($encrypted_data, strlen(self::ENCRYPTION_PREFIX)), true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Decoding our own stored ciphertext.
+            if (false === $raw || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+                return false;
+            }
+            try {
+                $plain = sodium_crypto_secretbox_open(
+                    substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+                    substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+                    self::get_secretbox_key()
+                );
+            } catch (\Exception $e) {
+                return false;
+            }
+            return false === $plain ? false : $plain;
+        }
+
+        return self::decrypt_legacy($encrypted_data);
+    }
+
+    /**
+     * Read a value stored before 1.3.0 (AES-256-CBC, no integrity check).
+     *
+     * @param string $encrypted_data Stored value.
+     * @return string|false
+     */
+    private static function decrypt_legacy($encrypted_data) {
         $key = self::get_encryption_key();
-        $data = base64_decode($encrypted_data, true);
+        $data = base64_decode($encrypted_data, true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Decoding legacy stored ciphertext.
 
         // If base64 decode succeeded and data is long enough, try decryption
         if ($data !== false) {
@@ -259,30 +314,19 @@ class Security {
     /**
      * Validate file type
      *
-     * @param string $file_path File path
-     * @param array  $allowed_types Allowed file extensions
+     * @param string $file_path     Path to the file on disk (tmp_name for uploads).
+     * @param array  $allowed_types Allowed file extensions.
+     * @param string $original_name Original client filename (extension source for uploads).
      * @return bool
      */
-    public static function validate_file_type($file_path, $allowed_types = array()) {
-        if (empty($allowed_types)) {
-            $allowed_types = get_option('chatprojects_allowed_file_types', array());
-        }
+    public static function validate_file_type($file_path, $allowed_types = array(), $original_name = '') {
+        $allowed_types = self::allowed_file_types($allowed_types);
 
-        // If still empty, use default allowed types
-        if (empty($allowed_types)) {
-            $allowed_types = array(
-                'pdf', 'doc', 'docx', 'txt', 'md',
-                'xls', 'xlsx',  // Excel files
-                'csv', 'json', 'xml', 'html', 'css',
-                'js', 'py', 'php', 'java', 'cpp'
-            );
-        }
+        // Check file extension (from the original filename when given; tmp uploads have none).
+        $name_for_ext = '' !== $original_name ? $original_name : $file_path;
+        $extension    = strtolower((string) pathinfo($name_for_ext, PATHINFO_EXTENSION));
 
-        // Check file extension.
-        $file_type = wp_check_filetype($file_path);
-        $extension = $file_type['ext'];
-
-        if (!in_array($extension, $allowed_types, true)) {
+        if ('' === $extension || !in_array($extension, $allowed_types, true)) {
             return false;
         }
 
@@ -290,7 +334,6 @@ class Security {
         if (function_exists('finfo_open') && file_exists($file_path)) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $detected_mime = finfo_file($finfo, $file_path);
-            finfo_close($finfo);
 
             // Map extensions to expected MIME types.
             $mime_map = array(
@@ -418,12 +461,61 @@ class Security {
     }
 
     /**
-     * Debug log helper - disabled for production
+     * Default upload allow-list (extensions).
+     *
+     * @return array
+     */
+    public static function default_allowed_file_types() {
+        return array(
+            'pdf', 'doc', 'docx', 'txt', 'md',
+            'csv', 'json', 'xml', 'css',
+            'py', 'java', 'cpp',
+        );
+    }
+
+    /**
+     * The upload allow-list in effect: the given list (or the saved setting,
+     * or the defaults), minus the types that are always refused.
+     *
+     * @param array|string $types Extensions; empty for the saved setting.
+     * @return array
+     */
+    public static function allowed_file_types($types = array()) {
+        if (empty($types)) {
+            $types = get_option('chatprojects_allowed_file_types', array());
+        }
+        if (is_string($types)) {
+            $types = array_filter(array_map('trim', explode(',', $types)));
+        }
+        if (empty($types)) {
+            $types = self::default_allowed_file_types();
+        }
+        return array_values(array_diff(array_map('strtolower', (array) $types), self::blocked_file_types()));
+    }
+
+    /**
+     * Extensions that are refused even when an administrator adds them.
+     *
+     * @return array
+     */
+    public static function blocked_file_types() {
+        return array('php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'phps', 'phar', 'js', 'mjs', 'html', 'htm', 'svg', 'exe', 'sh', 'bat', 'cmd');
+    }
+
+    /**
+     * Debug log helper.
+     *
+     * Writes to the PHP error log only when WP_DEBUG and WP_DEBUG_LOG are both
+     * enabled. Never pass API keys or full request/response bodies.
      *
      * @param string $message Message to log
      */
     public static function debug_log($message) {
-        // Debug logging disabled for production
+        if (!defined('WP_DEBUG') || !WP_DEBUG || !defined('WP_DEBUG_LOG') || !WP_DEBUG_LOG) {
+            return;
+        }
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated on WP_DEBUG_LOG.
+        error_log('[ChatProjects] ' . (is_scalar($message) ? $message : wp_json_encode($message)));
     }
 
     /**
@@ -443,17 +535,34 @@ class Security {
      * @return string
      */
     public static function get_client_ip() {
-        $ip = '';
+        $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
 
-        if ( isset( $_SERVER['HTTP_CLIENT_IP'] ) ) {
-            $ip = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLIENT_IP'] ) );
-        } elseif ( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-            // X-Forwarded-For can contain multiple IPs, get the first one
-            $forwarded = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
-            $ip_list = explode( ',', $forwarded );
-            $ip = trim( $ip_list[0] );
-        } elseif ( isset( $_SERVER['REMOTE_ADDR'] ) ) {
-            $ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+        /**
+         * Proxy headers to trust for the real client IP, in priority order.
+         *
+         * Empty by default: forwarded headers are attacker-controlled unless a
+         * trusted reverse proxy in front of PHP overwrites them. Behind Cloudflare
+         * return array( 'HTTP_CF_CONNECTING_IP' ); behind a generic proxy
+         * array( 'HTTP_X_FORWARDED_FOR' ). CHATPROJECTS_TRUSTED_PROXY_HEADERS can
+         * also be defined in wp-config.php as a comma-separated list.
+         *
+         * @param string[] $headers $_SERVER keys.
+         */
+        $trusted = apply_filters(
+            'chatprojects_trusted_proxy_headers',
+            defined( 'CHATPROJECTS_TRUSTED_PROXY_HEADERS' ) ? array_map( 'trim', explode( ',', CHATPROJECTS_TRUSTED_PROXY_HEADERS ) ) : array()
+        );
+
+        foreach ( (array) $trusted as $header ) {
+            if ( empty( $_SERVER[ $header ] ) ) {
+                continue;
+            }
+            $value     = sanitize_text_field( wp_unslash( $_SERVER[ $header ] ) );
+            $candidate = trim( explode( ',', $value )[0] );
+            if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+                $ip = $candidate;
+                break;
+            }
         }
 
         // Validate IP format
@@ -553,7 +662,6 @@ class Security {
         // Validate MIME type using finfo (more secure than trusting $_FILES['type'])
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
 
         if (!in_array($mime_type, self::ALLOWED_IMAGE_TYPES, true)) {
             return new \WP_Error(
@@ -592,7 +700,7 @@ class Security {
         }
 
         // Decode and check size
-        $decoded = base64_decode($base64_data, true);
+        $decoded = base64_decode($base64_data, true); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Validating an uploaded image data URL.
         if ($decoded === false) {
             return new \WP_Error('decode_error', __('Failed to decode image data.', 'chatprojects'));
         }
@@ -629,7 +737,6 @@ class Security {
         if ($mime_type === null) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime_type = finfo_file($finfo, $file_path);
-            finfo_close($finfo);
         }
 
         $contents = file_get_contents($file_path);
@@ -637,7 +744,7 @@ class Security {
             return false;
         }
 
-        return 'data:' . $mime_type . ';base64,' . base64_encode($contents);
+        return 'data:' . $mime_type . ';base64,' . base64_encode($contents); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Building an image data URL for the AI provider.
     }
 
     /**

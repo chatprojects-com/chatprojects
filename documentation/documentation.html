@@ -354,10 +354,10 @@
     </div>
 
     <div class="content-wrap">
-        <p class="tagline">Connect your own API keys. Chat with ChatGPT 5, Claude, Gemini, and 100+ models. Create projects with document storage powered by OpenAI Vector Stores.</p>
+        <p class="tagline">Connect your own API keys. Chat with GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4 and 100+ models. Create projects with document storage powered by OpenAI Vector Stores.</p>
 
         <div class="highlight-box">
-            <p><strong>Your keys. Your data. Your server.</strong> — API keys are encrypted with AES-256 and stored locally. All API calls go directly from your server to the AI providers.</p>
+            <p><strong>Your keys. Your data. Your server.</strong> — API keys are encrypted with libsodium (XSalsa20-Poly1305) and stored locally. All API calls go directly from your server to the AI providers.</p>
         </div>
 
         <div class="toc">
@@ -381,17 +381,16 @@
 
         <h4>Core (Free)</h4>
         <ul>
-            <li><strong>Multi-provider chat</strong> — ChatGPT 5, Claude, Gemini, DeepSeek, 100+ OpenRouter models</li>
+            <li><strong>Multi-provider chat</strong> — GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4, 100+ OpenRouter models</li>
             <li><strong>Project management</strong> — Organize conversations with OpenAI Vector Stores</li>
-            <li><strong>File upload</strong> — PDF, DOCX, TXT, code files up to 512MB</li>
+            <li><strong>File upload</strong> — PDF, DOCX, TXT, MD, CSV and more, up to 512MB</li>
             <li><strong>Document search</strong> — AI searches uploaded files for contextual answers</li>
             <li><strong>Dark mode</strong> — System-aware theme switching</li>
-            <li><strong>Encrypted storage</strong> — AES-256 encryption for all API keys</li>
+            <li><strong>Encrypted storage</strong> — libsodium (XSalsa20-Poly1305) encryption for all API keys</li>
         </ul>
 
         <h4>Pro</h4>
         <ul>
-            <li><strong>Unlimited projects</strong> — Per-user projects (vs. 5 shared in Free)</li>
             <li><strong>Project sharing</strong> — Private, shared, or team-wide access</li>
             <li><strong>Audio transcription</strong> — Whisper-1 integration with permanent save</li>
             <li><strong>Prompt library</strong> — Save and organize prompts with AI enhancement</li>
@@ -498,11 +497,15 @@
                 </tr>
                 <tr>
                     <td><code>[chatprojects_main default_tab="chat"]</code></td>
-                    <td>Opens to chat tab</td>
+                    <td>Hub whose main button opens Chat</td>
                 </tr>
                 <tr>
                     <td><code>[chatprojects_main default_tab="projects"]</code></td>
-                    <td>Opens to projects list</td>
+                    <td>Hub whose main button opens Projects</td>
+                </tr>
+                <tr>
+                    <td><code>[chatprojects_widget project="123"]</code></td>
+                    <td>Public chat widget for a project (tick "Allow public chat widget" on the project first)</td>
                 </tr>
             </tbody>
         </table>
@@ -519,19 +522,19 @@
             <tbody>
                 <tr>
                     <td>OpenAI</td>
-                    <td>ChatGPT 5.1, ChatGPT 5.0, GPT-4o, GPT-4o-mini, o1, o1 Mini</td>
+                    <td>GPT-5.6 Sol, GPT-5.6 Terra, GPT-5.6 Luna, GPT-5.5, GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano</td>
                 </tr>
                 <tr>
                     <td>Anthropic</td>
-                    <td>Claude Sonnet 4, Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus</td>
+                    <td>Claude Opus 5.5, Claude Fable 5.1, Claude Sonnet 5.5, Claude Opus 5, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Haiku 4.5</td>
                 </tr>
                 <tr>
                     <td>Google</td>
-                    <td>Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash</td>
+                    <td>Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.5 Flash, Gemini 3.5 Flash Lite, Gemini 3.1 Pro (Preview)</td>
                 </tr>
                 <tr>
                     <td>Chutes</td>
-                    <td>DeepSeek V3, DeepSeek R1</td>
+                    <td>DeepSeek V4 Flash, DeepSeek V3.2 (full list fetched from Chutes)</td>
                 </tr>
                 <tr>
                     <td>OpenRouter</td>
@@ -557,14 +560,16 @@
                 </tr>
                 <tr>
                     <td>Data</td>
-                    <td>CSV, JSON, XML, HTML</td>
+                    <td>CSV, JSON, XML</td>
                 </tr>
                 <tr>
                     <td>Code</td>
-                    <td>JS, PY, PHP, CSS, Java, C++</td>
+                    <td>PY, CSS, Java, C++</td>
                 </tr>
             </tbody>
         </table>
+
+        <p>Executable and script types (such as PHP, JS, HTML and SVG) are always refused.</p>
 
         <h4>Size Limits</h4>
         <ul>
@@ -620,7 +625,7 @@
             <tbody>
                 <tr>
                     <td>Projects</td>
-                    <td>5 shared</td>
+                    <td>Unlimited per-user</td>
                     <td>Unlimited per-user</td>
                 </tr>
                 <tr>
@@ -645,7 +650,7 @@
                 </tr>
                 <tr>
                     <td>Per-User Projects</td>
-                    <td class="dash">—</td>
+                    <td class="check">✓</td>
                     <td class="check">✓</td>
                 </tr>
                 <tr>
@@ -696,7 +701,7 @@
         <h2 id="security">Security</h2>
 
         <ul>
-            <li><strong>AES-256 encryption</strong> — API keys encrypted before database storage</li>
+            <li><strong>Authenticated encryption</strong> — API keys encrypted with libsodium (XSalsa20-Poly1305) before database storage</li>
             <li><strong>Local storage</strong> — Keys never sent to ChatProjects servers</li>
             <li><strong>Direct API calls</strong> — Your server communicates directly with AI providers</li>
             <li><strong>WordPress standards</strong> — Nonce verification, capability checks, input sanitization</li>
@@ -709,7 +714,7 @@
         <p>No. One key is enough to start. OpenAI is only required for project features (Vector Stores, file search).</p>
 
         <h4>Where are API keys stored?</h4>
-        <p>Encrypted with AES-256 in your WordPress database. Never transmitted to external servers except directly to the AI providers.</p>
+        <p>Encrypted with libsodium (XSalsa20-Poly1305) in your WordPress database. Never transmitted to external servers except directly to the AI providers.</p>
 
         <h4>Can I use ChatProjects without OpenAI?</h4>
         <p>Yes, for basic chat. You can use Claude, Gemini, or OpenRouter without OpenAI. Project features require OpenAI.</p>

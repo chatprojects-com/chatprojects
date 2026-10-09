@@ -46,6 +46,7 @@ class Project_Manager {
         // Add custom columns to project list
         add_filter('manage_chatpr_project_posts_columns', array($this, 'add_project_columns'));
         add_action('manage_chatpr_project_posts_custom_column', array($this, 'render_project_columns'), 10, 2);
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_list_table_assets'));
     }
 
     /**
@@ -61,7 +62,7 @@ class Project_Manager {
             'post_status' => 'publish',
             'post_author' => get_current_user_id(),
             'instructions' => '',
-            'model' => get_option('chatprojects_default_model', 'gpt-5.2-chat-latest'),
+            'model' => get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai')),
             'tools' => array(array('type' => 'file_search')),
             'sharing_mode' => 'private',
             'shared_users' => array(),
@@ -150,7 +151,7 @@ class Project_Manager {
         }
 
         if (isset($args['model'])) {
-            update_post_meta($project_id, '_cp_model', sanitize_text_field($args['model']));
+            update_post_meta($project_id, '_cp_model', Model_Registry::resolve('openai', sanitize_text_field($args['model']), get_option('chatprojects_default_model')));
         }
 
         if (isset($args['sharing_mode'])) {
@@ -300,7 +301,7 @@ class Project_Manager {
 
         $model = get_post_meta($project_id, '_cp_model', true);
         if (empty($model)) {
-            $model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+            $model = get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
             update_post_meta($project_id, '_cp_model', $model);
         }
 
@@ -376,15 +377,16 @@ class Project_Manager {
      */
     public function add_project_columns($columns) {
         $new_columns = array();
-        
+
         foreach ($columns as $key => $value) {
             $new_columns[ $key ] = $value;
-            
+
             if ($key === 'title') {
-                $new_columns['vector_store_id'] = __('Vector Store', 'chatprojects');
+                $new_columns['vector_store_id']   = __('Vector Store', 'chatprojects');
+                $new_columns['widget_shortcode'] = __('Widget Shortcode', 'chatprojects');
             }
         }
-        
+
         return $new_columns;
     }
 
@@ -399,13 +401,63 @@ class Project_Manager {
             case 'vector_store_id':
                 $vector_store_id = get_post_meta($post_id, '_cp_vector_store_id', true);
                 if ($vector_store_id) {
-                    // Show shortened ID for readability
                     $short_id = substr($vector_store_id, 0, 12) . '...';
                     echo '<span title="' . esc_attr($vector_store_id) . '">' . esc_html($short_id) . '</span>';
                 } else {
-                    echo '—';
+                    echo '&mdash;';
+                }
+                break;
+
+            case 'widget_shortcode':
+                $vector_store_id = get_post_meta($post_id, '_cp_vector_store_id', true);
+                if ($vector_store_id) {
+                    $shortcode = '[chatprojects_widget project="' . absint($post_id) . '"]';
+                    echo '<span class="cpw-shortcode-cell">';
+                    echo '<code class="cpw-shortcode-code">' . esc_html($shortcode) . '</code>';
+                    echo ' <button type="button" class="cpw-copy-btn" data-shortcode="' . esc_attr($shortcode) . '" title="' . esc_attr__('Copy shortcode', 'chatprojects') . '">';
+                    echo '<span class="dashicons dashicons-clipboard"></span>';
+                    echo '</button>';
+                    echo '</span>';
+                } else {
+                    echo '&mdash;';
                 }
                 break;
         }
+    }
+
+    /**
+     * Enqueue admin styles for the project list table.
+     */
+    public function enqueue_list_table_assets() {
+        $screen = get_current_screen();
+        if ( ! $screen || 'edit-chatpr_project' !== $screen->id ) {
+            return;
+        }
+
+        wp_add_inline_style( 'wp-admin', '
+            .cpw-shortcode-cell { display: inline-flex; align-items: center; gap: 4px; }
+            .cpw-shortcode-code { background: #f0f0f1; padding: 3px 7px; border-radius: 3px; font-size: 12px; user-select: all; }
+            .cpw-copy-btn { background: none; border: 1px solid #c3c4c7; border-radius: 3px; padding: 2px 4px; cursor: pointer; color: #50575e; line-height: 1; vertical-align: middle; }
+            .cpw-copy-btn:hover { color: #2271b1; border-color: #2271b1; }
+            .cpw-copy-btn .dashicons { font-size: 14px; width: 14px; height: 14px; }
+            .cpw-copy-btn.cpw-copied { color: #00a32a; border-color: #00a32a; }
+        ' );
+
+        wp_add_inline_script( 'wp-lists', '
+            document.addEventListener("click", function(e) {
+                var btn = e.target.closest(".cpw-copy-btn");
+                if (!btn) return;
+                var shortcode = btn.getAttribute("data-shortcode").replace(/&quot;/g, \'"\');
+                navigator.clipboard.writeText(shortcode).then(function() {
+                    btn.classList.add("cpw-copied");
+                    var icon = btn.querySelector(".dashicons");
+                    if (icon) { icon.className = "dashicons dashicons-yes"; }
+                    setTimeout(function() {
+                        btn.classList.remove("cpw-copied");
+                        if (icon) { icon.className = "dashicons dashicons-clipboard"; }
+                    }, 1500);
+                });
+            });
+        ' );
     }
 }

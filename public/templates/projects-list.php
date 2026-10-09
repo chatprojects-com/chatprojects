@@ -159,7 +159,11 @@ $total_projects = count($all_projects);
     // Define projectsApp function EARLY in head to prevent "not defined" errors
     // when Alpine.js is loaded by other plugins (like Elementor) before our scripts
     $projects_json = wp_json_encode($all_projects);
-    $current_user_json = wp_json_encode($current_user);
+    // Only what the page needs; encoding WP_User would expose the password hash and email.
+    $current_user_json = wp_json_encode(array(
+        'ID'           => (int) $current_user->ID,
+        'display_name' => $current_user->display_name,
+    ));
     $home_url = esc_url(home_url());
     $error_create = esc_js(__('Failed to create project.', 'chatprojects'));
     $error_update = esc_js(__('Failed to update project.', 'chatprojects'));
@@ -181,6 +185,13 @@ function projectsApp() {
     const homeUrl = '<?php echo $home_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() already applied ?>';
 
     return {
+        // Opened from a project's "New Project" button (?action=new).
+        init() {
+            if (new URLSearchParams(window.location.search).get('action') === 'new') {
+                this.openCreateModal();
+            }
+        },
+
         projects: projectsData,
         searchQuery: '',
         filterMode: 'all',
@@ -427,7 +438,6 @@ function projectsApp() {
 // Also register with Alpine if it's already loaded (Elementor compatibility)
 if (window.Alpine && typeof window.Alpine.data === 'function') {
     window.Alpine.data('projectsApp', projectsApp);
-    console.log('ChatProjects: Registered projectsApp with existing Alpine instance');
 }
     </script>
     <?php
@@ -700,7 +710,7 @@ if (window.Alpine && typeof window.Alpine.data === 'function') {
                                     <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
-                                    <span><?php esc_html_e('Last updated:', 'chatprojects'); ?> </span>
+                                    <span><?php esc_html_e('Last updated:', 'chatprojects'); ?>&nbsp;</span>
                                     <span x-text="project.modified_date"></span>
                                 </span>
                                 <span x-show="project.is_active" class="px-2.5 py-1 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-full text-xs font-medium">
@@ -1115,7 +1125,7 @@ if (window.Alpine && typeof window.Alpine.data === 'function') {
     <?php
     // Fallback: If main.js didn't load via wp_enqueue, load it directly
     $main_js_url = esc_url(CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js');
-    $main_js_version = CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js');
+    $main_js_version = \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js');
     $fallback_script = "(function() {
         var mainJsInDom = Array.from(document.querySelectorAll('script')).some(function(s) {
             return s.src && s.src.includes('main.js');

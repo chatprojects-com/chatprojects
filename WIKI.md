@@ -2,8 +2,8 @@
 
 > AI-powered project management with multi-provider chat for WordPress
 
-[![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org/)
-[![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net/)
+[![WordPress](https://img.shields.io/badge/WordPress-6.6%2B-blue.svg)](https://wordpress.org/)
+[![PHP](https://img.shields.io/badge/PHP-8.0%2B-purple.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
 ---
@@ -29,7 +29,7 @@
 
 ## Key Features
 
-- **Multi-Provider Chat** - Switch between GPT, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter
+- **Multi-Provider Chat** - Switch between GPT-5.6, Claude Opus 5.5, Gemini 3.8, DeepSeek V4, and 100+ models via OpenRouter
 - **Project Management** - Create projects with OpenAI's vector store for intelligent file search
 - **File Upload** - Upload documents (PDF, DOC, TXT, etc.) for AI-powered analysis
 - **Custom Instructions** - Set custom assistant personas for each project
@@ -55,13 +55,14 @@
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| WordPress | 5.8+ | 6.0+ |
-| PHP | 7.4+ | 8.0+ |
+| WordPress | 6.6+ | Latest |
+| PHP | 8.0+ | Latest |
 | MySQL | 5.6+ | 8.0+ |
 | Memory Limit | 128MB | 256MB |
 
 **Required PHP Extensions:**
-- OpenSSL (for API key encryption)
+- Sodium (for API key encryption; bundled with PHP, and WordPress ships a fallback if the extension is missing)
+- OpenSSL (only to read API keys saved by versions before 1.3.0)
 - cURL (recommended for optimal streaming; HTTP API falls back to other transports if unavailable)
 - JSON (for data handling)
 
@@ -175,39 +176,47 @@ You need at least one API key to use ChatProjects. Each provider offers differen
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| GPT-5.2 | Latest flagship model | 128K |
-| GPT-5.2 Codex | Optimized for code | 128K |
-| GPT-4o | Multimodal (text + vision) | 128K |
-| GPT-4o-mini | Fast and affordable | 128K |
-| GPT-4 Turbo | High capability | 128K |
-| o1 Preview | Advanced reasoning | 128K |
-| o1 Mini | Fast reasoning | 128K |
+| GPT-5.6 Sol | Flagship for complex work (default) | 1M |
+| GPT-5.6 Terra | Balanced intelligence and cost | 1M |
+| GPT-5.6 Luna | Cost-sensitive workloads | 1M |
+| GPT-5.5 | Coding and professional work | 1M |
+| GPT-5.4 | Affordable general model | 400K |
+| GPT-5.4 Mini | Fast, strong for sub-tasks | 400K |
+| GPT-5.4 Nano | Cheapest, high volume | 400K |
+
+All OpenAI models are reasoning models; the effort level defaults to `medium` (filter `chatprojects_reasoning_effort`).
 
 ## Anthropic (Claude)
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| Claude Sonnet 4 | Latest balanced model | 200K |
-| Claude 3.5 Sonnet | Previous generation | 200K |
-| Claude 3.5 Haiku | Fast responses | 200K |
-| Claude 3 Opus | Most capable | 200K |
+| Claude Opus 5.5 | Recommended for complex work (default) | 1M |
+| Claude Fable 5.1 | Most capable | 1M |
+| Claude Sonnet 5.5 | Balanced speed and intelligence | 1M |
+| Claude Opus 5 | Previous Opus | 1M |
+| Claude Opus 4.8 | Older Opus | 1M |
+| Claude Sonnet 5 | Previous Sonnet | 1M |
+| Claude Sonnet 4.6 | Older Sonnet | 1M |
+| Claude Haiku 4.5 | Fastest, lowest cost | 200K |
 
 ## Google Gemini
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| Gemini 3 Pro Preview | Latest flagship | 1M |
-| Gemini 2.5 Pro | Previous flagship | 1M |
-| Gemini 2.0 Flash | Fast responses | 1M |
-| Gemini 1.5 Pro | Previous generation | 1M |
-| Gemini 1.5 Flash | Budget option | 1M |
+| Gemini 3.8 Flash | Newest Flash (default) | 1M |
+| Gemini 3.7 Flash | Previous Flash | 1M |
+| Gemini 3.5 Flash | Stable Flash | 1M |
+| Gemini 3.5 Flash Lite | Fastest, cheapest | 1M |
+| Gemini 3.1 Pro (Preview) | Most capable Gemini | 1M |
 
 ## Chutes (DeepSeek)
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| DeepSeek V3 | Latest general model | 64K |
-| DeepSeek R1 | Reasoning model | 64K |
+| DeepSeek V4 Flash | Fast general model with thinking mode (default) | 1M |
+| DeepSeek V3.2 | Previous generation | 128K |
+
+The full Chutes model list is fetched live from the Chutes API.
 
 ## OpenRouter
 
@@ -236,21 +245,29 @@ Add the chat interface to any WordPress page using shortcodes:
 ### With Options
 
 ```
-[chatprojects_main default_tab="chat" height="80vh"]
+[chatprojects_main default_tab="chat"]
 ```
 
 | Option | Values | Description |
 |--------|--------|-------------|
-| `default_tab` | `chat`, `projects` | Which tab opens first |
-| `height` | CSS value | Interface height (e.g., `600px`, `80vh`) |
+| `default_tab` | `projects` (default), `chat`, `settings` | Section the hub's main "Open" button links to |
 
 ### Examples
 
 ```
 [chatprojects_main default_tab="projects"]
-[chatprojects_main height="600px"]
-[chatprojects_main default_tab="chat" height="90vh"]
+[chatprojects_main default_tab="settings"]
 ```
+
+### Website Chat Widget
+
+Embed a project's assistant for site visitors (no login needed):
+
+```
+[chatprojects_widget project="123"]
+```
+
+Tick **Allow public chat widget** on the project first. Optional attributes: `mode` (`inline` or `floating`), `color`, `title`, `welcome_message`, `placeholder`, `height` (inline height in px, default `500`). Global widget settings, including the opt-in "Powered by ChatProjects" link (off by default), are under **ChatProjects > Settings > Chat Widget**.
 
 ## Chat Interface
 
@@ -270,7 +287,7 @@ Switch providers mid-conversation:
 
 ### Image Upload (Vision Models)
 
-For models that support vision (GPT-4o, Claude 3, Gemini):
+For models that support vision (GPT-5.6, Claude, Gemini):
 1. Click the attachment icon
 2. Select an image
 3. Add your question about the image
@@ -282,7 +299,7 @@ For models that support vision (GPT-4o, Claude 3, Gemini):
 |----------|--------|
 | `Enter` | Send message |
 | `Shift + Enter` | New line in message |
-| `Ctrl + /` | Toggle dark mode |
+| `Ctrl + Shift + L` (`Cmd + Shift + L` on Mac) | Toggle dark mode |
 | `Escape` | Close modals |
 
 ---
@@ -323,8 +340,9 @@ When referencing uploaded documents, cite the source.
 |----------|------------|
 | Documents | PDF, DOC, DOCX, TXT, MD |
 | Data | CSV, JSON, XML |
-| Code | JS, PY, PHP, CSS, HTML, Java, C++ |
-| Spreadsheets | XLS, XLSX |
+| Code | PY, CSS, Java, C++ |
+
+Executable and script types (such as PHP, JS, HTML and SVG) are always refused, even if added to the allowed list.
 
 ### Upload Process
 
@@ -354,9 +372,11 @@ When you chat in a project with uploaded files:
 ## API Key Protection
 
 ### Encryption
-- **Algorithm:** AES-256-CBC
-- **Key Derivation:** WordPress AUTH_KEY
+- **Algorithm:** libsodium secretbox (XSalsa20-Poly1305, authenticated)
+- **Key Derivation:** `CHATPROJECTS_ENCRYPTION_KEY` if defined in wp-config.php, otherwise WordPress AUTH_KEY
 - **Storage:** WordPress options table (encrypted)
+
+Keys saved by versions before 1.3.0 (AES-256-CBC) are re-encrypted automatically on upgrade.
 
 Your API keys are:
 - Encrypted before storage
@@ -371,8 +391,11 @@ Your API keys are:
 | Chat messages | User clicks Send | Selected AI provider |
 | Uploaded files | User uploads to project | OpenAI (vector store) |
 | System prompts | With each chat request | Selected AI provider |
+| Chat titles | After the first reply in a chat | OpenAI |
+| Widget messages | A site visitor sends a message in `[chatprojects_widget]` | OpenAI |
+| Published posts/pages (Auto-RAG) | In background cron batches after an administrator starts indexing, and when an indexed post is edited | OpenAI (vector store) |
 
-**No data is sent automatically** - transmission only occurs on explicit user action.
+Nothing is sent until an administrator adds an API key. Apart from Auto-RAG indexing (started by an administrator) and widget messages (sent by visitors), data is sent only when a logged-in user acts.
 
 ## WordPress Security
 
@@ -405,7 +428,7 @@ Your API keys are:
 1. Go to ChatProjects > Settings
 2. Re-enter your API key
 3. Click Save
-4. Try the "Test Connection" button
+4. Check that the masked "Current key" shown under the field matches your key, then send a test message
 
 ### Streaming Not Working
 
@@ -476,21 +499,21 @@ Check `/wp-content/debug.log` for error details.
 
 ### Where are my API keys stored?
 
-API keys are encrypted with AES-256-CBC and stored in your WordPress database. They never leave your server.
+API keys are encrypted with libsodium (XSalsa20-Poly1305) and stored in your WordPress database. They never leave your server.
 
 ### Can multiple users access ChatProjects?
 
-Yes. All logged-in users can access the chat interface. Project access can be configured in settings.
+Yes. Users need the "Projects User" role (or Author, Editor or Administrator) to use ChatProjects. Each project is private to the user who created it; administrators can see all projects. To share a project's knowledge with site visitors, enable the chat widget for it.
 
 ### Is there a message limit?
 
-No artificial limits. Your usage is limited only by your API provider's rate limits and your API credits.
+There are built-in rate limits to protect your API credits. Logged-in users can send up to 60 chat messages per minute (filter `chatprojects_chat_rate_limit`), with separate limits on uploads, chat titles and project creation. The public widget has a per-session message limit (default 20 per hour), a per-IP limit (3× that), a new-session limit per IP (default 5 per hour) and a site-wide daily limit (default 500), configurable under **Settings > Chat Widget**. Your provider's own rate limits and credits still apply.
 
 ## Files & Projects
 
 ### What file types can I upload?
 
-PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP, XLS, XLSX
+PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, JAVA, CPP. Executable and script types (such as PHP, JS, HTML and SVG) are always refused.
 
 ### What's the maximum file size?
 
@@ -502,7 +525,7 @@ Files are processed into a vector store. When you ask a question, relevant secti
 
 ### Are my files sent to AI providers?
 
-Only to OpenAI for vector store indexing. Other providers don't receive file contents unless you paste them in chat.
+Only to OpenAI for vector store indexing. Other providers don't receive file contents unless you paste them in chat. If you use Auto-RAG, the text of your published posts and pages is also uploaded to OpenAI.
 
 ## Technical Questions
 
@@ -581,10 +604,13 @@ All AI providers implement `AI_Provider_Interface`:
 
 ```php
 interface AI_Provider_Interface {
-    public function run_completion($messages, $model, $options);
-    public function stream_completion($messages, $model, $callback, $options);
+    public function run_completion($messages, $model, $options = array());
+    public function stream_completion($messages, $model, $callback, $options = array());
     public function get_available_models();
     public function validate_api_key($api_key);
+    public function get_name();
+    public function get_identifier();
+    public function has_api_key();
 }
 ```
 
@@ -594,7 +620,8 @@ interface AI_Provider_Interface {
 |---------|---------|---------|
 | Alpine.js | 3.x | MIT |
 | highlight.js | 11.x | BSD-3-Clause |
-| marked | 14.x | MIT |
+| marked | 16.x | MIT |
+| DOMPurify | 3.x | Apache-2.0 / MPL-2.0 |
 
 ## Contributing
 

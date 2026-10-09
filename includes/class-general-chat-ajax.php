@@ -66,7 +66,6 @@ class General_Chat_Ajax {
         add_action('wp_ajax_chatpr_get_general_chat_history', array($this, 'get_general_chat_history'));
         add_action('wp_ajax_chatpr_get_available_providers', array($this, 'get_available_providers'));
         add_action('wp_ajax_chatpr_get_chat_metadata', array($this, 'get_chat_metadata'));
-        add_action('wp_ajax_chatpr_test_chutes_api', array($this, 'test_chutes_api'));
         add_action('wp_ajax_chatpr_refresh_nonce', array($this, 'refresh_nonce'));
     }
 
@@ -81,9 +80,14 @@ class General_Chat_Ajax {
             return;
         }
 
+        if (!User_Roles::can_use_chatprojects()) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')), 403);
+        }
+
         // Verify request comes from the same site to prevent CSRF.
-        $referer = wp_get_referer();
-        if (!$referer || strpos($referer, home_url()) !== 0) {
+        $referer      = wp_get_referer();
+        $referer_host = $referer ? wp_parse_url($referer, PHP_URL_HOST) : '';
+        if (!$referer_host || $referer_host !== wp_parse_url(home_url(), PHP_URL_HOST)) {
             wp_send_json_error(array('message' => __('Invalid request origin', 'chatprojects')));
             return;
         }
@@ -105,13 +109,14 @@ class General_Chat_Ajax {
         }
 
         // Basic capability check
-        if (!current_user_can('read')) {
+        if (!User_Roles::can_use_chatprojects()) {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
             return;
         }
 
-        $provider = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+        $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+        $model = Model_Registry::resolve($provider, $model, get_option('chatprojects_general_chat_model'));
         $title = isset($_POST['title']) ? sanitize_text_field(wp_unslash($_POST['title'])) : '';
 
         $chat_interface = new Chat_Interface();
@@ -141,47 +146,25 @@ class General_Chat_Ajax {
         }
 
         // Basic capability check
-        if (!current_user_can('read')) {
+        if (!User_Roles::can_use_chatprojects()) {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
             return;
         }
 
+        if (!Security::check_rate_limit('stream_general', get_current_user_id(), (int) apply_filters('chatprojects_chat_rate_limit', 60), MINUTE_IN_SECONDS)) {
+            wp_send_json_error(array('message' => __('Too many requests. Please wait a moment and try again.', 'chatprojects')), 429);
+        }
+
         $chat_id = isset($_POST['chat_id']) ? intval($_POST['chat_id']) : 0;
         $message = isset($_POST['message']) ? sanitize_textarea_field(wp_unslash($_POST['message'])) : '';
-        $provider = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+        $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+        $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+        $model = Model_Registry::resolve($provider, $model, get_option('chatprojects_general_chat_model'));
 
         // Process images from base64 JSON (clipboard paste / drag-drop).
-        $images = array();
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON with base64; sanitized per-element below
-        $images_base64_json = isset( $_POST['images_base64'] ) ? wp_unslash( $_POST['images_base64'] ) : '';
-
-        if ( ! empty( $images_base64_json ) && is_string( $images_base64_json ) ) {
-            $images_data = json_decode( $images_base64_json, true );
-
-            // Validate JSON decode succeeded and result is an array.
-            if ( json_last_error() === JSON_ERROR_NONE && is_array( $images_data ) ) {
-                // Validate and sanitize each image element.
-                foreach ( $images_data as $img ) {
-                    // Skip elements without proper structure.
-                    if ( ! is_array( $img ) || ! isset( $img['dataUrl'] ) || ! is_string( $img['dataUrl'] ) ) {
-                        continue;
-                    }
-
-                    // Sanitize: Remove any characters not valid in base64 data URLs.
-                    $data_url = preg_replace( '/[^a-zA-Z0-9+\/=:;,]/', '', $img['dataUrl'] );
-
-                    // Validate base64 image format, MIME type, and data integrity.
-                    $validation = Security::validate_base64_image( $data_url );
-                    if ( is_wp_error( $validation ) ) {
-                        wp_send_json_error( array(
-                            'message' => $validation->get_error_message(),
-                        ) );
-                    }
-
-                    $images[] = $data_url;
-                }
-            }
+        $images = $this->process_images_from_request();
+        if (is_wp_error($images)) {
+            wp_send_json_error(array('message' => $images->get_error_message()));
         }
 
         // Message can be empty if images are provided
@@ -242,74 +225,29 @@ class General_Chat_Ajax {
      * Stream a message in general chat (Server-Sent Events)
      */
     public function stream_general_message() {
-        // Disable ALL output buffering for SSE
-        while (ob_get_level()) {
-            ob_end_clean();
+        // Authenticate BEFORE any output: a failed check must return a normal JSON error,
+        // not an SSE stream to an anonymous caller.
+        if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Invalid security token. Please refresh the page.', 'chatprojects')), 403);
+        }
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')), 401);
+        }
+        if (!User_Roles::can_use_chatprojects()) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')), 403);
+        }
+        if (!Security::check_rate_limit('stream_general', get_current_user_id(), (int) apply_filters('chatprojects_chat_rate_limit', 60), MINUTE_IN_SECONDS)) {
+            wp_send_json_error(array('message' => __('Too many requests. Please wait a moment and try again.', 'chatprojects')), 429);
         }
 
-        // Set SSE headers - order matters for some servers
-        header('Content-Type: text/event-stream; charset=utf-8');
-        header('Cache-Control: no-cache, no-store, must-revalidate, private');
-        header('Pragma: no-cache');
-        header('Expires: 0');
-        header('X-Accel-Buffering: no'); // Disable nginx/LiteSpeed buffering
-        header('Connection: keep-alive');
-        header('Transfer-Encoding: chunked');
-
-        // LiteSpeed specific - disable cache and buffering
-        header('X-LiteSpeed-Cache-Control: no-cache, no-store, esi=off');
-        header('X-LiteSpeed-Tag: no-cache');
-        header('X-LiteSpeed-Purge: *');
-
-        // Cloudflare - disable buffering
-        header('X-CF-Buffering: off');
-
-        // Disable compression and enable implicit flush
-        if (function_exists('apache_setenv')) {
-            @apache_setenv('no-gzip', '1');
-        }
-        // phpcs:disable Squiz.PHP.DiscouragedFunctions.Discouraged -- Required to flush SSE responses immediately
-        if (function_exists('ini_set')) {
-            @ini_set('zlib.output_compression', '0');
-            @ini_set('implicit_flush', '1');
-            @ini_set('output_buffering', '0');
-        }
-        // phpcs:enable Squiz.PHP.DiscouragedFunctions.Discouraged
-
-        // Enable implicit flush (function form)
-        @ob_implicit_flush(true);
-
-        // Send padding to fill server buffer and force immediate streaming
-        // Some servers buffer 8KB+ before sending
-        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Safe: SSE padding with spaces only
-        echo ':' . str_repeat(' ', 8192) . "\n\n";
-        @flush();
-
-        // Send a keepalive comment to ensure connection is established
-        echo ": stream started\n\n";
-        @flush();
+        SSE_Stream_Manager::begin_response();
 
         try {
-            // Use false as third param to prevent wp_die() on failure
-            if (!check_ajax_referer('chatpr_ajax_nonce', 'nonce', false)) {
-                $this->send_sse_error(__('Invalid security token. Please refresh the page.', 'chatprojects'));
-                return;
-            }
-
-            if (!is_user_logged_in()) {
-                $this->send_sse_error(__('You must be logged in.', 'chatprojects'));
-                return;
-            }
-
-            if (!current_user_can('read')) {
-                $this->send_sse_error(__('Permission denied.', 'chatprojects'));
-                return;
-            }
-
             $chat_id = isset($_POST['chat_id']) ? intval($_POST['chat_id']) : 0;
             $message = isset($_POST['message']) ? sanitize_textarea_field(wp_unslash($_POST['message'])) : '';
-            $provider_name = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : 'openai';
-            $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : 'gpt-5.2-chat-latest';
+            $provider_name = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : 'openai';
+            $model = isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '';
+            $model = Model_Registry::resolve($provider_name, $model, get_option('chatprojects_general_chat_model'));
 
             // Process images from base64 JSON
             $images = $this->process_images_from_request();
@@ -341,6 +279,20 @@ class General_Chat_Ajax {
                 }
             }
 
+            // The chat must belong to the current user before anything is written to it.
+            global $wpdb;
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table requires direct query
+            $owned_chat = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$this->chats_table_sql} WHERE id = %d AND user_id = %d AND chat_mode = 'general'",
+                $chat_id,
+                get_current_user_id()
+            ));
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+            if (!$owned_chat) {
+                $this->send_sse_error(__('Invalid chat ID.', 'chatprojects'));
+                return;
+            }
+
             // Send chat_id to frontend immediately
             $this->send_sse_data(array('type' => 'chat_id', 'chat_id' => $chat_id));
 
@@ -356,51 +308,72 @@ class General_Chat_Ajax {
                 return;
             }
 
+            // Don't send images to a model that can't read them.
+            if (!empty($images) && !Model_Registry::supports_vision($provider_name, $model)) {
+                $this->send_sse_error(__('The selected model cannot read images. Choose a vision-capable model or remove the image.', 'chatprojects'));
+                return;
+            }
+
             // Save user message to database
-            global $wpdb;
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table requires direct query
-            $wpdb->insert($this->messages_table, array(
+            $saved = $wpdb->insert($this->messages_table, array(
                 'chat_id' => $chat_id,
                 'role' => 'user',
                 'content' => $message,
                 'created_at' => current_time('mysql'),
             ), array('%d', '%s', '%s', '%s'));
+            if (false === $saved) {
+                $this->send_sse_error(__('Could not save your message. Please try again.', 'chatprojects'));
+                return;
+            }
 
-            // Build messages array from history for the API call
-            $history = $chat_interface->get_general_chat_history($chat_id);
-            $api_messages = array();
+            // Recent history, oldest first; the last row is the message just saved.
+            $message_store = new Message_Store();
+            $recent        = $message_store->get_recent_messages($chat_id, 20);
+            $api_messages  = array();
+            foreach ($recent as $row) {
+                if (!in_array($row['role'], array('user', 'assistant'), true)) {
+                    continue;
+                }
+                // The conversation sent to the API must start with a user turn.
+                if (empty($api_messages) && 'assistant' === $row['role']) {
+                    continue;
+                }
+                $api_messages[] = array(
+                    'role' => $row['role'],
+                    'content' => $row['content'],
+                );
+            }
+
+            // OpenAI can continue from its previous reply server-side, but only
+            // when that reply came directly before this message (another
+            // provider may have answered in between).
             $previous_response_id = null;
-
-            if (!is_wp_error($history)) {
-                foreach ($history as $msg) {
-                    $api_messages[] = array(
-                        'role' => $msg['role'],
-                        'content' => $msg['content']
-                    );
-
-                    // For OpenAI, get the last assistant message's response_id for conversation continuity.
-                    if ($provider_name === 'openai' && $msg['role'] === 'assistant' && !empty($msg['metadata'])) {
-                        $metadata = is_string($msg['metadata']) ? json_decode($msg['metadata'], true) : $msg['metadata'];
-                        if (isset($metadata['response_id'])) {
-                            $previous_response_id = $metadata['response_id'];
-                        }
-                    }
+            $recent_count         = count($recent);
+            if ('openai' === $provider_name && $recent_count >= 2) {
+                $prev = $recent[ $recent_count - 2 ];
+                if ('assistant' === $prev['role'] && is_array($prev['metadata']) && !empty($prev['metadata']['response_id'])) {
+                    $previous_response_id = $prev['metadata']['response_id'];
                 }
             }
 
-            // Attach images to the last user message for vision support
+            // Attach images to the latest user message for vision support
             if (!empty($images) && !empty($api_messages)) {
-                for ($i = count($api_messages) - 1; $i >= 0; $i--) {
-                    if ($api_messages[ $i ]['role'] === 'user') {
-                        $api_messages[ $i ]['images'] = $images;
-                        break;
-                    }
-                }
+                $api_messages[ count($api_messages) - 1 ]['images'] = $images;
+            }
+
+            // Chat-specific instructions, else the site-wide default.
+            $instructions = $owned_chat->instructions;
+            if (empty($instructions)) {
+                $instructions = get_option('chatprojects_assistant_instructions', '');
             }
 
             // Build options for provider
-            $provider_options = array('images' => $images);
-            if ($provider_name === 'openai' && $previous_response_id) {
+            $provider_options = array(
+                'images'       => $images,
+                'instructions' => $instructions,
+            );
+            if ($previous_response_id) {
                 $provider_options['previous_response_id'] = $previous_response_id;
             }
 
@@ -424,12 +397,7 @@ class General_Chat_Ajax {
                         }
                         // Output immediately
                         echo 'data: ' . wp_json_encode($chunk) . "\n\n";
-                        // Flush with LiteSpeed support
-                        if (function_exists('litespeed_flush')) {
-                            litespeed_flush();
-                        }
-                        @ob_flush();
-                        @flush();
+                        SSE_Stream_Manager::flush();
                     }
                 },
                 $provider_options
@@ -464,7 +432,7 @@ class General_Chat_Ajax {
             // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
             if ($chat) {
-                $new_count = $chat->message_count + 2;
+                $new_count = $chat->message_count + (empty($assistant_content) ? 1 : 2);
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
                 $wpdb->update(
                     $this->chats_table,
@@ -535,6 +503,13 @@ class General_Chat_Ajax {
             return $images;
         }
 
+        // Each image can be up to 10 MB, so cap how many one message may carry.
+        $max_images = (int) apply_filters( 'chatprojects_max_images_per_message', 4 );
+        if ( count( $images_data ) > $max_images ) {
+            /* translators: %d: maximum number of images */
+            return new \WP_Error( 'too_many_images', sprintf( __( 'You can attach up to %d images per message.', 'chatprojects' ), $max_images ) );
+        }
+
         // Validate and sanitize each image element.
         foreach ( $images_data as $img ) {
             // Skip elements without proper structure.
@@ -565,11 +540,7 @@ class General_Chat_Ajax {
      */
     private function send_sse_data($data) {
         echo 'data: ' . wp_json_encode($data) . "\n\n";
-        if (function_exists('litespeed_flush')) {
-            litespeed_flush();
-        }
-        @ob_flush();
-        @flush();
+        SSE_Stream_Manager::flush();
     }
 
     /**
@@ -583,11 +554,7 @@ class General_Chat_Ajax {
             'content' => $message
         ));
         echo "data: [DONE]\n\n";
-        if (function_exists('litespeed_flush')) {
-            litespeed_flush();
-        }
-        @ob_flush();
-        @flush();
+        SSE_Stream_Manager::flush();
     }
 
     /**
@@ -595,11 +562,7 @@ class General_Chat_Ajax {
      */
     private function send_sse_done() {
         echo "data: [DONE]\n\n";
-        if (function_exists('litespeed_flush')) {
-            litespeed_flush();
-        }
-        @ob_flush();
-        @flush();
+        SSE_Stream_Manager::flush();
     }
 
     /**
@@ -612,7 +575,7 @@ class General_Chat_Ajax {
             wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')));
         }
 
-        if (!current_user_can('read')) {
+        if (!User_Roles::can_use_chatprojects()) {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
         }
 
@@ -760,25 +723,27 @@ class General_Chat_Ajax {
             wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')));
         }
 
-        if (!current_user_can('read')) {
+        if (!User_Roles::can_use_chatprojects()) {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
         }
 
-        $providers = array(
-            'openai' => array('name' => 'OpenAI', 'has_key' => false, 'models' => array()),
-            'gemini' => array('name' => 'Google Gemini', 'has_key' => false, 'models' => array()),
-            'anthropic' => array('name' => 'Anthropic Claude', 'has_key' => false, 'models' => array()),
-            'chutes' => array('name' => 'Chutes.ai', 'has_key' => false, 'models' => array()),
-            'openrouter' => array('name' => 'OpenRouter', 'has_key' => false, 'models' => array()),
-        );
+        $providers = array();
+        foreach (Model_Registry::get_provider_names() as $key => $name) {
+            $providers[ $key ] = array(
+                'name'    => $name,
+                'has_key' => false,
+                'default' => Model_Registry::get_default($key),
+                'models'  => array(),
+            );
+        }
 
         foreach ($providers as $key => &$provider) {
             $provider_class = $this->get_provider_instance($key);
             if ($provider_class) {
                 $provider['has_key'] = $provider_class->has_api_key();
                 if ($provider['has_key']) {
-                    // For chutes.ai and openrouter, fetch models dynamically from the API
-                    if (($key === 'chutes' || $key === 'openrouter') && method_exists($provider_class, 'fetch_available_models')) {
+                    // Dynamic providers (Chutes, OpenRouter) fetch their model list from the API
+                    if (Model_Registry::is_dynamic_provider($key) && method_exists($provider_class, 'fetch_available_models')) {
                         $fetched_models = $provider_class->fetch_available_models();
                         // If fetch succeeds, use the fetched models; otherwise fallback to defaults
                         if (!is_wp_error($fetched_models) && !empty($fetched_models)) {
@@ -791,8 +756,17 @@ class General_Chat_Ajax {
                         // For other providers, use hardcoded models
                         $models = $provider_class->get_available_models();
                     }
-                    // Get models as associative array and return just the keys
-                    $provider['models'] = array_keys($models);
+                    // id + label pairs so the UI can show friendly names.
+                    $provider['models'] = array();
+                    foreach ($models as $id => $label) {
+                        $provider['models'][] = array(
+                            'id'    => (string) $id,
+                            'label' => is_string($label) && '' !== $label ? $label : (string) $id,
+                        );
+                    }
+                    if (empty($provider['default']) && !empty($provider['models'])) {
+                        $provider['default'] = $provider['models'][0]['id'];
+                    }
                 }
             }
         }
@@ -815,7 +789,7 @@ class General_Chat_Ajax {
             wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')));
         }
 
-        if (!current_user_can('read')) {
+        if (!User_Roles::can_use_chatprojects()) {
             wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
         }
 
@@ -852,13 +826,7 @@ class General_Chat_Ajax {
      * @return object|null Provider instance or null
      */
     private function get_provider_instance($provider) {
-        $provider_map = array(
-            'openai' => 'OpenAI_Provider',
-            'gemini' => 'Gemini_Provider',
-            'anthropic' => 'Anthropic_Provider',
-            'chutes' => 'Chutes_Provider',
-            'openrouter' => 'OpenRouter_Provider',
-        );
+        $provider_map = Chat_Interface::provider_class_map();
 
         if (!isset($provider_map[ $provider ])) {
             return null;
@@ -894,7 +862,7 @@ class General_Chat_Ajax {
                 )
             );
 
-            $response = $api_handler->create_chat_completion($messages, 'gpt-4o-mini');
+            $response = $api_handler->create_chat_completion($messages, \ChatProjects\Model_Registry::get_utility_model('title'));
 
             if (is_wp_error($response)) {
                 // Fallback: use first few words of user message
@@ -903,7 +871,7 @@ class General_Chat_Ajax {
 
             $title = isset($response['choices'][0]['message']['content'])
                 ? trim($response['choices'][0]['message']['content'])
-                : 'New Chat';
+                : __('New Chat', 'chatprojects');
 
             // Remove quotes if present
             $title = trim($title, '"\'');
@@ -931,36 +899,6 @@ class General_Chat_Ajax {
         if (count($words) > 5) {
             $title .= '...';
         }
-        return $title ?: 'New Chat';
-    }
-
-    /**
-     * Test Chutes.ai API with different authentication methods
-     */
-    public function test_chutes_api() {
-        check_ajax_referer('chatpr_ajax_nonce', 'nonce');
-
-        if (!is_user_logged_in()) {
-            wp_send_json_error(array('message' => __('You must be logged in.', 'chatprojects')));
-        }
-
-        // Admin-only action: testing API configuration
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'chatprojects')));
-        }
-
-        $provider_instance = $this->get_provider_instance('chutes');
-
-        if (!$provider_instance) {
-            wp_send_json_error(array('message' => __('Chutes provider not found.', 'chatprojects')));
-        }
-
-        if (!$provider_instance->has_api_key()) {
-            wp_send_json_error(array('message' => __('Chutes.ai API key not configured.', 'chatprojects')));
-        }
-
-        $results = $provider_instance->test_api_key();
-
-        wp_send_json_success(array('results' => $results));
+        return $title ?: __('New Chat', 'chatprojects');
     }
 }

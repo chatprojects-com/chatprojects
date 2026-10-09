@@ -14,8 +14,7 @@ New-Item -ItemType Directory -Path $dest -Force | Out-Null
 $rootFiles = @(
     "chatprojects.php",
     "uninstall.php",
-    "readme.txt",
-    "stream-endpoint.php"
+    "readme.txt"
 )
 
 # Folders to copy entirely
@@ -73,6 +72,11 @@ foreach ($subfolder in $assetSubfolders) {
         Write-Host "Copied: assets/$subfolder" -ForegroundColor Green
     }
 }
+
+# Never ship the Vite manifest (hidden folder) or PHP from the built asset tree
+$distDest = Join-Path $assetsDest "dist"
+Remove-Item -Path (Join-Path $distDest ".vite") -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path $distDest -Recurse -Filter "*.php" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Cyan

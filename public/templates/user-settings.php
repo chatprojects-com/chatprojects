@@ -20,7 +20,7 @@ if (!is_user_logged_in()) {
     exit;
 }
 
-$current_user = wp_get_current_user();
+$chatpr_user = wp_get_current_user();
 $user_id = get_current_user_id();
 $theme_preference = get_user_meta($user_id, 'cp_theme_preference', true) ?: 'auto';
 $is_dark_cookie = isset($_COOKIE['chatpr_dark']) && $_COOKIE['chatpr_dark'] === '1';
@@ -77,7 +77,7 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
     $chatpr_inline_data = array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('chatpr_ajax_nonce'),
-        'current_user' => $current_user->display_name,
+        'current_user' => $chatpr_user->display_name,
     );
     // Output chatprData via wp_print_inline_script_tag for WordPress guidelines compliance
     $chatpr_data_script = 'var chatprData = ' . wp_json_encode($chatpr_inline_data) . ';';
@@ -102,7 +102,7 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white"><?php esc_html_e('Settings', 'chatprojects'); ?></h1>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-600 dark:text-gray-300"><?php echo esc_html($current_user->display_name); ?></span>
+                <span class="text-sm text-gray-600 dark:text-gray-300"><?php echo esc_html($chatpr_user->display_name); ?></span>
                 <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>" class="text-sm text-red-600 hover:text-red-700">
                     <?php esc_html_e('Logout', 'chatprojects'); ?>
                 </a>
@@ -159,6 +159,14 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
 
             <!-- Main Content -->
             <div class="col-span-12 md:col-span-9">
+                <?php
+                // Result of following an email-change confirmation link.
+                $chatpr_email_change = isset($_GET['email_change']) ? sanitize_key(wp_unslash($_GET['email_change'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only.
+                if ('confirmed' === $chatpr_email_change) : ?>
+                    <div class="mb-4 p-4 rounded-lg bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-300"><?php esc_html_e('Your email address has been updated.', 'chatprojects'); ?></div>
+                <?php elseif ('failed' === $chatpr_email_change) : ?>
+                    <div class="mb-4 p-4 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300"><?php esc_html_e('That confirmation link is invalid or has expired. Please request the email change again.', 'chatprojects'); ?></div>
+                <?php endif; ?>
                 <form id="settings-form" class="space-y-6">
                     <!-- Profile Tab -->
                     <div x-show="activeTab === 'profile'" class="bg-white dark:bg-dark-surface rounded-lg shadow-sm p-6 space-y-6">
@@ -176,7 +184,7 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
                                 type="text"
                                 id="display_name"
                                 name="display_name"
-                                value="<?php echo esc_attr($current_user->display_name); ?>"
+                                value="<?php echo esc_attr($chatpr_user->display_name); ?>"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-white"
                             >
                         </div>
@@ -190,7 +198,7 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
                                 type="email"
                                 id="user_email"
                                 name="user_email"
-                                value="<?php echo esc_attr($current_user->user_email); ?>"
+                                value="<?php echo esc_attr($chatpr_user->user_email); ?>"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-white"
                             >
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -393,14 +401,23 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
                 const data = await response.json();
 
                 if (data.success) {
-                    // Store theme in localStorage for cross-page sync
+                    // Every page reads 'chatpr-theme' first; 'auto' means no stored
+                    // choice, so the page follows the system setting.
                     const savedTheme = document.getElementById('theme_preference_input').value;
-                    localStorage.setItem('cp_theme_preference', savedTheme);
+                    if (savedTheme === 'dark' || savedTheme === 'light') {
+                        localStorage.setItem('chatpr-theme', savedTheme);
+                    } else {
+                        localStorage.removeItem('chatpr-theme');
+                    }
 
-                    // Show success message
+                    // Show the server's message (it explains a pending email change).
                     const successMsg = document.getElementById('success-message');
+                    const successText = successMsg.querySelector('span');
+                    if (successText && data.data && data.data.message) {
+                        successText.textContent = data.data.message;
+                    }
                     successMsg.classList.remove('hidden');
-                    setTimeout(() => successMsg.classList.add('hidden'), 3000);
+                    setTimeout(() => successMsg.classList.add('hidden'), 6000);
                 } else {
                     // Show error message
                     const errorMsg = document.getElementById('error-message');

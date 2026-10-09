@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import hljs from 'highlight.js';
+import hljs from 'highlight.js/lib/common';
 
 // Re-export highlight.js for other modules
 export { hljs as H };
@@ -142,6 +142,9 @@ export function initToastContainer() {
         toastManager = new ToastManager();
     }
     window.VPToast = toastManager;
+    // Used by the classic (non-module) scripts in assets/js/.
+    window.showToast = showToast;
+    window.vpShowNotification = (message, type) => showToast(message, type === 'error' ? 'error' : 'success');
     return toastManager;
 }
 

@@ -80,7 +80,6 @@ class ChatProjects {
             'projects'   => apply_filters('chatprojects_slug_projects', 'chatprojects'),
             'settings'   => apply_filters('chatprojects_slug_settings', 'cp-settings'),
             'chat'       => apply_filters('chatprojects_slug_chat', 'cp-chat'),
-            'comparison' => apply_filters('chatprojects_slug_comparison', 'cp-chat/compare'),
         );
     }
 
@@ -105,10 +104,16 @@ class ChatProjects {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('admin_notices', array($this, 'show_slug_conflict_notice'));
         add_action('admin_notices', array($this, 'show_slug_migration_notice'));
+        add_action('admin_notices', array($this, 'show_model_migration_notice'));
 
         // Initialize frontend
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
         add_action('init', array($this, 'register_post_types'));
+
+        // Projects are private workspaces: keep them out of sitemaps and embeds.
+        add_filter('wp_sitemaps_post_types', array($this, 'exclude_projects_from_sitemaps'));
+        add_action('template_redirect', array($this, 'block_project_embeds'));
+        add_filter('oembed_request_post_id', array($this, 'block_project_oembed'));
 
         // Add type="module" attribute to our scripts (must be registered early)
         add_filter('script_loader_tag', array($this, 'add_module_type_to_scripts'), 10, 2);
@@ -124,6 +129,41 @@ class ChatProjects {
 
         // Theme initialization is handled directly in project-shell-modern.php template
         // add_action('wp_head', array($this, 'output_theme_init_script'), 1);
+    }
+
+    /**
+     * Remove projects from the core XML sitemaps.
+     *
+     * @param array $post_types Post type objects keyed by name.
+     * @return array
+     */
+    public function exclude_projects_from_sitemaps($post_types) {
+        unset($post_types['chatpr_project']);
+        return $post_types;
+    }
+
+    /**
+     * Projects have no public embed; core's embed template would show their
+     * title and description to anyone.
+     */
+    public function block_project_embeds() {
+        if (is_embed() && is_singular('chatpr_project')) {
+            global $wp_query;
+            $wp_query->set_404(); // Also clears is_embed, so the theme's 404 template is used.
+            status_header(404);
+            nocache_headers();
+        }
+    }
+
+    /**
+     * The oEmbed API (/wp-json/oembed/1.0/embed) would return a project's title
+     * and author to anyone; treat projects as not embeddable.
+     *
+     * @param int $post_id Post ID resolved from the requested URL.
+     * @return int
+     */
+    public function block_project_oembed($post_id) {
+        return 'chatpr_project' === get_post_type($post_id) ? 0 : $post_id;
     }
 
     /**
@@ -175,18 +215,60 @@ class ChatProjects {
             'chatprojects-admin',
             'chatprojects-frontend',
             'chatprojects-main',
-            'chatprojects-comparison'
         );
 
-        if (in_array($handle, $module_handles)) {
-            // Handle both <script src="..."> and <script type="text/javascript" src="..."> formats
-            if (strpos($tag, 'type="module"') === false && strpos($tag, "type='module'") === false) {
-                // Replace <script with <script type="module"
-                $tag = preg_replace('/<script\s/', '<script type="module" ', $tag);
+        $is_module = in_array($handle, $module_handles, true)
+            || 'module' === wp_scripts()->get_data($handle, 'type');
+
+        if (!$is_module) {
+            return $tag;
+        }
+
+        // $tag can also contain the handle's inline "before"/"after" scripts and
+        // translations. Only the external <script src> is the module; marking the
+        // first <script> instead leaves main.js as a classic script, which then
+        // fails on its import statements.
+        $processor = new \WP_HTML_Tag_Processor($tag);
+        while ($processor->next_tag('script')) {
+            if (null !== $processor->get_attribute('src')) {
+                $processor->set_attribute('type', 'module');
             }
         }
 
-        return $tag;
+        return $processor->get_updated_html();
+    }
+
+    /**
+     * Translatable strings used by the bundled JavaScript.
+     *
+     * @return array
+     */
+    public static function frontend_i18n() {
+        return array(
+            'filesImportedSuccess'      => __('Files imported successfully.', 'chatprojects'),
+            'filesImportFailed'         => __('Failed to import files.', 'chatprojects'),
+            'imageProcessError'         => __('Could not process that image.', 'chatprojects'),
+            'imageTooLarge'             => __('Image is too large.', 'chatprojects'),
+            'importSelectedFiles'       => __('Import selected files', 'chatprojects'),
+            'invalidImageType'          => __('Unsupported image type.', 'chatprojects'),
+            'maxImagesReached'          => __('Maximum number of images reached.', 'chatprojects'),
+            'selectFilesForVectorStore' => __('Select files to add to this project', 'chatprojects'),
+            'sending'                   => __('Sending...', 'chatprojects'),
+            'error'                     => __('An error occurred. Please try again.', 'chatprojects'),
+            'newChat'                   => __('New Chat', 'chatprojects'),
+        );
+    }
+
+    /**
+     * Cache-busting version string for a plugin asset.
+     *
+     * @param string $relative_path Path relative to the plugin directory.
+     * @return string
+     */
+    public static function asset_version($relative_path) {
+        $path = CHATPROJECTS_PLUGIN_DIR . ltrim($relative_path, '/');
+        $mtime = file_exists($path) ? (int) filemtime($path) : 0;
+        return $mtime ? CHATPROJECTS_VERSION . '-' . $mtime : CHATPROJECTS_VERSION;
     }
 
     /**
@@ -194,6 +276,7 @@ class ChatProjects {
      */
     private function load_dependencies() {
         // Core classes
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-model-registry.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-api-handler.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-project-manager.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-vector-store.php';
@@ -201,6 +284,9 @@ class ChatProjects {
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-user-roles.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-security.php';
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-access.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-content-indexer.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-rate-limiter.php';
+        require_once CHATPROJECTS_PLUGIN_DIR . 'includes/class-widget-handler.php';
 
         // Provider classes - All 5 providers available in Free version
         require_once CHATPROJECTS_PLUGIN_DIR . 'includes/providers/interface-ai-provider.php';
@@ -239,6 +325,12 @@ class ChatProjects {
         $this->vector_store = new Vector_Store();
         $this->chat = new Chat_Interface();
 
+        // Content Indexer for Auto-RAG
+        new Content_Indexer();
+
+        // Widget handler for public-facing chat widget
+        new Widget_Handler();
+
         // Note: Removed in Free version:
         // $this->transcriber = new Transcriber();
         // $this->prompts = new Prompt_Library();
@@ -254,10 +346,6 @@ class ChatProjects {
 
         // Initialize frontend
         new Frontend();
-
-        // Initialize REST API stream endpoint
-        $rest_stream = new REST_Stream_Endpoint();
-        $rest_stream->init();
     }
 
     /**
@@ -312,68 +400,55 @@ class ChatProjects {
     }
 
     /**
-     * Register plugin settings
+     * Register plugin settings with WordPress Settings API.
+     *
+     * Registers option names so WordPress allows them to be saved via options.php.
+     * Sections and fields are handled by Admin\Settings::register_settings().
      */
     public function register_settings() {
-        // OpenAI API Key
-        register_setting('chatprojects_settings', 'chatprojects_openai_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
+        // API keys (needed for options.php allowed_options whitelist).
+        $api_keys = array(
+            'chatprojects_openai_key',
+            'chatprojects_gemini_key',
+            'chatprojects_anthropic_key',
+            'chatprojects_chutes_key',
+            'chatprojects_openrouter_key',
+        );
+        foreach ( $api_keys as $key ) {
+            register_setting(
+                'chatprojects_settings',
+                $key,
+                array(
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                )
+            );
+        }
 
-        // Gemini API Key
-        register_setting('chatprojects_settings', 'chatprojects_gemini_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // Anthropic API Key
-        register_setting('chatprojects_settings', 'chatprojects_anthropic_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // Chutes API Key
-        register_setting('chatprojects_settings', 'chatprojects_chutes_key', array(
-            'type' => 'string',
-            'sanitize_callback' => array(Security::class, 'sanitize_api_key'),
-            'default' => ''
-        ));
-
-        // General settings
-        register_setting('chatprojects_settings', 'chatprojects_general_chat_provider', array(
-            'type' => 'string',
+        // General settings.
+        register_setting( 'chatprojects_settings', 'chatprojects_general_chat_provider', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'openai'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_general_chat_model', array(
-            'type' => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'gpt-4o'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_assistant_instructions', array(
-            'type' => 'string',
+            'default'           => 'openai',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_general_chat_model', array(
+            'type'              => 'string',
+            'sanitize_callback' => array( Model_Registry::class, 'sanitize_any_model' ),
+            'default'           => Model_Registry::get_default( 'openai' ),
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_assistant_instructions', array(
+            'type'              => 'string',
             'sanitize_callback' => 'sanitize_textarea_field',
-            'default' => ''
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_default_model', array(
-            'type' => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'gpt-4o'
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_max_file_size', array(
-            'type' => 'integer',
-            'sanitize_callback' => 'absint',
-            'default' => 50
-        ));
-        register_setting('chatprojects_settings', 'chatprojects_allowed_file_types', array(
-            'type' => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-            'default' => 'pdf,doc,docx,txt,md'
-        ));
+            'default'           => '',
+        ) );
+        register_setting( 'chatprojects_settings', 'chatprojects_default_model', array(
+            'type'              => 'string',
+            'sanitize_callback' => array( Model_Registry::class, 'sanitize_openai_model' ),
+            'default'           => Model_Registry::get_default( 'openai' ),
+        ) );
+        // chatprojects_max_file_size and chatprojects_allowed_file_types are
+        // registered (with their sanitizers) by Admin\Settings.
     }
 
     /**
@@ -395,6 +470,7 @@ class ChatProjects {
                 'not_found_in_trash' => __('No projects found in trash', 'chatprojects'),
             ),
             'public' => true,
+            'exclude_from_search' => true,
             'has_archive' => false,
             'show_in_menu' => false,
             'show_in_rest' => false, // Disable block editor to prevent canvas template
@@ -435,16 +511,16 @@ class ChatProjects {
 
         wp_enqueue_style(
             'chatprojects-admin',
-            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/admin.css',
+            CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION
+            self::asset_version('assets/dist/css/main.css')
         );
 
         wp_enqueue_script(
             'chatprojects-admin',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/admin.js',
             array('jquery'),
-            CHATPROJECTS_VERSION,
+            self::asset_version('assets/dist/js/admin.js'),
             true
         );
 
@@ -471,7 +547,7 @@ class ChatProjects {
             'chatprojects-frontend',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/css/main.css',
             array(),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/css/main.css')
+            \ChatProjects\ChatProjects::asset_version('assets/dist/css/main.css')
         );
 
         // Template-specific CSS (previously inline styles)
@@ -480,14 +556,14 @@ class ChatProjects {
             'chatprojects-templates',
             CHATPROJECTS_PLUGIN_URL . 'assets/css/templates.css',
             array('chatprojects-frontend'),
-            CHATPROJECTS_VERSION . '-' . (file_exists($templates_css_path) ? filemtime($templates_css_path) : time())
+            \ChatProjects\ChatProjects::asset_version(str_replace(CHATPROJECTS_PLUGIN_DIR, '', $templates_css_path))
         );
 
         wp_enqueue_script(
             'chatprojects-frontend',
             CHATPROJECTS_PLUGIN_URL . 'assets/dist/js/main.js',
             array('jquery'),
-            CHATPROJECTS_VERSION . '-' . filemtime(CHATPROJECTS_PLUGIN_DIR . 'assets/dist/js/main.js'),
+            \ChatProjects\ChatProjects::asset_version('assets/dist/js/main.js'),
             true
         );
 
@@ -498,6 +574,12 @@ class ChatProjects {
             'nonce' => wp_create_nonce('chatpr_ajax_nonce'),
             'plugin_url' => CHATPROJECTS_PLUGIN_URL,
             'is_pro' => false, // Always false in Free version
+            'is_pro_user' => false,
+            'max_images_per_message' => 1,
+            'max_image_size' => Security::get_max_image_upload_size(),
+            'default_provider' => get_option('chatprojects_general_chat_provider', 'openai'),
+            'default_model' => get_option('chatprojects_general_chat_model', Model_Registry::get_default(get_option('chatprojects_general_chat_provider', 'openai'))),
+            'i18n' => self::frontend_i18n(),
         ));
 
         // Enqueue instructions modal script (jQuery-based)
@@ -506,7 +588,7 @@ class ChatProjects {
             'chatprojects-instructions-modal',
             CHATPROJECTS_PLUGIN_URL . 'assets/js/instructions-modal.js',
             array('jquery', 'chatprojects-frontend'), // Depends on jQuery and frontend script (for chatprData)
-            CHATPROJECTS_VERSION . '-' . (file_exists($modal_js_path) ? filemtime($modal_js_path) : time()),
+            \ChatProjects\ChatProjects::asset_version(str_replace(CHATPROJECTS_PLUGIN_DIR, '', $modal_js_path)),
             true // Load in footer
         );
 
@@ -585,7 +667,7 @@ class ChatProjects {
                 'chatprojects-media-library-picker',
                 CHATPROJECTS_PLUGIN_URL . 'assets/js/media-library-picker.js',
                 array('chatprojects-frontend'),
-                CHATPROJECTS_VERSION . '-' . filemtime($media_picker_js_path),
+                \ChatProjects\ChatProjects::asset_version(str_replace(CHATPROJECTS_PLUGIN_DIR, '', $media_picker_js_path)),
                 true
             );
         }
@@ -736,5 +818,39 @@ class ChatProjects {
         <?php
 
         delete_transient('chatprojects_slug_migration_notice');
+    }
+
+    /**
+     * Show admin notice after retired model IDs were remapped on upgrade
+     */
+    public function show_model_migration_notice() {
+        $summary = get_transient('chatprojects_model_migration_notice');
+        if (empty($summary) || !is_array($summary)) {
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $map = isset($summary['map']) && is_array($summary['map']) ? $summary['map'] : array();
+        ?>
+        <div class="notice notice-info is-dismissible">
+            <h3><?php esc_html_e('ChatProjects AI models updated', 'chatprojects'); ?></h3>
+            <p><?php esc_html_e('Some AI models you were using have been retired by their providers. Your settings, projects and chats were moved to the closest current model:', 'chatprojects'); ?></p>
+            <?php if (!empty($map)) : ?>
+            <ul style="list-style: disc; margin-left: 2em;">
+                <?php foreach ($map as $old => $new) : ?>
+                    <li><code><?php echo esc_html($old); ?></code> &rarr; <code><?php echo esc_html($new); ?></code></li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
+            <p>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=chatprojects-settings')); ?>"><?php esc_html_e('Review model settings', 'chatprojects'); ?></a>
+            </p>
+        </div>
+        <?php
+
+        delete_transient('chatprojects_model_migration_notice');
     }
 }

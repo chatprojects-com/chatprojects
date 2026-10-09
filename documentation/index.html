@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatProjects - AI Chat & Project Management for WordPress</title>
-    <meta name="description" content="AI-powered project management with multi-provider chat. Chat with GPT-5, Claude, Gemini. Compare AIs side-by-side. Edit images with Google Nano Banana. Your API keys, your server.">
+    <meta name="description" content="AI-powered project management with multi-provider chat for WordPress. Chat with GPT-5.6, Claude, Gemini and DeepSeek, chat with your documents, and add an AI assistant to your site. Your own API keys, stored on your server.">
     <style>
         /* Reset & Base */
         *, *::before, *::after {
@@ -707,9 +707,9 @@
             <p class="tagline">Own your Chat</p>
             <p class="description">
                 AI-powered project management with multi-provider chat support.
-                Chat with GPT-5, Claude, Gemini, and more using your own API keys.
-                Compare AI models side-by-side and edit images with Google Nano Banana.
-                Your data stays on your server.
+                Chat with GPT-5.6, Claude, Gemini, and more using your own API keys.
+                Chat with your documents, index your posts and pages, and put an AI assistant on any page with the chat widget.
+                Your API keys stay on your server, and nothing passes through ours.
             </p>
             <div class="hero-buttons">
                 <a href="https://wordpress.org/plugins/chatprojects/" class="btn btn-primary">Download Free</a>
@@ -726,10 +726,10 @@
                 </div>
                 <div class="stat">
                     <div class="stat-number">50MB</div>
-                    <div class="stat-label">Max File Size</div>
+                    <div class="stat-label">Default File Limit</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number">AES-256</div>
+                    <div class="stat-number">libsodium</div>
                     <div class="stat-label">Encryption</div>
                 </div>
             </div>
@@ -747,7 +747,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">&#129302;</div>
                     <h3>Multi-Provider Chat</h3>
-                    <p>Chat with GPT-5, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter. Switch providers mid-conversation.</p>
+                    <p>Chat with GPT-5.6, Claude, Gemini, DeepSeek, and 100+ models via OpenRouter. Switch provider at any time; each switch starts a fresh conversation and earlier chats stay in the sidebar.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">&#128194;</div>
@@ -767,12 +767,22 @@
                 <div class="feature-card">
                     <div class="feature-icon">&#128274;</div>
                     <h3>Privacy First</h3>
-                    <p>Your API keys are encrypted with AES-256 and stored locally. Your data never touches our servers.</p>
+                    <p>Your API keys are encrypted with libsodium (XSalsa20-Poly1305) and stored locally. Your data never touches our servers.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">&#128296;</div>
                     <h3>Easy Embedding</h3>
                     <p>Add ChatProjects to any page with a simple shortcode: <code>[chatprojects_main]</code></p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128172;</div>
+                    <h3>Website Chat Widget</h3>
+                    <p>Put a project's assistant on your public site with <code>[chatprojects_widget project="123"]</code>. Visitors get answers from your documents, with rate limits and a daily cap to control cost.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128240;</div>
+                    <h3>Auto-RAG</h3>
+                    <p>Index your published posts and pages into a project (up to 100 per project) so the assistant can answer from your site's content. Edits are re-indexed and unpublished posts are removed.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">&#127912;</div>
@@ -794,22 +804,22 @@
                 <div class="provider-card">
                     <div class="provider-logo">AI</div>
                     <h4>OpenAI</h4>
-                    <p class="models">GPT-4o, GPT-4o-mini, GPT-4-turbo, o1</p>
+                    <p class="models">GPT-5.6 Sol / Terra / Luna, GPT-5.5, GPT-5.4 family</p>
                 </div>
                 <div class="provider-card">
                     <div class="provider-logo">A</div>
                     <h4>Anthropic</h4>
-                    <p class="models">Claude Sonnet 4, Claude 3.5, Claude 3 Haiku</p>
+                    <p class="models">Claude Opus 5.5, Fable 5.1, Sonnet 5.5, Haiku 4.5</p>
                 </div>
                 <div class="provider-card">
                     <div class="provider-logo">G</div>
                     <h4>Google Gemini</h4>
-                    <p class="models">Gemini 3 Pro, 2.5 Pro, 2.0 Flash</p>
+                    <p class="models">Gemini 3.8 Flash, 3.5 Flash Lite, 3.1 Pro</p>
                 </div>
                 <div class="provider-card">
                     <div class="provider-logo">C</div>
                     <h4>Chutes</h4>
-                    <p class="models">DeepSeek V3, DeepSeek R1, Qwen, Mistral, Llama</p>
+                    <p class="models">DeepSeek V4 Flash, DeepSeek V3.2, and more</p>
                 </div>
                 <div class="provider-card">
                     <div class="provider-logo">OR</div>
@@ -929,7 +939,7 @@
                 <tbody>
                     <tr>
                         <td>Projects</td>
-                        <td>5 (shared)</td>
+                        <td>Unlimited (per user)</td>
                         <td>Unlimited</td>
                     </tr>
                     <tr>
@@ -958,8 +968,13 @@
                         <td><span class="check">&#10003;</span></td>
                     </tr>
                     <tr>
+                        <td>Website Chat Widget</td>
+                        <td><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
                         <td>Per-User Projects</td>
-                        <td><span class="cross">&mdash;</span></td>
+                        <td><span class="check">&#10003;</span></td>
                         <td><span class="check">&#10003;</span></td>
                     </tr>
                     <tr>
@@ -1016,25 +1031,25 @@
                 <div class="faq-item">
                     <div class="faq-question">Where are my API keys stored?</div>
                     <div class="faq-answer">
-                        <p>Your API keys are encrypted using AES-256-CBC and stored in your WordPress database. They never leave your server or touch our systems.</p>
+                        <p>Your API keys are encrypted using libsodium (XSalsa20-Poly1305) and stored in your WordPress database. Each key is only ever sent to its own AI provider, never to us.</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <div class="faq-question">What file types can I upload?</div>
                     <div class="faq-answer">
-                        <p>PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, HTML, CSS, JS, PY, PHP. Default max size is 50MB per file (configurable up to 512MB).</p>
+                        <p>PDF, DOC, DOCX, TXT, MD, CSV, JSON, XML, CSS, PY, Java, C++. Executable and script types (such as PHP, JS and HTML) are always refused. Default max size is 50MB per file (configurable up to 512MB).</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <div class="faq-question">Can multiple users access the same project?</div>
                     <div class="faq-answer">
-                        <p>Yes! In the Free version, there are 5 shared projects accessible to all logged-in users. Pro version adds per-user projects and sharing controls.</p>
+                        <p>Not in the Free version: each user has their own projects, which are private to them (administrators can see all projects). Pro version adds project sharing controls.</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <div class="faq-question">Can I use this on client sites?</div>
                     <div class="faq-answer">
-                        <p>Yes! The Free version is GPL licensed. For commercial use with advanced features like per-user projects and transcription, consider the Pro version.</p>
+                        <p>Yes! The Free version is GPL licensed. For commercial use with advanced features like project sharing and transcription, consider the Pro version.</p>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -1046,7 +1061,7 @@
                 <div class="faq-item">
                     <div class="faq-question">What are the requirements?</div>
                     <div class="faq-answer">
-                        <p>WordPress 5.8 or higher, PHP 7.4 or higher, and at least one API key from OpenAI, Anthropic, Google, Chutes, or OpenRouter.</p>
+                        <p>WordPress 6.6 or higher, PHP 8.0 or higher, and at least one API key from OpenAI, Anthropic, Google, Chutes, or OpenRouter.</p>
                     </div>
                 </div>
             </div>
@@ -1059,7 +1074,7 @@
             <div class="footer-content">
                 <div class="footer-brand">
                     <a href="#" class="logo"><span>Chat</span>Projects</a>
-                    <p>AI-powered project management for WordPress. Your keys. Your data. Your server.</p>
+                    <p>AI-powered project management for WordPress. Your keys, on your server. No middleman.</p>
                 </div>
                 <div class="footer-links">
                     <h4>Product</h4>

@@ -14,9 +14,7 @@
  * Base Styles & Design Tokens
  */
 @layer base {
-  /* Inter font from Google Fonts */
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+  /* No remote fonts: the Tailwind font stacks fall back to system fonts. */
 
   /* Root variables for JavaScript access */
   :root {

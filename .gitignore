@@ -64,3 +64,11 @@ CLAUDE.md
 .claude/
 wp-config.php
 .htaccess
+
+# PHP must never live in the built asset tree
+assets/dist/*.php
+assets/dist/templates/
+assets/dist/.vite/
+
+# Local deploy script (server logins; not published)
+deploy.sh

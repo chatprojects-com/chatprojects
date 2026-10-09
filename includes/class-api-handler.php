@@ -49,7 +49,7 @@ class API_Handler {
      */
     public function __construct() {
         $this->api_key = Security::get_api_key();
-        $this->default_model = get_option('chatprojects_default_model', 'gpt-5.2-chat-latest');
+        $this->default_model = get_option('chatprojects_default_model', \ChatProjects\Model_Registry::get_default('openai'));
     }
 
     /**
@@ -163,8 +163,7 @@ class API_Handler {
     public function upload_file($file_path, $purpose = 'assistants', $original_filename = null) {
         if (!file_exists($file_path)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: File not found: ' . $file_path);
+                Security::debug_log('[ChatProjects] upload_file: File not found: ' . $file_path);
             }
             return new \WP_Error('file_not_found', __('File not found.', 'chatprojects'));
         }
@@ -182,8 +181,7 @@ class API_Handler {
         $filename = $original_filename ? $original_filename : basename($file_path);
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] upload_file: Starting upload - ' . $filename . ' (' . strlen($file_contents) . ' bytes)');
+            Security::debug_log('[ChatProjects] upload_file: Starting upload - ' . $filename . ' (' . strlen($file_contents) . ' bytes)');
         }
 
 
@@ -207,8 +205,7 @@ class API_Handler {
 
         if (is_wp_error($response)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: WP_Error - ' . $response->get_error_message());
+                Security::debug_log('[ChatProjects] upload_file: WP_Error - ' . $response->get_error_message());
             }
             return $response;
         }
@@ -220,18 +217,14 @@ class API_Handler {
         if ($status_code < 200 || $status_code >= 300) {
             $error_message = isset($decoded['error']['message']) ? $decoded['error']['message'] : __('Unknown API error', 'chatprojects');
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] upload_file: API error ' . $status_code . ' - ' . $error_message);
-                error_log('[ChatProjects] upload_file: Response body: ' . $body);
-                // phpcs:enable WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                Security::debug_log('[ChatProjects] upload_file: API error ' . $status_code . ' - ' . $error_message);
             }
             return new \WP_Error('api_error', $error_message, array('status' => $status_code));
         }
 
         $file_id = isset($decoded['id']) ? $decoded['id'] : 'unknown';
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] upload_file: SUCCESS - File uploaded with ID: ' . $file_id);
+            Security::debug_log('[ChatProjects] upload_file: SUCCESS - File uploaded with ID: ' . $file_id);
         }
 
         return $decoded;
@@ -323,7 +316,7 @@ class API_Handler {
         $body .= $file_contents . "\r\n";
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
-        $body .= "whisper-1\r\n";
+        $body .= Model_Registry::get_utility_model( 'transcribe' ) . "\r\n";
 
         if (!empty($language)) {
             $body .= "--{$boundary}\r\n";
@@ -422,8 +415,7 @@ class API_Handler {
         if (!empty($previous_response_id)) {
             $data['previous_response_id'] = $previous_response_id;
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+                Security::debug_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
             }
         }
 
@@ -434,10 +426,28 @@ class API_Handler {
                 $data['tools'][0]['max_num_results'] = $options['max_num_results'];
                 unset($options['max_num_results']);
             }
-            $data = array_merge($data, $options);
         }
+        $data = $this->apply_model_params($data, $model, $options);
 
         return $this->make_request('responses', $data);
+    }
+
+    /**
+     * Merge model-dependent parameters into a Responses API body.
+     *
+     * Reasoning models reject temperature and take reasoning.effort instead;
+     * the registry decides. Remaining caller options are merged verbatim.
+     *
+     * @param array  $data    Request body so far.
+     * @param string $model   Model id.
+     * @param array  $options Caller options.
+     * @return array
+     */
+    private function apply_model_params($data, $model, $options) {
+        $options = is_array($options) ? $options : array();
+        $data    = array_merge($data, Model_Registry::openai_request_params($model, $options));
+        unset($options['temperature'], $options['max_tokens'], $options['reasoning_effort']);
+        return array_merge($data, $options);
     }
 
     /**
@@ -459,7 +469,7 @@ class API_Handler {
             array('role' => 'user', 'content' => $prompt),
         );
 
-        $response = $this->create_chat_completion($messages, 'gpt-4o');
+        $response = $this->create_chat_completion($messages, Model_Registry::get_utility_model('enhance'));
 
         if (is_wp_error($response)) {
             return $response;
@@ -497,77 +507,9 @@ class API_Handler {
             $data['instructions'] = $instructions;
         }
 
-        // Merge any additional options
-        if (!empty($options)) {
-            $data = array_merge($data, $options);
-        }
+        $data = $this->apply_model_params($data, $model, $options);
 
         return $this->make_request('responses', $data);
-    }
-
-    /**
-     * Stream response using Responses API (without file search)
-     *
-     * @param array|string $input Messages array or single message string
-     * @param callable     $callback Callback function for each chunk
-     * @param string       $model Model to use
-     * @param string       $instructions System instructions
-     * @param array        $options Additional options
-     * @param string       $previous_response_id Previous response ID for conversation continuity
-     * @return string|null Response ID from the API
-     */
-    public function stream_response($input, $callback, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
-        if (!$this->has_api_key()) {
-            $callback(array('type' => 'error', 'content' => 'OpenAI API key is not configured'));
-            return null;
-        }
-
-        if (null === $model) {
-            $model = $this->default_model;
-        }
-
-        $url = self::API_BASE_URL . 'responses';
-
-        // Responses API with streaming enabled
-        $data = array(
-            'model'  => $model,
-            'input'  => $input,
-            'stream' => true,
-        );
-
-        // Add instructions if provided
-        if (!empty($instructions)) {
-            $data['instructions'] = $instructions;
-        }
-
-        // Add previous response ID for conversation continuity
-        if (!empty($previous_response_id)) {
-            $data['previous_response_id'] = $previous_response_id;
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
-            }
-        }
-
-        // Merge any additional options
-        $data = array_merge($data, $options);
-
-        // Context for tracking state (not used for non-file-search but required by method)
-        $context = array();
-
-        // Use WordPress HTTP API streaming
-        $response_id = $this->make_streaming_request($url, $data, $callback, $context);
-
-        // Handle streaming errors (make_streaming_request returns error strings)
-        if (is_string($response_id) && (strpos($response_id, 'error:') !== false || strpos($response_id, 'Error:') !== false)) {
-            $callback(array('type' => 'error', 'content' => $response_id));
-            return null;
-        }
-
-        $callback(array('type' => 'done'));
-
-        // Return the captured response_id for conversation continuity
-        return $response_id;
     }
 
     /**
@@ -606,8 +548,13 @@ class API_Handler {
      * @param string   $url      API URL
      * @param array    $data     Request data
      * @param callable $callback Callback for each parsed event
-     * @param array    $context  Context data (for annotations tracking)
-     * @return bool|string True on success, error message on failure
+     * @param array    $context  Context data (sources/annotations tracking)
+     * @return array {
+     *     @type string|null $response_id Response ID from response.completed / response.incomplete.
+     *     @type string|null $error       Error message, if the request failed before streaming.
+     *     @type string      $error_code  Provider error code, if any.
+     *     @type int         $status      HTTP status code.
+     * }
      */
     private function make_streaming_request( $url, $data, $callback, &$context = array() ) {
         // Track response_id from response.completed event
@@ -636,25 +583,10 @@ class API_Handler {
                 }
 
                 // Parse SSE event.
-                $event_type = null;
                 $event_data = null;
-
-                $lines = explode( "\n", $part );
-                foreach ( $lines as $line ) {
-                    if ( strpos( $line, 'event: ' ) === 0 ) {
-                        $event_type = substr( $line, 7 );
-                    } elseif ( strpos( $line, 'data: ' ) === 0 ) {
-                        $event_data = substr( $line, 6 );
-                    }
-                }
-
-                // If no event data found, check for data: without space.
-                if ( null === $event_data ) {
-                    foreach ( $lines as $line ) {
-                        if ( strpos( $line, 'data:' ) === 0 ) {
-                            $event_data = trim( substr( $line, 5 ) );
-                            break;
-                        }
+                foreach ( explode( "\n", $part ) as $line ) {
+                    if ( strpos( $line, 'data:' ) === 0 ) {
+                        $event_data = trim( substr( $line, 5 ) );
                     }
                 }
 
@@ -718,18 +650,37 @@ class API_Handler {
                         }
                     }
                 } elseif ( 'response.completed' === $type ) {
-                    // Handle response completion - capture response_id for conversation continuity.
+                    // Capture response_id for conversation continuity.
                     // The response.completed event has the ID in response.id
                     if ( isset( $decoded['response']['id'] ) ) {
                         $response_id = $decoded['response']['id'];
                         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                            error_log( '[ChatProjects] Captured response_id: ' . $response_id );
+                            Security::debug_log( '[ChatProjects] Captured response_id: ' . $response_id );
                         }
                     }
-                } elseif ( 'error' === $type ) {
-                    // Handle errors.
-                    $error_msg = isset( $decoded['error']['message'] ) ? $decoded['error']['message'] : 'Unknown streaming error';
+                } elseif ( 'response.incomplete' === $type ) {
+                    // The reply was cut short (e.g. max_output_tokens). It still has an ID to chain from.
+                    if ( isset( $decoded['response']['id'] ) ) {
+                        $response_id = $decoded['response']['id'];
+                    }
+                    $reason = isset( $decoded['response']['incomplete_details']['reason'] ) ? $decoded['response']['incomplete_details']['reason'] : '';
+                    $callback(
+                        array(
+                            'type'    => 'content',
+                            'content' => SSE_Stream_Manager::truncation_notice( $reason ),
+                        )
+                    );
+                } elseif ( 'response.failed' === $type || 'error' === $type ) {
+                    // Stream "error" events carry message at the top level; response.failed nests it.
+                    if ( isset( $decoded['response']['error']['message'] ) ) {
+                        $error_msg = $decoded['response']['error']['message'];
+                    } elseif ( isset( $decoded['message'] ) ) {
+                        $error_msg = $decoded['message'];
+                    } elseif ( isset( $decoded['error']['message'] ) ) {
+                        $error_msg = $decoded['error']['message'];
+                    } else {
+                        $error_msg = __( 'The AI provider reported an error while generating the reply.', 'chatprojects' );
+                    }
                     $callback(
                         array(
                             'type'    => 'error',
@@ -745,44 +696,80 @@ class API_Handler {
         $response = $manager->stream_request( $url, $data, $headers, $callback, $parser );
 
         if ( is_wp_error( $response ) ) {
-            return 'Connection error: ' . $response->get_error_message();
+            return array(
+                /* translators: %s: connection error message */
+                'error'       => sprintf( __( 'Connection error: %s', 'chatprojects' ), $response->get_error_message() ),
+                'error_code'  => '',
+                'status'      => 0,
+                'response_id' => null,
+            );
         }
 
-        $status_code = wp_remote_retrieve_response_code( $response );
+        $status_code = (int) wp_remote_retrieve_response_code( $response );
         if ( $status_code >= 400 ) {
-            return 'HTTP error: ' . $status_code;
+            return array(
+                'error'       => SSE_Stream_Manager::error_message( $response ),
+                'error_code'  => SSE_Stream_Manager::error_code( $response ),
+                'status'      => $status_code,
+                'response_id' => null,
+            );
         }
 
-        // Return the captured response_id for conversation continuity
-        return $response_id;
+        return array(
+            'error'       => null,
+            'error_code'  => '',
+            'status'      => $status_code,
+            'response_id' => $response_id,
+        );
+    }
+
+    /**
+     * Whether a failed request was rejected because previous_response_id is gone.
+     *
+     * Stored responses expire (or may never have been stored), and every later
+     * turn would keep failing on the same ID unless the caller starts over.
+     *
+     * @param array $result Result from make_streaming_request().
+     * @return bool
+     */
+    private function is_stale_previous_response($result) {
+        if (empty($result['error']) || !in_array((int) $result['status'], array(400, 404), true)) {
+            return false;
+        }
+        return 'previous_response_not_found' === $result['error_code']
+            || false !== stripos((string) $result['error'], 'previous response')
+            || false !== stripos((string) $result['error'], 'previous_response_id');
     }
 
     /**
      * Stream response with file search using Responses API
      *
-     * @param string   $input User input/message
+     * When $previous_response_id is rejected as missing/expired, the request is
+     * retried once without it, using $options['fallback_input'] (the full
+     * conversation) when provided.
+     *
+     * @param string|array $input User input/message, or a list of conversation messages
      * @param string   $vector_store_id Vector store ID
      * @param callable $callback Callback function for each chunk
      * @param string   $model Model to use
      * @param string   $instructions Optional system instructions
-     * @param array    $options Additional options
+     * @param array    $options Additional options (fallback_input: input to resend without previous_response_id)
      * @param string   $previous_response_id Previous response ID for conversation continuity
      * @return string|null Response ID from the API
      */
     public function stream_response_with_filesearch($input, $vector_store_id, $callback, $model = null, $instructions = '', $options = array(), $previous_response_id = null) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-            error_log('[ChatProjects] stream_response_with_filesearch called - VERSION 2.0 WITH FIXES');
-        }
-
         if (!$this->has_api_key()) {
-            $callback(array('type' => 'error', 'content' => 'OpenAI API key is not configured'));
+            $callback(array('type' => 'error', 'content' => __('OpenAI API key is not configured.', 'chatprojects')));
             return null;
         }
 
         if (null === $model) {
             $model = $this->default_model;
         }
+
+        $options        = is_array($options) ? $options : array();
+        $fallback_input = isset($options['fallback_input']) ? $options['fallback_input'] : $input;
+        unset($options['fallback_input']);
 
         $url = self::API_BASE_URL . 'responses';
 
@@ -808,13 +795,11 @@ class API_Handler {
         if (!empty($previous_response_id)) {
             $data['previous_response_id'] = $previous_response_id;
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for development
-                error_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
+                Security::debug_log('[ChatProjects] Including previous_response_id: ' . $previous_response_id);
             }
         }
 
-        // Merge any additional options
-        $data = array_merge($data, $options);
+        $data = $this->apply_model_params($data, $model, $options);
 
         // Context to track sources/annotations across streaming events
         $context = array(
@@ -823,11 +808,22 @@ class API_Handler {
         );
 
         // Use WordPress HTTP API streaming
-        $response_id = $this->make_streaming_request($url, $data, $callback, $context);
+        $result = $this->make_streaming_request($url, $data, $callback, $context);
 
-        // Handle streaming errors (make_streaming_request returns error strings)
-        if (is_string($response_id) && (strpos($response_id, 'error:') !== false || strpos($response_id, 'Error:') !== false)) {
-            $callback(array('type' => 'error', 'content' => $response_id));
+        // The stored conversation is gone: start a fresh chain with the full history.
+        if (!empty($previous_response_id) && $this->is_stale_previous_response($result)) {
+            Security::debug_log('[ChatProjects] previous_response_id rejected, resending conversation without it');
+            unset($data['previous_response_id']);
+            $data['input'] = $fallback_input;
+            $context       = array(
+                'sources'     => array(),
+                'annotations' => array(),
+            );
+            $result = $this->make_streaming_request($url, $data, $callback, $context);
+        }
+
+        if (!empty($result['error'])) {
+            $callback(array('type' => 'error', 'content' => $result['error']));
             return null;
         }
 
@@ -857,6 +853,6 @@ class API_Handler {
         $callback(array('type' => 'done'));
 
         // Return the captured response_id for conversation continuity
-        return $response_id;
+        return $result['response_id'];
     }
 }
