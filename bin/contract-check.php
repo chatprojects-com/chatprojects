@@ -131,6 +131,25 @@ function function_body($src, $function) {
 }
 
 /**
+ * Which of $names are called in a PHP code fragment (tokenized, so
+ * comments and strings don't count).
+ */
+function function_calls($code, array $names) {
+    $tokens = token_get_all('<?php ' . $code);
+    $found  = array();
+    foreach ($tokens as $i => $token) {
+        if (!is_array($token) || T_STRING !== $token[0] || !in_array($token[1], $names, true)) {
+            continue;
+        }
+        for ($j = $i + 1; isset($tokens[$j]) && is_array($tokens[$j]) && in_array($tokens[$j][0], array(T_WHITESPACE, T_COMMENT, T_DOC_COMMENT), true); $j++);
+        if (isset($tokens[$j]) && '(' === $tokens[$j]) {
+            $found[$token[1]] = true;
+        }
+    }
+    return array_keys($found);
+}
+
+/**
  * Canonical shared-table definitions from CONTRACT.md.
  */
 function contract_tables($contract) {
@@ -261,8 +280,8 @@ foreach ($products as $name => $dir) {
         report(false, "$name has Installer::migrate_models()");
         continue;
     }
-    preg_match_all('/\b(resolve(?:_media)?|get_default)\s*\(/', $body, $calls);
-    report(empty($calls[1]), "$name's model migration never falls back to a default", $calls[1] ? 'calls ' . implode('(), ', array_unique($calls[1])) . '() on stored ids' : '');
+    $calls = function_calls($body, array('resolve', 'resolve_media', 'get_default'));
+    report(empty($calls), "$name's model migration never falls back to a default", $calls ? 'calls ' . implode('(), ', $calls) . '() on stored ids' : '');
 }
 
 // Schema version options.
