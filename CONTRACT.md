@@ -63,7 +63,7 @@ KEY created_idx (created_at)
 ```
 
 - Pro-only columns on chats: `branched_from_chat_id bigint(20) unsigned DEFAULT NULL`, `branched_from_message_id bigint(20) unsigned DEFAULT NULL`, `branch_label varchar(100) DEFAULT NULL`, `KEY branch_idx (branched_from_chat_id)`.
-- `model` has no product-specific default (each product's default model differs and `dbDelta()` would keep rewriting it). Code always sets `model` on insert.
+- `chats.model` has no column default (each product's default model differs, so a product-specific default would make the schemas disagree). **Both products MUST set `model` on every insert into `chats`**, including project chats; a new insert path that omits it writes NULL.
 
 Product-only tables (the other product must never create, alter or drop them):
 - Free: `chatprojects_indexed_content`, `chatprojects_widget_visitor_sessions`, `chatprojects_widget_visitor_messages`.

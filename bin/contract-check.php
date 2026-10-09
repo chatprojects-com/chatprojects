@@ -67,27 +67,43 @@ function parse_table_body($body) {
 }
 
 /**
- * Shared-table DDL declared in a plugin's installer.
+ * Table a CREATE TABLE statement creates, from its name token
+ * ("{$chats_table}", "$this->chats_table", "{$wpdb->prefix}chatprojects_chats").
+ * A variable resolves to its nearest preceding assignment; null if the
+ * statement doesn't create one of $tables.
  */
-function installer_tables($installer_src, array $tables) {
-    $found = array();
-    if (!preg_match_all('/CREATE TABLE(?: IF NOT EXISTS)?\s+([^\s(]+)\s*\(/i', $installer_src, $mm, PREG_OFFSET_CAPTURE)) {
+function resolve_created_table($src, $token, $offset, array $tables) {
+    if (preg_match('/(chatprojects_\w+)/', $token, $lit)) {
+        $name = $lit[1];
+    } elseif (preg_match('/\$(?:this->)?(\w+)/', $token, $var)
+        && preg_match_all('/\$(?:this->)?' . preg_quote($var[1], '/') . '\s*=[^;]*?[\'"](chatprojects_\w+)[\'"]/', substr($src, 0, $offset), $assign)) {
+        $name = end($assign[1]);
+    } else {
+        return null;
+    }
+    return in_array($name, $tables, true) ? $name : null;
+}
+
+/**
+ * Shared-table DDL declared in a plugin's installer. Tables created with
+ * CREATE TABLE IF NOT EXISTS are listed in $if_not_exists.
+ */
+function installer_tables($installer_src, array $tables, &$if_not_exists = array()) {
+    $found         = array();
+    $if_not_exists = array();
+    if (!preg_match_all('/CREATE\s+TABLE(\s+IF\s+NOT\s+EXISTS)?\s+([^\s(]+)\s*\(/i', $installer_src, $mm, PREG_OFFSET_CAPTURE)) {
         return $found;
     }
     foreach ($mm[0] as $i => $match) {
-        $start   = $match[1] + strlen($match[0]);
-        $context = substr($installer_src, max(0, $match[1] - 600), 600) . $mm[1][$i][0];
-        $table   = null;
-        foreach ($tables as $t) {
-            // Nearest mention of the table name before this CREATE TABLE.
-            if (preg_match('/' . preg_quote($t, '/') . '(?![a-z_])/', $context) && (null === $table || strrpos($context, $t) > strrpos($context, $table))) {
-                $table = $t;
-            }
-        }
+        $table = resolve_created_table($installer_src, $mm[2][$i][0], $match[1], $tables);
         if (null === $table) {
             continue;
         }
+        if ('' !== $mm[1][$i][0]) {
+            $if_not_exists[] = $table;
+        }
         // Body runs to the ") $charset_collate" / ") {$charset_collate}" that closes it.
+        $start = $match[1] + strlen($match[0]);
         if (!preg_match('/\)\s*\{?\$charset_collate/', $installer_src, $end, PREG_OFFSET_CAPTURE, $start)) {
             continue;
         }
@@ -213,8 +229,9 @@ foreach ($products as $name => $dir) {
     $src = read_file("$dir/includes/class-installer.php");
     report(null !== $src, "$name has includes/class-installer.php");
     if (null !== $src) {
-        compare_to_contract($name, installer_tables($src, array_keys($canonical)), $canonical);
-        report(!preg_match('/CREATE TABLE IF NOT EXISTS[^;]*chatprojects_(chats|messages)\b/i', $src), "$name creates shared tables with dbDelta (no IF NOT EXISTS)");
+        $declared = installer_tables($src, array_keys($canonical), $if_not_exists);
+        compare_to_contract($name, $declared, $canonical);
+        report(!empty($declared) && empty($if_not_exists), "$name creates shared tables with dbDelta (no IF NOT EXISTS)", $if_not_exists ? 'IF NOT EXISTS on: ' . implode(', ', array_unique($if_not_exists)) : '');
     }
 }
 

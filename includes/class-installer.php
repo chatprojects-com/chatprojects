@@ -250,7 +250,7 @@ class Installer {
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             chat_mode varchar(20) DEFAULT 'project',
             provider varchar(50) DEFAULT 'openai',
-            model varchar(100) DEFAULT '" . esc_sql( Model_Registry::get_default( 'openai' ) ) . "',
+            model varchar(100) DEFAULT NULL,
             project_id bigint(20) unsigned DEFAULT NULL,
             thread_id varchar(255) DEFAULT NULL,
             user_id bigint(20) unsigned NOT NULL,

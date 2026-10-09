@@ -141,7 +141,7 @@ class Chat_Interface {
         $result = $wpdb->insert($table, array(
             'chat_mode' => 'general',
             'provider' => $provider,
-            'model' => $model,
+            'model' => Model_Registry::resolve($provider, $model),
             'project_id' => null,
             'thread_id' => null, // No longer used
             'user_id' => $user_id,
@@ -378,13 +378,15 @@ class Chat_Interface {
         $result = $wpdb->insert($table, array(
             'chat_mode' => 'project',
             'provider' => 'openai',
+            // chats.model has no column default (CONTRACT.md §3): always set it.
+            'model' => Model_Registry::resolve('openai', get_post_meta($project_id, '_cp_model', true), get_option('chatprojects_default_model')),
             'project_id' => $project_id,
             'user_id' => get_current_user_id(),
             'title' => sanitize_text_field($title),
             'message_count' => 0,
             'created_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
-        ), array('%s', '%s', '%d', '%d', '%s', '%d', '%s', '%s'));
+        ), array('%s', '%s', '%s', '%d', '%d', '%s', '%d', '%s', '%s'));
 
         if ($result === false) {
             return new \WP_Error('db_error', __('Failed to create chat record.', 'chatprojects'));
