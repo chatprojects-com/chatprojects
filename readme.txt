@@ -145,6 +145,11 @@ Use the WordPress.org support forum or email support@chatprojects.com
 * **Fixed:** Real error messages from AI providers are shown instead of "HTTP error: 400"; replies cut off by length or content filters are marked as incomplete.
 * **Fixed:** Chutes now streams and receives the system prompt; Chutes and OpenRouter use each model's own temperature and length defaults.
 * **Fixed:** Auto-RAG removes posts from the index when they are unpublished, made private, password-protected or deleted, and re-indexes edited posts.
+* **Fixed:** Saving one settings tab no longer resets the settings on the other tabs.
+* **Fixed:** Project chat shows its sources again; a failed reply no longer stays stuck; Stop now stops the AI request; reopened chats show the latest messages.
+* **Fixed:** Changing your email from ChatProjects settings now completes from the confirmation link; the theme choice is remembered.
+* **Fixed:** Installing ChatProjects while ChatProjects Pro is active no longer causes a fatal error.
+* **Changed:** The chat widget stores its data in new tables (moved automatically on update).
 * **Models:** Claude Opus 5.5 (new default) and Claude Sonnet 5.5. Claude requests opt into Anthropic's server-side fallback when a safety classifier declines.
 * **Models:** Images are only sent to models that can read them.
 * **Compliance:** The widget's "Powered by ChatProjects" link is now opt-in. Google Fonts are no longer loaded from Google's servers. DOMPurify's licence is included.
