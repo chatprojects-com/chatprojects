@@ -113,6 +113,7 @@ class ChatProjects {
         // Projects are private workspaces: keep them out of sitemaps and embeds.
         add_filter('wp_sitemaps_post_types', array($this, 'exclude_projects_from_sitemaps'));
         add_action('template_redirect', array($this, 'block_project_embeds'));
+        add_filter('oembed_request_post_id', array($this, 'block_project_oembed'));
 
         // Add type="module" attribute to our scripts (must be registered early)
         add_filter('script_loader_tag', array($this, 'add_module_type_to_scripts'), 10, 2);
@@ -152,6 +153,17 @@ class ChatProjects {
             status_header(404);
             nocache_headers();
         }
+    }
+
+    /**
+     * The oEmbed API (/wp-json/oembed/1.0/embed) would return a project's title
+     * and author to anyone; treat projects as not embeddable.
+     *
+     * @param int $post_id Post ID resolved from the requested URL.
+     * @return int
+     */
+    public function block_project_oembed($post_id) {
+        return 'chatpr_project' === get_post_type($post_id) ? 0 : $post_id;
     }
 
     /**

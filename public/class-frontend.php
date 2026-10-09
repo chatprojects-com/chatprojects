@@ -282,8 +282,8 @@ class Frontend {
                 exit;
             }
 
-            // Check if user has ChatProjects permissions
-            if (!User_Roles::can_use_chatprojects()) {
+            // Check if user has ChatProjects permissions, and may open this project
+            if (!User_Roles::can_use_chatprojects() || !Access::can_access_project(get_queried_object_id())) {
                 $this->render_access_denied_page();
                 exit;
             }
@@ -397,6 +397,11 @@ class Frontend {
         // Prevent browser caching to ensure fresh nonces and scripts
         nocache_headers();
 
+        // Link from the email-change confirmation message.
+        if (isset($_GET['chatpr_confirm_email'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The secret hash in the link is the check, as in core.
+            $this->confirm_pending_email(sanitize_text_field(wp_unslash($_GET['chatpr_confirm_email']))); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        }
+
         // Ensure jQuery is loaded
         wp_enqueue_script('jquery');
 
@@ -509,6 +514,36 @@ class Frontend {
             include $template;
             exit;
         }
+    }
+
+    /**
+     * Complete a pending email change for the current user.
+     *
+     * Same checks as core's profile.php?newuseremail=: the hash must match the
+     * _new_email meta stored when the change was requested.
+     *
+     * @param string $hash Hash from the confirmation link.
+     */
+    private function confirm_pending_email($hash) {
+        $user_id = get_current_user_id();
+        $pending = get_user_meta($user_id, '_new_email', true);
+        $ok      = false;
+
+        if (is_array($pending) && !empty($pending['hash']) && is_string($hash) && hash_equals($pending['hash'], $hash)
+            && is_email($pending['newemail']) && !email_exists($pending['newemail'])) {
+            $result = wp_update_user(array(
+                'ID'         => $user_id,
+                'user_email' => $pending['newemail'],
+            ));
+            $ok = !is_wp_error($result);
+        }
+        if ($ok) {
+            delete_user_meta($user_id, '_new_email');
+        }
+
+        $slugs = \ChatProjects\ChatProjects::get_slugs();
+        wp_safe_redirect(add_query_arg('email_change', $ok ? 'confirmed' : 'failed', home_url('/' . $slugs['settings'] . '/')));
+        exit;
     }
 
     /**

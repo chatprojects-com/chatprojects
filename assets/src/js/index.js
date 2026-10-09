@@ -142,6 +142,9 @@ export function initToastContainer() {
         toastManager = new ToastManager();
     }
     window.VPToast = toastManager;
+    // Used by the classic (non-module) scripts in assets/js/.
+    window.showToast = showToast;
+    window.vpShowNotification = (message, type) => showToast(message, type === 'error' ? 'error' : 'success');
     return toastManager;
 }
 

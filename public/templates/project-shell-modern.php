@@ -28,7 +28,7 @@ call_user_func(function () {
 
     // Check access
     if (!ChatProjects\Access::can_access_project($project_id)) {
-        wp_die(esc_html__('You do not have permission to access this project.', 'chatprojects'));
+        wp_die(esc_html__('You do not have permission to access this project.', 'chatprojects'), '', array('response' => 403));
     }
 
     // Get project metadata (no assistant_id needed with Responses API)
@@ -288,9 +288,14 @@ call_user_func(function () {
                                                         window.dispatchEvent(new CustomEvent("chatpr:chat:updated", { detail: { threadId: self.threadId } }));
                                                     } else if (parsed.type === "sources" && parsed.sources) {
                                                         assistantMessage.sources = parsed.sources;
+                                                        var sIdx = self.messages.findIndex(function(m) { return m.streaming && m.role === "assistant"; });
+                                                        if (sIdx !== -1) {
+                                                            self.messages[sIdx] = Object.assign({}, self.messages[sIdx], { sources: parsed.sources });
+                                                            self.messages = self.messages.slice();
+                                                        }
                                                     } else if (parsed.type === "error") {
                                                         if (window.VPToast) window.VPToast.error(parsed.content || "An error occurred");
-                                                        self.messages = self.messages.filter(function(m) { return m !== assistantMessage; });
+                                                        self.messages = self.messages.filter(function(m) { return !(m.role === "assistant" && m.streaming); });
                                                         return;
                                                     } else if (parsed.type === "title_update" && parsed.title) {
                                                         // Handle title update from SSE
@@ -298,9 +303,16 @@ call_user_func(function () {
                                                             detail: { chatId: parsed.chat_id, title: parsed.title }
                                                         }));
                                                     }
-                                                    // Note: We do NOT break on parsed.type === "done" because
-                                                    // our endpoint sends chat_id and title_update AFTER the API
-                                                    // stream completes. We only break on data: [DONE] marker.
+                                                    else if (parsed.type === "done") {
+                                                        // The reply is complete: unlock the UI now. Keep reading until
+                                                        // [DONE], because chat_id and title_update come after "done".
+                                                        var dIdx = self.messages.findIndex(function(m) { return m.streaming && m.role === "assistant"; });
+                                                        if (dIdx !== -1) {
+                                                            self.messages[dIdx] = Object.assign({}, self.messages[dIdx], { streaming: false });
+                                                            self.messages = self.messages.slice();
+                                                        }
+                                                        self.streaming = false;
+                                                    }
                                                 } catch (parseErr) {
                                                     // Ignore JSON parse errors for incomplete chunks
                                                 }
@@ -324,7 +336,7 @@ call_user_func(function () {
                                             ? "Server error: " + err.message
                                             : "Failed to get response: " + (err.message || err.name || "unknown error");
                                         if (window.VPToast) window.VPToast.error(errorMsg);
-                                        self.messages = self.messages.filter(function(m) { return m !== assistantMessage; });
+                                        self.messages = self.messages.filter(function(m) { return !(m.role === "assistant" && m.streaming); });
                                     }
                                 } finally {
                                     self.streaming = false;
@@ -522,7 +534,7 @@ call_user_func(function () {
                                 </svg>
                                 <?php esc_html_e('View All Projects', 'chatprojects'); ?>
                             </a>
-                            <button id="vp-new-project-btn" data-href="<?php echo esc_url(home_url('/projects/?action=new')); ?>" class="btn-primary w-full">
+                            <button id="vp-new-project-btn" data-href="<?php echo esc_url(add_query_arg('action', 'new', home_url('/' . $slugs['projects'] . '/'))); ?>" class="btn-primary w-full">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                 </svg>

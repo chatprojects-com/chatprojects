@@ -416,7 +416,7 @@ class Installer {
             if (!is_string($old) || '' === $old) {
                 continue;
             }
-            $new = Model_Registry::resolve($provider, $old);
+            $new = self::migrated_model($provider, $old);
             if ($new !== $old) {
                 update_option($option, $new);
                 $summary['options']++;
@@ -433,7 +433,7 @@ class Installer {
             if (!is_string($old) || '' === $old) {
                 continue;
             }
-            $new = Model_Registry::resolve('openai', $old);
+            $new = self::migrated_model('openai', $old);
             if ($new === $old) {
                 continue;
             }
@@ -457,7 +457,7 @@ class Installer {
             foreach ((array) $rows as $row) {
                 $provider = !empty($row->provider) ? $row->provider : 'openai';
                 $old      = (string) $row->model;
-                $new      = Model_Registry::resolve($provider, $old);
+                $new      = self::migrated_model($provider, $old);
                 if ($new === $old) {
                     continue;
                 }
@@ -585,6 +585,22 @@ class Installer {
     }
 
     /**
+     * Current replacement for a retired model id, or the id unchanged.
+     *
+     * Only ids in the legacy map are rewritten. Unknown ids are left alone:
+     * models added through the chatprojects_models filter (e.g. by a theme)
+     * aren't registered yet when upgrades run on plugins_loaded.
+     *
+     * @param string $provider Provider id.
+     * @param string $old      Stored model id.
+     * @return string
+     */
+    private static function migrated_model($provider, $old) {
+        $new = Model_Registry::remap_legacy($old);
+        return ($new !== $old && Model_Registry::is_known($provider, $new)) ? $new : $old;
+    }
+
+    /**
      * Re-encrypt API keys stored with the pre-1.3.0 scheme.
      *
      * Runs from maybe_upgrade() on plugins_loaded, before the settings
@@ -622,6 +638,10 @@ class Installer {
      * that pollutes the form fields.
      */
     private static function cleanup_corrupted_keys() {
+        // Stored API keys are never deleted here: a key that can't be decrypted
+        // (e.g. after the site's security keys changed) becomes readable again
+        // if the old keys are restored, and the settings page simply shows it
+        // as not set until it is re-entered.
         $api_key_options = array(
             'chatprojects_openai_key',
             'chatprojects_gemini_key',
@@ -629,43 +649,6 @@ class Installer {
             'chatprojects_chutes_key',
             'chatprojects_openrouter_key',
         );
-
-        foreach ($api_key_options as $option_name) {
-            $value = get_option($option_name, '');
-            if (empty($value)) {
-                continue;
-            }
-
-            // Try to decrypt
-            $decrypted = Security::decrypt($value);
-
-            // Check if decryption failed or produced garbage
-            $is_garbage = false;
-
-            if ($decrypted === false) {
-                $is_garbage = true;
-            } elseif (!empty($decrypted)) {
-                // Valid API keys start with known prefixes
-                $valid_prefixes = array('sk-', 'sk-proj-', 'AIza', 'sk-ant-', 'cpat_', 'cpk_', 'sk-or-');
-                $has_valid_prefix = false;
-                foreach ($valid_prefixes as $prefix) {
-                    if (strpos($decrypted, $prefix) === 0) {
-                        $has_valid_prefix = true;
-                        break;
-                    }
-                }
-
-                // If it doesn't start with a valid prefix and is longer than 20 chars,
-                // it's likely garbage from a failed decryption
-                if (!$has_valid_prefix && strlen($decrypted) > 20) {
-                    $is_garbage = true;
-                }
-            }
-
-            if ($is_garbage) {
-                delete_option($option_name);
-            }
-        }
 
         // Clean up debug options from previous debugging sessions
         delete_option('chatprojects_last_encrypt_fingerprint');

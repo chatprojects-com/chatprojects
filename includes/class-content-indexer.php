@@ -163,7 +163,7 @@ class Content_Indexer {
 		if ( is_wp_error( $this->extract_content( $post_id ) ) ) {
 			// Private, draft, password-protected or trashed: never leave it answerable.
 			foreach ( $projects as $project_id ) {
-				$this->remove_post( $project_id, $post_id );
+				$this->withdraw_post( $project_id, $post_id );
 			}
 			return;
 		}
@@ -186,9 +186,54 @@ class Content_Indexer {
 			if ( $indexable ) {
 				$this->index_post( $project_id, $post_id );
 			} else {
-				$this->remove_post( $project_id, $post_id );
+				$this->withdraw_post( $project_id, $post_id );
 			}
 		}
+	}
+
+	/**
+	 * Take a post that stopped being public out of a project's vector store.
+	 *
+	 * The tracking row is kept with status "removed" (no file) so the post is
+	 * indexed again if it is published again.
+	 *
+	 * @param int $project_id Project ID.
+	 * @param int $post_id    Post ID.
+	 */
+	private function withdraw_post( $project_id, $post_id ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'chatprojects_indexed_content';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
+		$record = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT id, file_id FROM %i WHERE project_id = %d AND post_id = %d',
+				$table,
+				absint( $project_id ),
+				absint( $post_id )
+			)
+		);
+		if ( ! $record ) {
+			return;
+		}
+
+		if ( ! empty( $record->file_id ) ) {
+			$this->remove_file_from_store( $project_id, $record->file_id );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table update
+		$wpdb->update(
+			$table,
+			array(
+				'status'       => 'removed',
+				'file_id'      => null,
+				'content_hash' => '',
+				'updated_at'   => current_time( 'mysql' ),
+			),
+			array( 'id' => $record->id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
 	}
 
 	/**
@@ -445,6 +490,9 @@ class Content_Indexer {
 
 		if ( $results ) {
 			foreach ( $results as $row ) {
+				if ( 'removed' === $row->status ) {
+					continue; // Unpublished posts waiting to be re-indexed.
+				}
 				$status[ $row->status ] = absint( $row->count );
 				$status['total']       += absint( $row->count );
 			}
@@ -707,7 +755,7 @@ class Content_Indexer {
 			$wpdb->prepare(
 				"SELECT ic.*, p.post_title FROM %i ic
 				LEFT JOIN {$wpdb->posts} p ON ic.post_id = p.ID
-				WHERE ic.project_id = %d
+				WHERE ic.project_id = %d AND ic.status <> 'removed'
 				ORDER BY ic.indexed_at DESC
 				LIMIT %d OFFSET %d",
 				$table,

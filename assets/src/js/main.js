@@ -23,12 +23,15 @@ import './chat.js';
  */
 class ThemeManager {
     constructor() {
-        this.theme = this.getStoredTheme() || this.getSystemTheme();
+        const stored = this.getStoredTheme();
+        // No stored choice means "auto": follow the system without saving it.
+        this.followSystem = !stored;
+        this.theme = stored || this.getSystemTheme();
         this.init();
     }
 
     init() {
-        this.applyTheme(this.theme);
+        this.applyTheme(this.theme, !this.followSystem);
         this.setupListeners();
     }
 
@@ -52,7 +55,7 @@ class ThemeManager {
      * Apply theme to document
      * @param {string} theme - 'dark' or 'light'
      */
-    applyTheme(theme) {
+    applyTheme(theme, persist = true) {
         const root = document.documentElement;
 
         if (theme === 'dark') {
@@ -62,7 +65,10 @@ class ThemeManager {
         }
 
         this.theme = theme;
-        localStorage.setItem('chatpr-theme', theme);
+        if (persist) {
+            localStorage.setItem('chatpr-theme', theme);
+            this.followSystem = false;
+        }
 
         // Dispatch custom event for other components
         window.dispatchEvent(new CustomEvent('chatpr:theme:changed', {
@@ -97,7 +103,7 @@ class ThemeManager {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
             // Only auto-switch if user hasn't set a preference
             if (!this.getStoredTheme()) {
-                this.applyTheme(e.matches ? 'dark' : 'light');
+                this.applyTheme(e.matches ? 'dark' : 'light', false);
             }
         });
     }

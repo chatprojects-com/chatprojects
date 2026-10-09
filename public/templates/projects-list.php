@@ -185,6 +185,13 @@ function projectsApp() {
     const homeUrl = '<?php echo $home_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() already applied ?>';
 
     return {
+        // Opened from a project's "New Project" button (?action=new).
+        init() {
+            if (new URLSearchParams(window.location.search).get('action') === 'new') {
+                this.openCreateModal();
+            }
+        },
+
         projects: projectsData,
         searchQuery: '',
         filterMode: 'all',

@@ -159,6 +159,14 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
 
             <!-- Main Content -->
             <div class="col-span-12 md:col-span-9">
+                <?php
+                // Result of following an email-change confirmation link.
+                $chatpr_email_change = isset($_GET['email_change']) ? sanitize_key(wp_unslash($_GET['email_change'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only.
+                if ('confirmed' === $chatpr_email_change) : ?>
+                    <div class="mb-4 p-4 rounded-lg bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-300"><?php esc_html_e('Your email address has been updated.', 'chatprojects'); ?></div>
+                <?php elseif ('failed' === $chatpr_email_change) : ?>
+                    <div class="mb-4 p-4 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300"><?php esc_html_e('That confirmation link is invalid or has expired. Please request the email change again.', 'chatprojects'); ?></div>
+                <?php endif; ?>
                 <form id="settings-form" class="space-y-6">
                     <!-- Profile Tab -->
                     <div x-show="activeTab === 'profile'" class="bg-white dark:bg-dark-surface rounded-lg shadow-sm p-6 space-y-6">
@@ -393,14 +401,23 @@ $openrouter_configured = !empty(get_option('chatprojects_openrouter_key', ''));
                 const data = await response.json();
 
                 if (data.success) {
-                    // Store theme in localStorage for cross-page sync
+                    // Every page reads 'chatpr-theme' first; 'auto' means no stored
+                    // choice, so the page follows the system setting.
                     const savedTheme = document.getElementById('theme_preference_input').value;
-                    localStorage.setItem('cp_theme_preference', savedTheme);
+                    if (savedTheme === 'dark' || savedTheme === 'light') {
+                        localStorage.setItem('chatpr-theme', savedTheme);
+                    } else {
+                        localStorage.removeItem('chatpr-theme');
+                    }
 
-                    // Show success message
+                    // Show the server's message (it explains a pending email change).
                     const successMsg = document.getElementById('success-message');
+                    const successText = successMsg.querySelector('span');
+                    if (successText && data.data && data.data.message) {
+                        successText.textContent = data.data.message;
+                    }
                     successMsg.classList.remove('hidden');
-                    setTimeout(() => successMsg.classList.add('hidden'), 3000);
+                    setTimeout(() => successMsg.classList.add('hidden'), 6000);
                 } else {
                     // Show error message
                     const errorMsg = document.getElementById('error-message');

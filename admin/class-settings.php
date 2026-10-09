@@ -55,6 +55,10 @@ class Settings {
 
         add_action('admin_init', array($this, 'register_settings'));
 
+        // Save only the submitted tab's options (all tabs share one settings group).
+        // Priority 20: core's option_update_filter() adds registered settings at 10.
+        add_filter('allowed_options', array($this, 'limit_saved_options_to_tab'), 20);
+
         // Protection: Block unwanted overwrites of API keys with empty values
         add_filter('pre_update_option_chatprojects_openai_key', array($this, 'protect_api_key_update'), 10, 2);
         add_filter('pre_update_option_chatprojects_chutes_key', array($this, 'protect_api_key_update'), 10, 2);
@@ -62,6 +66,37 @@ class Settings {
         add_filter('pre_update_option_chatprojects_anthropic_key', array($this, 'protect_api_key_update'), 10, 2);
         add_filter('pre_update_option_chatprojects_openrouter_key', array($this, 'protect_api_key_update'), 10, 2);
         add_action('admin_notices', array($this, 'show_notices'));
+    }
+
+    /**
+     * Only save the options of the settings tab that was submitted.
+     *
+     * Every tab uses the chatprojects_settings group, and options.php sets each
+     * option in the group that is missing from the form to null - so saving one
+     * tab used to wipe the others (file size limit, widget settings, daily cap...).
+     *
+     * @param array $allowed_options Option group => option names.
+     * @return array
+     */
+    public function limit_saved_options_to_tab($allowed_options) {
+        global $wp_settings_fields;
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- options.php verifies the nonce before saving.
+        $page = isset($_POST['chatprojects_tab_page']) ? sanitize_key(wp_unslash($_POST['chatprojects_tab_page'])) : '';
+        if (0 !== strpos($page, 'chatprojects-tab-') || empty($allowed_options['chatprojects_settings'])) {
+            return $allowed_options;
+        }
+
+        $tab_options = array();
+        foreach ((array) ($wp_settings_fields[ $page ] ?? array()) as $section_fields) {
+            $tab_options = array_merge($tab_options, array_keys((array) $section_fields));
+        }
+
+        if (!empty($tab_options)) {
+            $allowed_options['chatprojects_settings'] = array_values(array_intersect($allowed_options['chatprojects_settings'], $tab_options));
+        }
+
+        return $allowed_options;
     }
 
     /**

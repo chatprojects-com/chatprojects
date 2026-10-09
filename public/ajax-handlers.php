@@ -594,6 +594,10 @@ class AJAX_Handlers {
                 }
             }
 
+            // Tell the browser which chat this is straight away, so a failed first
+            // message doesn't make the next one start yet another chat.
+            $this->send_sse_data(array('type' => 'chat_id', 'chat_id' => $chat_id));
+
             // Get vector_store_id for this project
             $vector_store_id = get_post_meta($project_id, '_cp_vector_store_id', true);
             if (empty($vector_store_id)) {
@@ -699,8 +703,8 @@ class AJAX_Handlers {
             // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
             if ($chat) {
-                // Increment message count (user message + assistant response = 2)
-                $new_count = $chat->message_count + 2;
+                // User message + assistant reply (only the user message if the reply failed).
+                $new_count = $chat->message_count + ('' !== $assistant_content ? 2 : 1);
                 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table requires direct query
                 $wpdb->update(
                     $chats_table,
@@ -1321,9 +1325,8 @@ class AJAX_Handlers {
             ));
         }
 
-        // Email changes go through WordPress core's confirmation flow: the new
-        // address only takes effect once the link sent to it is opened
-        // (handled by wp-admin/profile.php?newuseremail=...).
+        // Email changes need confirmation: the new address only takes effect once
+        // the link sent to it is opened (see send_email_change_confirmation()).
         $email_message = '';
         if (isset($_POST['user_email'])) {
             $user_email = $this->get_post_value('user_email', 'sanitize_email', '');
@@ -1355,8 +1358,9 @@ class AJAX_Handlers {
      * Start WordPress core's pending-email-change flow for a user.
      *
      * Mirrors send_confirmation_on_profile_email(): stores _new_email and mails
-     * a confirmation link to the new address. Core completes the change when
-     * the user opens wp-admin/profile.php?newuseremail=<hash>.
+     * a confirmation link to the new address. The link opens the ChatProjects
+     * settings page (Projects Users can't reach wp-admin), where
+     * Frontend::confirm_pending_email() completes the change.
      *
      * @param \WP_User $user      User changing their email.
      * @param string   $new_email Requested new address.
@@ -1374,7 +1378,7 @@ class AJAX_Handlers {
             /* translators: 1: user display name, 2: confirmation URL, 3: site name, 4: site URL */
             __("Hi %1\$s,\n\nYou recently requested to change the email address on your account.\nIf this is correct, please click the following link to change it:\n%2\$s\n\nYou can safely ignore and delete this email if you do not want to take this action.\n\nRegards,\nAll at %3\$s\n%4\$s", 'chatprojects'),
             $user->display_name,
-            esc_url(admin_url('profile.php?newuseremail=' . $hash)),
+            esc_url(add_query_arg('chatpr_confirm_email', $hash, home_url('/' . ChatProjects::get_slugs()['settings'] . '/'))),
             $sitename,
             home_url()
         );

@@ -298,6 +298,8 @@ if ( ! isset( $chatprojects_tabs[ $chatprojects_active_tab ] ) ) {
 				'widget' => 'chatprojects-tab-widget',
 			);
 			$chatprojects_tab_page = isset( $chatprojects_tab_pages[ $chatprojects_active_tab ] ) ? $chatprojects_tab_pages[ $chatprojects_active_tab ] : 'chatprojects-tab-api';
+			// Tells Settings::limit_saved_options_to_tab() which tab's options to save.
+			echo '<input type="hidden" name="chatprojects_tab_page" value="' . esc_attr( $chatprojects_tab_page ) . '" />';
 			do_settings_sections( $chatprojects_tab_page );
 			?>
 		</div>

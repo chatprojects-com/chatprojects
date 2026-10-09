@@ -85,8 +85,9 @@ class SSE_Stream_Manager {
 		header( 'X-LiteSpeed-Tag: no-cache' );
 		header( 'X-CF-Buffering: off' ); // Cloudflare.
 
-		// Keep going if the visitor closes the tab, so the reply is still saved
-		// and the chat history stays consistent.
+		// Keep PHP running if the visitor closes the tab, so the partial reply
+		// is saved; the provider request itself is cancelled (see the write
+		// callback in configure_curl_for_streaming()).
 		ignore_user_abort( true );
 
 		// Compression buffers the whole response; turn it off for this request only.
@@ -192,6 +193,14 @@ class SSE_Stream_Manager {
 			$handle,
 			CURLOPT_WRITEFUNCTION,
 			function ( $ch, $chunk ) use ( $callback, $parser, &$buffer, &$state, &$error_body ) {
+				// The visitor pressed Stop or closed the page (detected on the last
+				// flush): stop the provider request so it stops generating, and
+				// billing. Returning 0 aborts the transfer; what was received so far
+				// is still saved by the caller.
+				if ( connection_aborted() ) {
+					return 0;
+				}
+
 				// Error responses are plain JSON, not SSE: keep the body so the
 				// caller can show the provider's actual error message.
 				if ( (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE ) >= 400 ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_getinfo -- Inside the http_api_curl write callback.

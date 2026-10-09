@@ -214,7 +214,7 @@ document.addEventListener('alpine:init', () => {
                         ? 'Server error: ' + error.message
                         : 'Failed to get response: ' + (error.message || error.name || 'unknown error');
                     showToast(msg, 'error');
-                    this.messages = this.messages.filter(m => m !== assistantMessage);
+                    this.messages = this.messages.filter(m => !(m.role === 'assistant' && m.streaming));
                 }
             } finally {
                 this.streaming = false;
@@ -375,6 +375,11 @@ document.addEventListener('alpine:init', () => {
                             this.scrollToBottom();
                         } else if (parsed.type === 'sources' && parsed.sources) {
                             assistantMessage.sources = parsed.sources;
+                            const sIdx = this.messages.findIndex(m => m.streaming && m.role === 'assistant');
+                            if (sIdx !== -1) {
+                                this.messages[sIdx] = { ...this.messages[sIdx], sources: parsed.sources };
+                                this.messages = [...this.messages];
+                            }
                         } else if (parsed.type === 'chat_id' && parsed.chat_id) {
                             this.threadId = parsed.chat_id;
                             window.dispatchEvent(new CustomEvent('chatpr:chat:updated', {
@@ -382,15 +387,22 @@ document.addEventListener('alpine:init', () => {
                             }));
                         } else if (parsed.type === 'error') {
                             showToast(parsed.content || 'An error occurred', 'error');
-                            this.messages = this.messages.filter(m => m !== assistantMessage);
+                            this.messages = this.messages.filter(m => !(m.role === 'assistant' && m.streaming));
                             return;
                         } else if (parsed.type === 'title_update' && parsed.title) {
                             window.dispatchEvent(new CustomEvent('chatpr:chat:title-updated', {
                                 detail: { chatId: parsed.chat_id, title: parsed.title }
                             }));
+                        } else if (parsed.type === 'done') {
+                            // The reply is complete: unlock the UI now, but keep reading
+                            // until [DONE] / stream close for a title_update.
+                            const dIdx = this.messages.findIndex(m => m.streaming && m.role === 'assistant');
+                            if (dIdx !== -1) {
+                                this.messages[dIdx] = { ...this.messages[dIdx], streaming: false };
+                                this.messages = [...this.messages];
+                            }
+                            this.streaming = false;
                         }
-                        // 'done' is not the end of the stream: a title_update may
-                        // follow it, so keep reading until [DONE] / stream close.
                     } catch (e) {
                         // Ignore JSON parse errors for partial data
                     }

@@ -540,14 +540,14 @@ class Chat_Interface {
      * @param int $limit Number of messages to retrieve
      * @return array|WP_Error Messages or error
      */
-    public function get_messages($chat_id, $limit = 20) {
+    public function get_messages($chat_id, $limit = 200) {
         // Check permissions
         if (!Access::can_access_chat($chat_id)) {
             return new \WP_Error('permission_denied', __('You do not have permission to access this chat.', 'chatprojects'));
         }
 
-        // Get messages from local storage
-        $messages = $this->message_store->get_messages($chat_id, $limit);
+        // The most recent messages, oldest first (the first N would hide new replies).
+        $messages = $this->message_store->get_recent_messages($chat_id, $limit);
 
         // Format for frontend
         $formatted = array();

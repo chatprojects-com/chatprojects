@@ -439,6 +439,25 @@ export class ChatWidget {
 				typingEl.remove();
 			}
 
+			// Refusals (rate limit, daily cap, expired session) come back as JSON, not a stream.
+			const contentType = response.headers.get( 'Content-Type' ) || '';
+			if ( ! response.ok || contentType.indexOf( 'application/json' ) !== -1 ) {
+				let errorText = 'Sorry, something went wrong. Please try again.';
+				try {
+					const data = await response.json();
+					if ( data && data.data && data.data.message ) {
+						errorText = data.data.message;
+					}
+				} catch ( parseError ) {
+					// Keep the generic message.
+				}
+				const errorEl = this.createMessageEl( 'assistant', '' );
+				errorEl.querySelector( '.cpw-msg-content' ).innerHTML = '<span class="cpw-error">' + this.escapeHtml( errorText ) + '</span>';
+				this.messagesEl.appendChild( errorEl );
+				this.scrollToBottom();
+				return;
+			}
+
 			// Create assistant message element.
 			const msgEl = this.createMessageEl( 'assistant', '' );
 			this.messagesEl.appendChild( msgEl );
