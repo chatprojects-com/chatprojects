@@ -289,7 +289,7 @@ class Widget_Handler {
 		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'chatprojects_widget_messages';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_messages';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
 		$messages = $wpdb->get_results(
@@ -317,8 +317,8 @@ class Widget_Handler {
 	public function cleanup_expired_sessions() {
 		global $wpdb;
 
-		$sessions_table = $wpdb->prefix . 'chatprojects_widget_sessions';
-		$messages_table = $wpdb->prefix . 'chatprojects_widget_messages';
+		$sessions_table = $wpdb->prefix . 'chatprojects_widget_visitor_sessions';
+		$messages_table = $wpdb->prefix . 'chatprojects_widget_visitor_messages';
 		$now            = current_time( 'mysql' );
 
 		// Messages of expired sessions, then the sessions themselves.
@@ -354,7 +354,7 @@ class Widget_Handler {
 	private function create_session( $ip, $project_id = 0 ) {
 		global $wpdb;
 
-		$table          = $wpdb->prefix . 'chatprojects_widget_sessions';
+		$table          = $wpdb->prefix . 'chatprojects_widget_visitor_sessions';
 		$session_token  = bin2hex( random_bytes( 32 ) );
 		$project_id     = absint( $project_id );
 		$session_hours  = absint( get_option( 'chatprojects_widget_session_duration', self::DEFAULT_SESSION_HOURS ) );
@@ -399,7 +399,7 @@ class Widget_Handler {
 			return false;
 		}
 
-		$table = $wpdb->prefix . 'chatprojects_widget_sessions';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_sessions';
 		$now   = current_time( 'mysql' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Session validation must be fresh
@@ -426,7 +426,7 @@ class Widget_Handler {
 	private function store_widget_message( $session_id, $role, $content, $metadata = array() ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'chatprojects_widget_messages';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_messages';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table insert
 		$wpdb->insert(
@@ -450,7 +450,7 @@ class Widget_Handler {
 	private function update_session_activity( $session_id ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'chatprojects_widget_sessions';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_sessions';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Session update
 		$wpdb->query(
@@ -472,7 +472,7 @@ class Widget_Handler {
 	private function get_previous_response_id( $session_id ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'chatprojects_widget_messages';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_messages';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$metadata = $wpdb->get_var(
@@ -503,7 +503,7 @@ class Widget_Handler {
 	private function get_history_input( $session_id, $limit = 20 ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'chatprojects_widget_messages';
+		$table = $wpdb->prefix . 'chatprojects_widget_visitor_messages';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table lookup
 		$rows = $wpdb->get_results(

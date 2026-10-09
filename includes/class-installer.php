@@ -24,7 +24,7 @@ class Installer {
      *
      * @var string
      */
-    const DB_VERSION = '1.3.0';
+    const DB_VERSION = '1.3.1';
 
     /**
      * Option holding Free's schema version. Pro keeps its own (2.x) version in
@@ -302,7 +302,7 @@ class Installer {
         ) $charset_collate;";
 
         // Widget sessions table
-        $widget_sessions_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_sessions' );
+        $widget_sessions_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_visitor_sessions' );
         $widget_sessions_sql   = "CREATE TABLE {$widget_sessions_table} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             session_token varchar(64) NOT NULL,
@@ -323,7 +323,7 @@ class Installer {
         ) $charset_collate;";
 
         // Widget messages table
-        $widget_messages_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_messages' );
+        $widget_messages_table = esc_sql( $wpdb->prefix . 'chatprojects_widget_visitor_messages' );
         $widget_messages_sql   = "CREATE TABLE {$widget_messages_table} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             session_id bigint(20) unsigned NOT NULL,
@@ -385,6 +385,7 @@ class Installer {
      */
     private static function run_upgrade_steps() {
         self::create_tables();
+        self::migrate_widget_tables();
         self::migrate_models();
 
         // Daily cleanup of expired widget sessions.
@@ -610,6 +611,56 @@ class Installer {
             update_option( 'chatprojects_widget_daily_limit', 500 );
         }
 
+    }
+
+    /**
+     * 1.3.1: Free's widget tables got their own names.
+     *
+     * ChatProjects Pro uses chatprojects_widget_messages with a different
+     * schema (widget_chat_id), so Free's tables are now
+     * chatprojects_widget_visitor_sessions / _messages. Rows are copied from
+     * the old Free tables into the new ones (created by create_tables()), and
+     * an old table is dropped only after its rows were copied. The old
+     * widget_messages is only touched when it has Free's session_id column.
+     */
+    private static function migrate_widget_tables() {
+        global $wpdb;
+
+        $moves = array(
+            'chatprojects_widget_sessions' => array(
+                'new'      => 'chatprojects_widget_visitor_sessions',
+                'requires' => 'session_token',
+                'columns'  => 'id, session_token, project_id, ip_address, user_agent, message_count, last_message_at, lead_email, lead_name, metadata, created_at, expires_at',
+            ),
+            'chatprojects_widget_messages' => array(
+                'new'      => 'chatprojects_widget_visitor_messages',
+                'requires' => 'session_id',
+                'columns'  => 'id, session_id, role, content, metadata, created_at',
+            ),
+        );
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- One-off migration; column lists are constants above.
+        foreach ($moves as $old => $move) {
+            $old_table = $wpdb->prefix . $old;
+            $new_table = $wpdb->prefix . $move['new'];
+
+            if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $old_table))
+                || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $new_table))) {
+                continue;
+            }
+            // Only Free's own table (Pro's widget_messages has widget_chat_id instead).
+            if (!$wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM %i LIKE %s', $old_table, $move['requires']))) {
+                continue;
+            }
+
+            $copied = $wpdb->query(
+                $wpdb->prepare("INSERT INTO %i ({$move['columns']}) SELECT {$move['columns']} FROM %i", $new_table, $old_table)
+            );
+            if (false !== $copied) {
+                $wpdb->query($wpdb->prepare('DROP TABLE %i', $old_table));
+            }
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     }
 
     /**

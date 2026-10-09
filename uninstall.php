@@ -86,6 +86,9 @@ function chatprojects_uninstall_site() {
 		'chatprojects_chats',
 		'chatprojects_messages',
 		'chatprojects_indexed_content',
+		'chatprojects_widget_visitor_sessions',
+		'chatprojects_widget_visitor_messages',
+		// Pre-1.3.0 names (Pro isn't installed, or we wouldn't be here).
 		'chatprojects_widget_sessions',
 		'chatprojects_widget_messages',
 	);
