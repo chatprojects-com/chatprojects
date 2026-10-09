@@ -32,6 +32,7 @@ build-zip.ps1
 WIKI.md
 CLAUDE.md
 CONTRACT.md
+RELEASE.md
 bin/
 README.md
 documentation/
