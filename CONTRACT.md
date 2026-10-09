@@ -16,10 +16,11 @@ Free and Pro run on the same WordPress data. Users switch between them, run one 
 ## 2. Schema versions
 | Option | Owner | Meaning |
 |---|---|---|
-| `chatprojects_free_db_version` | Free | Free's schema version |
-| `chatprojects_db_version` | Pro | Pro's schema version (2.x) |
+| `chatprojects_free_db_version` | Free | Free's schema version (1.x) |
+| `chatprojects_pro_db_version` | Pro | Pro's schema version (2.x) |
+| `chatprojects_db_version` | legacy | Written by Free ≤ 1.2 (1.x values) and Pro ≤ 1.2 (2.x values). Pro still mirrors its version here. |
 
-Each product reads and writes only its own option.
+Each product writes only its own option; Pro also mirrors to the legacy one. Free never writes `chatprojects_db_version`; Pro never touches `chatprojects_free_db_version`. When its own option is missing, a product may adopt the legacy value only if it falls in its own range: Free < 2.0, Pro ≥ 2.0. Anything else counts as a fresh schema.
 
 ## 3. Shared tables
 Shared: `{prefix}chatprojects_chats`, `{prefix}chatprojects_messages`.

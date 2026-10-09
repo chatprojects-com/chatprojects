@@ -42,6 +42,27 @@ function read_file($path) {
 }
 
 /**
+ * PHP source with comments removed (newlines kept), so source scans see only
+ * code and strings: naming an option or function in a comment neither fails
+ * nor satisfies a check.
+ */
+function read_code($path) {
+    $src = read_file($path);
+    if (null === $src) {
+        return null;
+    }
+    $out = '';
+    foreach (token_get_all($src) as $token) {
+        if (is_array($token) && in_array($token[0], array(T_COMMENT, T_DOC_COMMENT), true)) {
+            $out .= str_repeat("\n", substr_count($token[1], "\n")) ?: ' ';
+        } else {
+            $out .= is_array($token) ? $token[1] : $token;
+        }
+    }
+    return $out;
+}
+
+/**
  * Column/key definitions from a block of CREATE TABLE body lines.
  */
 function parse_table_body($body) {
@@ -194,7 +215,7 @@ function compare_to_contract($product, array $declared, array $canonical) {
 function top_level_functions(array $files) {
     $names = array();
     foreach ($files as $file) {
-        $src = read_file($file);
+        $src = read_code($file);
         if (null === $src) {
             continue;
         }
@@ -263,7 +284,7 @@ if ($pro) {
 
 // Shared table DDL.
 foreach ($products as $name => $dir) {
-    $src = read_file("$dir/includes/class-installer.php");
+    $src = read_code("$dir/includes/class-installer.php");
     report(null !== $src, "$name has includes/class-installer.php");
     if (null !== $src) {
         $declared = installer_tables($src, array_keys($canonical), $if_not_exists);
@@ -274,7 +295,7 @@ foreach ($products as $name => $dir) {
 
 // Model migrations never substitute a default (resolve() is request-time only).
 foreach ($products as $name => $dir) {
-    $src  = (string) read_file("$dir/includes/class-installer.php");
+    $src  = (string) read_code("$dir/includes/class-installer.php");
     $body = function_body($src, 'migrate_models');
     if (null === $body) {
         report(false, "$name has Installer::migrate_models()");
@@ -285,22 +306,23 @@ foreach ($products as $name => $dir) {
 }
 
 // Schema version options.
-$free_src = implode("\n", array_filter(array(read_file("$free/includes/class-installer.php"), read_file("$free/chatprojects.php"), read_file("$free/includes/bootstrap.php"))));
+$free_src = implode("\n", array_filter(array(read_code("$free/includes/class-installer.php"), read_code("$free/chatprojects.php"), read_code("$free/includes/bootstrap.php"))));
 report(!preg_match("/update_option\(\s*'chatprojects_db_version'/", $free_src), 'Free never writes chatprojects_db_version');
 if ($pro) {
-    $pro_src = implode("\n", array_filter(array(read_file("$pro/includes/class-installer.php"), read_file("$pro/chatprojects.php"))));
+    $pro_src = implode("\n", array_filter(array(read_code("$pro/includes/class-installer.php"), read_code("$pro/chatprojects.php"))));
     report(false === strpos($pro_src, 'chatprojects_free_db_version'), 'Pro never touches chatprojects_free_db_version');
+    report((bool) preg_match("/update_option\(\s*'chatprojects_pro_db_version'/", $pro_src), 'Pro records its schema in chatprojects_pro_db_version');
 }
 
 // Encrypted keys.
 foreach ($products as $name => $dir) {
-    $sec = (string) read_file("$dir/includes/class-security.php");
+    $sec = (string) read_code("$dir/includes/class-security.php");
     report(false !== strpos($sec, "'cpv2:'") && false !== strpos($sec, 'chatprojects_v2|') && false !== strpos($sec, 'sodium_crypto_secretbox_open'), "$name reads and writes the cpv2 key format");
     report((bool) preg_match('/ABSPATH\s*\.\s*\(?\s*(\$db_name|DB_NAME|defined\(\s*\'DB_NAME\'\s*\))/', $sec), "$name uses the ABSPATH . DB_NAME last-resort seed");
 }
 
 // Co-install.
-$free_main = (string) read_file("$free/chatprojects.php");
+$free_main = (string) read_code("$free/chatprojects.php");
 report(array() === top_level_functions(array("$free/chatprojects.php")), "Free's main file declares no functions (they live in includes/bootstrap.php)");
 report((int) strpos($free_main, "defined('CHATPROJECTS_PRO_VERSION')") > 0 && strpos($free_main, "defined('CHATPROJECTS_PRO_VERSION')") < strpos($free_main, 'define('), "Free's main file stands down for Pro before defining anything");
 if ($pro) {
@@ -312,12 +334,12 @@ if ($pro) {
 }
 
 // Uninstall guards.
-report(false !== strpos((string) read_file("$free/uninstall.php"), 'chatprojects-pro/'), "Free's uninstall leaves shared data alone when Pro is installed");
+report(false !== strpos((string) read_code("$free/uninstall.php"), 'chatprojects-pro/'), "Free's uninstall leaves shared data alone when Pro is installed");
 if ($pro) {
-    report(false !== strpos((string) read_file("$pro/uninstall.php"), 'chatprojects/chatprojects.php'), "Pro's uninstall leaves shared data alone when Free is installed");
-    report(!preg_match("/LIKE\s+'%chatprojects/i", (string) read_file("$pro/uninstall.php")), "Pro's uninstall uses anchored LIKE patterns");
+    report(false !== strpos((string) read_code("$pro/uninstall.php"), 'chatprojects/chatprojects.php'), "Pro's uninstall leaves shared data alone when Free is installed");
+    report(!preg_match("/LIKE\s+'%chatprojects/i", (string) read_code("$pro/uninstall.php")), "Pro's uninstall uses anchored LIKE patterns");
 }
-report(!preg_match("/LIKE\s+'%chatprojects/i", (string) read_file("$free/uninstall.php")), "Free's uninstall uses anchored LIKE patterns");
+report(!preg_match("/LIKE\s+'%chatprojects/i", (string) read_code("$free/uninstall.php")), "Free's uninstall uses anchored LIKE patterns");
 
 // Model catalogue.
 $free_models = model_registry_data("$free/includes/class-model-registry.php");
