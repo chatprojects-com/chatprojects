@@ -92,7 +92,8 @@ Product-only tables (the other product must never create, alter or drop them):
 ## 7. Model catalogue
 - Free's `includes/class-model-registry.php` is the source for the chat model catalogue (openai, anthropic, gemini, chutes, openrouter) and the legacy remap table.
 - Pro's copy may add keys (e.g. `pricing`) and non-chat catalogues. For every key Free declares, Pro's entries must be identical.
-- Retired ids are remapped, never deleted from stored data. Unknown ids (e.g. added via the `chatprojects_models` filter) are left alone by migrations.
+- Stored model ids are migrated conservatively. This covers options, project meta, `chats.model`, and any table that records a past request (usage, transcription or other logs). An id changes only when the legacy remap table maps it to a model that is known at that moment. Everything else is left untouched: ids added through the `chatprojects_models` filter (often not registered yet when upgrades run on `plugins_loaded`), media models, and unknown ids. A migration never substitutes a default.
+- `Model_Registry::resolve()` falls back to the provider default, so it is only for the model about to be called at request time. It never rewrites stored data.
 
 ## 8. Release order
 When a change touches this contract, Pro ships before or together with Free. Old Pro installs don't update automatically unless the store's version metadata is correct.

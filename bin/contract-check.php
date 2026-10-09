@@ -113,6 +113,24 @@ function installer_tables($installer_src, array $tables, &$if_not_exists = array
 }
 
 /**
+ * Body of a named function or method (brace-matched), or null.
+ */
+function function_body($src, $function) {
+    if (!preg_match('/function\s+' . preg_quote($function, '/') . '\s*\([^)]*\)[^{]*\{/', $src, $m, PREG_OFFSET_CAPTURE)) {
+        return null;
+    }
+    $start = $m[0][1] + strlen($m[0][0]);
+    for ($i = $start, $depth = 1, $n = strlen($src); $i < $n; $i++) {
+        if ('{' === $src[$i]) {
+            $depth++;
+        } elseif ('}' === $src[$i] && 0 === --$depth) {
+            return substr($src, $start, $i - $start);
+        }
+    }
+    return null;
+}
+
+/**
  * Canonical shared-table definitions from CONTRACT.md.
  */
 function contract_tables($contract) {
@@ -233,6 +251,18 @@ foreach ($products as $name => $dir) {
         compare_to_contract($name, $declared, $canonical);
         report(!empty($declared) && empty($if_not_exists), "$name creates shared tables with dbDelta (no IF NOT EXISTS)", $if_not_exists ? 'IF NOT EXISTS on: ' . implode(', ', array_unique($if_not_exists)) : '');
     }
+}
+
+// Model migrations never substitute a default (resolve() is request-time only).
+foreach ($products as $name => $dir) {
+    $src  = (string) read_file("$dir/includes/class-installer.php");
+    $body = function_body($src, 'migrate_models');
+    if (null === $body) {
+        report(false, "$name has Installer::migrate_models()");
+        continue;
+    }
+    preg_match_all('/\b(resolve(?:_media)?|get_default)\s*\(/', $body, $calls);
+    report(empty($calls[1]), "$name's model migration never falls back to a default", $calls[1] ? 'calls ' . implode('(), ', array_unique($calls[1])) . '() on stored ids' : '');
 }
 
 // Schema version options.
