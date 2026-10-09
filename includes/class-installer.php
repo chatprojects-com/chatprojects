@@ -361,6 +361,10 @@ class Installer {
         $installed = self::installed_version();
 
         if (version_compare($installed, self::DB_VERSION, '>=')) {
+            // Up to date via the old shared option: record it in Free's own option.
+            if ('' === get_option(self::VERSION_OPTION, '')) {
+                update_option(self::VERSION_OPTION, $installed);
+            }
             return;
         }
 
